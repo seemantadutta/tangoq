@@ -173,6 +173,7 @@ class WTrackMenu : public QMenu {
     void slotAddToAutoDJBottom();
     void slotAddToAutoDJTop();
     void slotAddToAutoDJReplace();
+    void slotAddToAutoDJCortina();
 
     // Cover
     void slotCoverInfoSelected(CoverInfoRelative coverInfo);
@@ -290,6 +291,7 @@ class WTrackMenu : public QMenu {
     parented_ptr<QAction> m_pAutoDJBottomAct;
     parented_ptr<QAction> m_pAutoDJTopAct;
     parented_ptr<QAction> m_pAutoDJReplaceAct;
+    parented_ptr<QAction> m_pAutoDJCortinaAct;
 
     // Remove from table
     parented_ptr<QAction> m_pRemoveAct;

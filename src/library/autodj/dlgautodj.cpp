@@ -1,12 +1,17 @@
 #include "library/autodj/dlgautodj.h"
 
+#include <QDateTime>
+#include <QGraphicsOpacityEffect>
+#include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QTimer>
 
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/library.h"
 #include "library/playlisttablemodel.h"
+#include "mixer/playerinfo.h"
 #include "moc_dlgautodj.cpp"
 #include "track/track.h"
 #include "util/assert.h"
@@ -17,6 +22,18 @@
 namespace {
 const char* kPreferenceGroupName = "[Auto DJ]";
 const char* kRepeatPlaylistPreference = "Requeue";
+
+// Formats a set duration as HH:MM:SS, e.g. "2:03:47" or "0:47:12".
+QString formatSetDuration(const mixxx::Duration& duration) {
+    const qint64 totalSeconds = duration.toIntegerSeconds();
+    const qint64 hours = totalSeconds / 3600;
+    const qint64 minutes = (totalSeconds % 3600) / 60;
+    const qint64 seconds = totalSeconds % 60;
+    return QStringLiteral("%1:%2:%3")
+            .arg(hours)
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
+}
 } // anonymous namespace
 
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
@@ -33,7 +50,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
                   pLibrary,
                   parent->getTrackTableBackgroundColorOpacity())),
           m_bShowButtonText(parent->getShowButtonText()),
-          m_pAutoDJTableModel(nullptr) {
+          m_pAutoDJTableModel(nullptr),
+          m_pKeepQueueControl(nullptr),
+          m_pSetTimeTimer(nullptr) {
     setupUi(this);
 
     m_pTrackTableView->installEventFilter(pKeyboard);
@@ -78,6 +97,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.
     m_pAutoDJTableModel = m_pAutoDJProcessor->getTableModel();
+    // Show the Tango cortina styling (blue + "!!!CORTINA!!!" prefix) for tagged
+    // tracks in the Auto DJ list only.
+    m_pAutoDJTableModel->setShowCortinaMarks(true);
     m_pTrackTableView->loadTrackModel(m_pAutoDJTableModel);
 
     // Do not set this because it disables auto-scrolling
@@ -118,6 +140,10 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             "If no track sources are configured, the track is added from the library instead.");
     QString repeatBtnTooltip = tr(
             "Repeat the playlist");
+    QString keepQueueBtnTooltip = tr(
+            "Tango DJ mode (indicator).\n"
+            "Plays the Auto DJ list in order, keeps played tracks, and stops at\n"
+            "the end. Enable it in Preferences -> Auto DJ.");
     QString spinBoxTransitionTooltip = tr(
             "Determines the duration of the transition");
     QString labelTransitionTooltip = tr(
@@ -152,6 +178,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     pushButtonShuffle->setToolTip(shuffleBtnTooltip);
     pushButtonAddRandomTrack->setToolTip(addRandomTrackBtnTooltip);
     pushButtonRepeatPlaylist->setToolTip(repeatBtnTooltip);
+    pushButtonKeepQueue->setToolTip(keepQueueBtnTooltip);
     spinBoxTransition->setToolTip(spinBoxTransitionTooltip);
     labelTransitionAppendix->setToolTip(labelTransitionTooltip);
     fadeModeCombobox->setToolTip(fadeModeTooltip);
@@ -197,6 +224,35 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     pushButtonRepeatPlaylist->setChecked(repeatPlaylist);
     slotRepeatPlaylistChanged(repeatPlaylist);
 
+    // The Keep Queue button is a read-only indicator of Tango DJ mode, which is
+    // enabled from Preferences -> Auto DJ. Make it ignore mouse clicks; its
+    // state is refreshed by refreshTangoModeUi() (called from autoDJStateChanged
+    // at the end of this constructor, after the transition spin box is set up).
+    pushButtonKeepQueue->setAttribute(Qt::WA_TransparentForMouseEvents);
+    if (m_bShowButtonText) {
+        pushButtonKeepQueue->setText(tr("Tango"));
+    }
+    // Observe the Tango DJ mode control so the toolbar refreshes immediately
+    // when it is toggled in Preferences -> Auto DJ.
+    m_pKeepQueueControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "keep_queue"), this);
+    m_pKeepQueueControl->connectValueChanged(this, [this](double) {
+        refreshTangoModeUi();
+    });
+    // Highlight the currently playing track (in red) in Tango DJ mode.
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::currentPlayingTrackChanged,
+            this,
+            [this](TrackPointer) { updateNowPlaying(); });
+
+    // Keep the Tango set end-time readout ticking so the projected end clock
+    // slips while paused and the time-left counts down between track changes. The
+    // timer is only started while Tango mode is on (refreshTangoModeUi), so it
+    // does no per-second work when the feature is off.
+    m_pSetTimeTimer = new QTimer(this);
+    m_pSetTimeTimer->setInterval(1000);
+    connect(m_pSetTimeTimer, &QTimer::timeout, this, &DlgAutoDJ::updateSetEndTime);
+
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
     // mind that AutoDJ may already be active when DlgAutoDJ is created (due to
     // skin changes, etc.).
@@ -239,6 +295,9 @@ void DlgAutoDJ::setupActionButton(QPushButton* pButton,
 
 void DlgAutoDJ::onShow() {
     m_pAutoDJTableModel->select();
+    // Tango DJ mode may have been toggled in Preferences while this view was
+    // hidden, so refresh the indicator and the locked controls.
+    refreshTangoModeUi();
 }
 
 void DlgAutoDJ::onSearch(const QString& text) {
@@ -311,8 +370,6 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
         if (m_bShowButtonText) {
             pushButtonAutoDJ->setText(tr("Enable"));
         }
-        pushButtonFadeNow->setEnabled(false);
-        pushButtonSkipNext->setEnabled(false);
     } else {
         // No matter the mode, you can always disable once it is enabled.
         pushButtonAutoDJ->setChecked(true);
@@ -320,18 +377,10 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
         if (m_bShowButtonText) {
             pushButtonAutoDJ->setText(tr("Disable"));
         }
-
-        // If fading, you can't hit fade now.
-        if (state == AutoDJProcessor::ADJ_LEFT_FADING ||
-                state == AutoDJProcessor::ADJ_RIGHT_FADING ||
-                state == AutoDJProcessor::ADJ_ENABLE_P1LOADED) {
-            pushButtonFadeNow->setEnabled(false);
-        } else {
-            pushButtonFadeNow->setEnabled(true);
-        }
-
-        pushButtonSkipNext->setEnabled(true);
     }
+    // Skip / Fade Now availability and the locked-control state depend on both
+    // the Auto DJ state and Tango mode.
+    refreshTangoModeUi();
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
@@ -346,6 +395,120 @@ void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
 void DlgAutoDJ::slotRepeatPlaylistChanged(bool checked) {
     m_pConfig->setValue(ConfigKey(kPreferenceGroupName, kRepeatPlaylistPreference),
             checked);
+}
+
+void DlgAutoDJ::refreshTangoModeUi() {
+    const bool tango = m_pKeepQueueControl->toBool();
+    // Update the read-only toolbar indicator.
+    pushButtonKeepQueue->setChecked(tango);
+    // In Tango mode, disable the controls that can wreck a pre-arranged live
+    // set if triggered by accident. Dim them so they clearly read as locked,
+    // instead of vanishing or still looking clickable.
+    for (QPushButton* pButton : {pushButtonShuffle,
+                 pushButtonAddRandomTrack,
+                 pushButtonRepeatPlaylist}) {
+        pButton->setEnabled(!tango);
+        if (tango) {
+            auto* pDim = new QGraphicsOpacityEffect(pButton);
+            pDim->setOpacity(0.4);
+            pButton->setGraphicsEffect(pDim);
+        } else {
+            // Removes and deletes any existing effect.
+            pButton->setGraphicsEffect(nullptr);
+        }
+    }
+    // Skip is locked in Tango mode, and only available while Auto DJ is running.
+    // Skip and Fade Now are locked in Tango mode (advance deliberately with the
+    // crossfader); outside Tango mode they follow the Auto DJ state. Both have
+    // dedicated greyed disabled icons in the skins, so no opacity effect.
+    const AutoDJProcessor::AutoDJState state = m_pAutoDJProcessor->getState();
+    const bool running = state != AutoDJProcessor::ADJ_DISABLED;
+    const bool fading = state == AutoDJProcessor::ADJ_LEFT_FADING ||
+            state == AutoDJProcessor::ADJ_RIGHT_FADING ||
+            state == AutoDJProcessor::ADJ_ENABLE_P1LOADED;
+    pushButtonSkipNext->setEnabled(running && !tango);
+    pushButtonFadeNow->setEnabled(running && !fading && !tango);
+    // Prevent click-to-sort from reordering the queue out of its play order.
+    QHeaderView* pHeader = m_pTrackTableView->horizontalHeader();
+    pHeader->setSectionsClickable(!tango);
+    pHeader->setSortIndicatorShown(!tango);
+    if (tango) {
+        applyTangoDefaultsIfNeeded();
+    }
+    // Only run the per-second set-time tick while Tango mode is on.
+    if (tango) {
+        if (!m_pSetTimeTimer->isActive()) {
+            m_pSetTimeTimer->start();
+        }
+    } else {
+        m_pSetTimeTimer->stop();
+    }
+    updateNowPlaying();
+    updateSetEndTime();
+}
+
+void DlgAutoDJ::updateNowPlaying() {
+    // Only mark the now-playing track in Tango DJ mode.
+    TrackPointer pTrack;
+    if (m_pKeepQueueControl->toBool()) {
+        pTrack = PlayerInfo::instance().getCurrentPlayingTrack();
+    }
+    m_pAutoDJTableModel->setNowPlayingTrack(pTrack ? pTrack->getId() : TrackId());
+}
+
+void DlgAutoDJ::updateSetEndTime() {
+    QString text;
+    // The readout is a Tango DJ mode feature only; otherwise it stays empty.
+    if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
+        const mixxx::Duration remaining =
+                m_pAutoDJProcessor->getRemainingSetDuration();
+        // A non-positive value means nothing is left to play (finished/empty).
+        if (remaining.toIntegerMillis() > 0) {
+            const QString left = formatSetDuration(remaining);
+            if (m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED) {
+                // Running: show the projected end clock plus the time left. The end
+                // time is the most important number, so emphasise it in red.
+                const QDateTime end = QDateTime::currentDateTime().addMSecs(
+                        remaining.toIntegerMillis());
+                const QString endRed = QStringLiteral(
+                        "<span style=\"color:#ee4444; font-weight:bold;\">%1</span>")
+                                               .arg(end.toString(QStringLiteral(
+                                                       "HH:mm:ss")));
+                text = tr("Milonga Ends: %1 · %2 left").arg(endRed, left);
+            } else {
+                // Stopped: there is no start time yet, so show the set length only.
+                text = tr("Milonga length: %1").arg(left);
+            }
+        }
+    }
+    // Only touch the label when the text actually changes. Re-setting it every
+    // second otherwise forces a needless toolbar repaint, which can make sibling
+    // widgets (e.g. the deck waveforms) flicker.
+    if (text != m_lastSetTimeText) {
+        m_lastSetTimeText = text;
+        labelTangoSetTime->setText(text);
+    }
+}
+
+void DlgAutoDJ::applyTangoDefaultsIfNeeded() {
+    // Tango mode trims silence and adds a short gap by default, but only sets
+    // these while they are still at Mixxx's factory defaults, so a DJ's own
+    // fade mode / gap choices are never overwritten. Applied via the spin box
+    // and combo so the processor and config stay in sync.
+    constexpr int kFactoryTransitionTime = 10; // = kTransitionPreferenceDefault
+    constexpr int kTangoGapSeconds = -2;
+    if (spinBoxTransition->value() == kFactoryTransitionTime) {
+        spinBoxTransition->setValue(kTangoGapSeconds);
+    }
+    if (m_pAutoDJProcessor->getTransitionMode() ==
+            AutoDJProcessor::TransitionMode::FullIntroOutro) {
+        const int index = fadeModeCombobox->findData(
+                static_cast<int>(AutoDJProcessor::TransitionMode::FixedSkipSilence));
+        if (index >= 0) {
+            fadeModeCombobox->setCurrentIndex(index);
+            slotTransitionModeChanged(index);
+        }
+    }
 }
 
 void DlgAutoDJ::updateSelectionInfo() {

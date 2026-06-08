@@ -3,6 +3,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/ui_dlgautodj.h"
 #include "library/libraryview.h"
@@ -14,6 +15,7 @@ class WLibrary;
 class WTrackTableView;
 class Library;
 class KeyboardEventFilter;
+class QTimer;
 
 class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     Q_OBJECT
@@ -56,6 +58,17 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void setupActionButton(QPushButton* pButton,
             void (DlgAutoDJ::*pSlot)(bool),
             const QString& fallbackText);
+    // Refreshes the Tango DJ mode indicator and disables/greys the controls
+    // that don't make sense in Tango mode (Shuffle, Add Random, Repeat, Skip,
+    // column sorting), reading the mode from the config.
+    void refreshTangoModeUi();
+    // Applies the Tango fade/gap defaults (Skip Silence + short gap) the first
+    // time, only if they are still at their factory defaults.
+    void applyTangoDefaultsIfNeeded();
+    // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
+    void updateNowPlaying();
+    // Refreshes the Tango DJ mode set end-time / time-left readout.
+    void updateSetEndTime();
     void keyPressEvent(QKeyEvent* pEvent) override;
 
     const UserSettingsPointer m_pConfig;
@@ -65,6 +78,18 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     const bool m_bShowButtonText;
 
     PlaylistTableModel* m_pAutoDJTableModel;
+
+    // Observes [AutoDJ],keep_queue (Tango DJ mode) so the toolbar refreshes
+    // immediately when it is toggled in Preferences.
+    ControlProxy* m_pKeepQueueControl;
+
+    // Ticks once a second to keep the Tango set end-time readout current. Only
+    // runs while Tango mode is on (see refreshTangoModeUi).
+    QTimer* m_pSetTimeTimer;
+    // Last text shown in labelTangoSetTime, so the per-second tick only repaints
+    // the label when the value actually changed (avoids needless toolbar repaints
+    // that can flicker sibling widgets such as the waveform).
+    QString m_lastSetTimeText;
 
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;

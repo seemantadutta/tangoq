@@ -16,6 +16,39 @@
   <layout class="QVBoxLayout" name="AutoDJGridLayout">
 
    <item>
+    <widget class="QGroupBox" name="TangoOptions">
+      <property name="title">
+       <string>Tango DJ Mode</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+      </property>
+      <layout class="QVBoxLayout" name="TangoLayout">
+       <item>
+        <widget class="QCheckBox" name="TangoModeCheckBox">
+         <property name="toolTip">
+          <string>Can only be changed while Auto DJ is stopped.</string>
+         </property>
+         <property name="text">
+          <string>Enable Tango DJ mode</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="TangoModeHelpLabel">
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>Plays the Auto DJ list in order, keeps played tracks, and stops at the end. Locks shuffle, skip, random, re-queue and list sorting. Trims silence and adds a 2-second gap between tracks by default — you can still change the fade mode and gap in the Auto DJ toolbar. Can only be changed while Auto DJ is stopped.</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+    </widget>
+   </item>
+
+   <item>
     <widget class="QGroupBox" name="RequeueOptions">
       <property name="title">
        <string>Re-queue Tracks</string>

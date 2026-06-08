@@ -4,6 +4,8 @@
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "moc_autodjprocessor.cpp"
+#include "track/cue.h"
+#include "track/cueinfo.h"
 #include "track/track.h"
 #include "util/math.h"
 
@@ -118,6 +120,11 @@ AutoDJProcessor::AutoDJProcessor(
           m_eState(ADJ_DISABLED),
           m_transitionProgress(0.0),
           m_transitionTime(kTransitionPreferenceDefault),
+          m_keepQueueRow(0),
+          m_keepQueueReloading(false),
+          m_keepQueueUpcomingSeconds(0.0),
+          m_keepQueueUpcomingTracks(0),
+          m_keepQueueDurationDirty(true),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
           m_coCrossfaderReverse(QStringLiteral("[Mixer Profile]"), QStringLiteral("xFaderReverse")),
@@ -125,11 +132,48 @@ AutoDJProcessor::AutoDJProcessor(
           m_skipNext(ConfigKey(kControlGroup, QStringLiteral("skip_next"))),
           m_addRandomTrack(ConfigKey(kControlGroup, QStringLiteral("add_random_track"))),
           m_fadeNow(ConfigKey(kControlGroup, QStringLiteral("fade_now"))),
-          m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))) {
+          m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
+          m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))) {
     m_pAutoDJTableModel = make_parented<PlaylistTableModel>(
             this, pTrackCollectionManager, "mixxx.db.model.autodj");
     m_pAutoDJTableModel->selectPlaylist(iAutoDJPlaylistId);
     m_pAutoDJTableModel->select();
+
+    // In Keep Queue mode the cursor must stay anchored to the playing track when
+    // the user edits the queue. The model rebuilds itself on every edit (emitting
+    // row insert/remove), so re-anchor the cursor after each rebuild.
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::rowsInserted,
+            this,
+            &AutoDJProcessor::reanchorKeepQueueCursor);
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::rowsRemoved,
+            this,
+            &AutoDJProcessor::reanchorKeepQueueCursor);
+
+    // Any queue edit changes the upcoming-tracks total, so invalidate the cached
+    // set duration. Recompute is lazy (in getRemainingSetDuration), so the order
+    // relative to reanchorKeepQueueCursor above does not matter.
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::rowsInserted,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::rowsRemoved,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::dataChanged,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::modelReset,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
+    connect(m_pAutoDJTableModel.get(),
+            &QAbstractItemModel::layoutChanged,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
 
     connect(&m_shufflePlaylist,
             &ControlPushButton::valueChanged,
@@ -144,6 +188,17 @@ AutoDJProcessor::AutoDJProcessor(
     m_enabledAutoDJ.setButtonMode(ControlPushButton::TOGGLE);
     m_enabledAutoDJ.connectValueChangeRequest(this,
             &AutoDJProcessor::controlEnableChangeRequest);
+
+    // Initialize the Tango DJ mode control from the persistent setting and keep
+    // the setting in sync when the control changes (e.g. from the prefs dialog).
+    m_keepQueue.set(m_pConfig->getValue<bool>(
+                            ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")))
+                    ? 1.0
+                    : 0.0);
+    connect(&m_keepQueue,
+            &ControlObject::valueChanged,
+            this,
+            &AutoDJProcessor::controlKeepQueue);
 
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
@@ -192,6 +247,10 @@ void AutoDJProcessor::setCrossfader(double value) {
 
 AutoDJProcessor::AutoDJError AutoDJProcessor::shufflePlaylist(
         const QModelIndexList& selectedIndices) {
+    if (keepQueueEnabled()) {
+        // Shuffling would destroy the pre-arranged order in Keep Queue mode.
+        return ADJ_OK;
+    }
     QModelIndex exclude;
     if (m_eState != ADJ_DISABLED) {
         exclude = m_pAutoDJTableModel->index(0, 0);
@@ -203,6 +262,11 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::shufflePlaylist(
 void AutoDJProcessor::fadeNow() {
     if (m_eState != ADJ_IDLE) {
         // we cannot fade if AutoDj is disabled or already fading
+        return;
+    }
+    if (keepQueueEnabled()) {
+        // In Tango mode the next track is reached deliberately with the
+        // crossfader, so Fade Now is disabled.
         return;
     }
 
@@ -323,6 +387,10 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
         emit autoDJError(ADJ_IS_INACTIVE);
         return ADJ_IS_INACTIVE;
     }
+    if (keepQueueEnabled()) {
+        // Skip is disabled in Keep Queue mode (may be armed later).
+        return ADJ_OK;
+    }
     // Load the next song from the queue.
     DeckAttributes* pLeftDeck = getLeftDeck();
     DeckAttributes* pRightDeck = getRightDeck();
@@ -404,6 +472,14 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             // Make sure it is, if the current skin is a 4-deck skin.
             ControlObject::set(
                     ConfigKey(QStringLiteral("[Skin]"), QStringLiteral("show_4decks")), 1);
+        }
+
+        // Keep Queue mode: always continue from the next unplayed track (the
+        // cursor). Only keep it in bounds in case the queue shrank while Auto DJ
+        // was stopped. (Clearing the queue restarts from the top; that is handled
+        // by the empty-queue reset in reanchorKeepQueueCursor().)
+        if (keepQueueEnabled() && m_keepQueueRow > m_pAutoDJTableModel->rowCount()) {
+            m_keepQueueRow = m_pAutoDJTableModel->rowCount();
         }
 
         // Never load the same track if it is already playing
@@ -609,7 +685,7 @@ void AutoDJProcessor::controlSkipNext(double value) {
 }
 
 void AutoDJProcessor::controlAddRandomTrack(double value) {
-    if (value > 0.0) {
+    if (value > 0.0 && !keepQueueEnabled()) {
         emit randomTrackRequested(1);
     }
 }
@@ -891,18 +967,23 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
         emit randomTrackRequested(tracksToAdd);
     }
 
+    // In Keep Queue mode the next track is at the cursor row instead of the
+    // front of the list, so played tracks stay in place. When the cursor
+    // reaches the end, getTrack() returns null and Auto DJ stops.
+    const int nextRow = keepQueueEnabled() ? m_keepQueueRow : 0;
     while (true) {
         TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(
-                m_pAutoDJTableModel->index(0, 0));
+                m_pAutoDJTableModel->index(nextRow, 0));
 
         if (pNextTrack) {
             if (pNextTrack->getFileInfo().checkFileExists()) {
                 return pNextTrack;
             } else {
-                // Remove missing track from auto DJ playlist.
+                // Remove missing track from auto DJ playlist. The following row
+                // shifts up into nextRow, so the loop re-reads the same index.
                 qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
                 m_pAutoDJTableModel->removeTrack(
-                        m_pAutoDJTableModel->index(0, 0));
+                        m_pAutoDJTableModel->index(nextRow, 0));
                 // Don't "Requeue" missing tracks to avoid andless loops
                 maybeFillRandomTracks();
             }
@@ -931,6 +1012,11 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
 }
 
 bool AutoDJProcessor::removeLoadedTrackFromTopOfQueue(const DeckAttributes& deck) {
+    if (keepQueueEnabled()) {
+        // Keep Queue mode: don't remove the played track, just advance the
+        // cursor so the next track plays while this one stays in the list.
+        return advanceKeepQueueCursor(deck.getLoadedTrack());
+    }
     return removeTrackFromTopOfQueue(deck.getLoadedTrack());
 }
 
@@ -947,9 +1033,14 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
         return false;
     }
 
+    // In Keep Queue mode the "top" of the queue is the cursor row, so undesired
+    // tracks (missing, too short, ejected) are removed in place rather than from
+    // the front of the list.
+    const int row = keepQueueEnabled() ? m_keepQueueRow : 0;
+
     // Get the track id at the top of the playlist.
     TrackId nextId(m_pAutoDJTableModel->getTrackId(
-            m_pAutoDJTableModel->index(0, 0)));
+            m_pAutoDJTableModel->index(row, 0)));
 
     // No track at the top of the queue.
     if (!nextId.isValid()) {
@@ -962,15 +1053,271 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
     }
 
     // Remove the top track.
-    m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
+    m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(row, 0));
 
-    // Re-queue if configured.
-    if (m_pConfig->getValueString(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue"))).toInt()) {
+    // Re-queue if configured. Never re-queue in Keep Queue mode.
+    if (!keepQueueEnabled() &&
+            m_pConfig->getValueString(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue"))).toInt()) {
         m_pAutoDJTableModel->appendTrack(nextId);
     }
 
     maybeFillRandomTracks();
     return true;
+}
+
+bool AutoDJProcessor::keepQueueEnabled() const {
+    return m_keepQueue.toBool();
+}
+
+mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
+    if (!keepQueueEnabled()) {
+        return mixxx::Duration::empty();
+    }
+    // The upcoming-tracks sum is expensive (it reads each queued track from the
+    // database to inspect its audible range), but it only changes on queue/cursor/
+    // mode edits. Recompute it lazily and serve the cached value to the 1 Hz UI
+    // refresh; only the cheap current-track remainder below is computed per call.
+    if (m_keepQueueDurationDirty) {
+        recomputeKeepQueueUpcomingDuration();
+    }
+    double seconds = m_keepQueueUpcomingSeconds;
+    int remainingTracks = m_keepQueueUpcomingTracks;
+    // Add the unplayed remainder of the current (playing or paused) track. The
+    // loaded track is held by the deck, so this is cheap (no database read). While
+    // paused this stays frozen, so "time left" holds steady and the projected end
+    // clock slips later in real time, which is the desired behaviour.
+    if (m_eState != ADJ_DISABLED) {
+        DeckAttributes* pFromDeck = getFromDeck();
+        if (pFromDeck) {
+            TrackPointer pTrack = pFromDeck->getLoadedTrack();
+            const double pos = pFromDeck->playPosition();
+            if (pTrack && pos >= 0.0) {
+                seconds += keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
+                remainingTracks += 1;
+            }
+        }
+    }
+    // Account for the configured gap (negative transition time) or crossfade
+    // overlap (positive) at each remaining track boundary. Only the fixed modes
+    // use a deterministic transition time; the intro/outro modes depend on
+    // per-track cues we cannot know in advance, so the adjustment is skipped there.
+    if (m_transitionMode == TransitionMode::FixedFullTrack ||
+            m_transitionMode == TransitionMode::FixedSkipSilence) {
+        const int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
+        seconds -= transitions * m_transitionTime;
+    }
+    if (seconds < 0.0) {
+        seconds = 0.0;
+    }
+    return mixxx::Duration::fromMillis(static_cast<qint64>(seconds * 1000.0));
+}
+
+void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    double seconds = 0.0;
+    for (int row = m_keepQueueRow; row < rowCount; ++row) {
+        TrackPointer pTrack = m_pAutoDJTableModel->getTrack(
+                m_pAutoDJTableModel->index(row, 0));
+        seconds += keepQueueTrackPlaySeconds(pTrack);
+    }
+    m_keepQueueUpcomingSeconds = seconds;
+    m_keepQueueUpcomingTracks = rowCount - m_keepQueueRow;
+    m_keepQueueDurationDirty = false;
+}
+
+double AutoDJProcessor::keepQueueAudibleSeconds(const TrackPointer& pTrack) const {
+    if (!pTrack) {
+        return 0.0;
+    }
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
+    if (!pCue) {
+        return 0.0;
+    }
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    const double frames = pCue->getLengthFrames();
+    if (!sampleRate.isValid() || frames <= 0.0) {
+        return 0.0;
+    }
+    return frames / sampleRate.toDouble();
+}
+
+double AutoDJProcessor::keepQueueTrackPlaySeconds(const TrackPointer& pTrack) const {
+    if (!pTrack) {
+        return 0.0;
+    }
+    // In Skip Silence mode the engine plays only the audible range, so subtract the
+    // trimmed leading/trailing silence using the analyzed N60dBSound cue. Tracks
+    // not yet analyzed have no such cue, so fall back to the full file duration.
+    if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+        const double audible = keepQueueAudibleSeconds(pTrack);
+        if (audible > 0.0) {
+            return audible;
+        }
+    }
+    return pTrack->getDuration();
+}
+
+double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
+        const TrackPointer& pTrack, double playPosition) const {
+    const double fullSeconds = pTrack->getDuration();
+    const double currentSeconds = fullSeconds * playPosition;
+    // In Skip Silence mode the current track fades out at its last audible sample,
+    // not the end of the file, so count the remainder up to that point.
+    if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+        CuePointer pCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
+        const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+        if (pCue && sampleRate.isValid() && pCue->getEndPosition().isValid()) {
+            const double lastSoundSeconds =
+                    pCue->getEndPosition().value() / sampleRate.toDouble();
+            const double remaining = lastSoundSeconds - currentSeconds;
+            return remaining > 0.0 ? remaining : 0.0;
+        }
+    }
+    const double remaining = fullSeconds - currentSeconds;
+    return remaining > 0.0 ? remaining : 0.0;
+}
+
+void AutoDJProcessor::controlKeepQueue(double value) {
+    // Persist the live Tango DJ mode control to the user setting.
+    m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
+            value > 0.0);
+}
+
+bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
+    if (!pTrack) {
+        return false;
+    }
+    TrackId trackId(pTrack->getId());
+    if (!trackId.isValid()) {
+        return false;
+    }
+    // Only advance if the played track is the current cursor track. This guards
+    // against advancing twice when this is called more than once for the same
+    // track (mirrors the guard in removeTrackFromTopOfQueue).
+    TrackId cursorId(m_pAutoDJTableModel->getTrackId(
+            m_pAutoDJTableModel->index(m_keepQueueRow, 0)));
+    if (!cursorId.isValid() || trackId != cursorId) {
+        return false;
+    }
+    m_keepQueueRow++;
+    // The upcoming-tracks set shrank by one, so the cached set duration is stale.
+    invalidateRemainingSetDuration();
+    // Remember the just-played track; it now sits at cursor-1 and is used to
+    // re-anchor the cursor across model rebuilds while Auto DJ is stopped.
+    m_keepQueueAnchorId = trackId;
+    return true;
+}
+
+void AutoDJProcessor::reanchorKeepQueueCursor() {
+    if (!keepQueueEnabled()) {
+        return;
+    }
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    // The model is momentarily empty in the middle of every select() rebuild (a
+    // transient clear followed by a full insert). Do NOT reset the cursor here, or
+    // an edit made while Auto DJ is stopped would stick at 0; the cursor is
+    // re-anchored on the following insert pass.
+    if (rowCount == 0) {
+        return;
+    }
+    if (m_eState == ADJ_DISABLED) {
+        // Stopped: there is no playing deck to anchor to. Re-anchor the cursor to
+        // the last-played track by identity so it survives the rebuild and we
+        // continue from the next unplayed track instead of jumping to the top.
+        // If that track is gone (the queue was cleared), restart from the top.
+        if (m_keepQueueAnchorId.isValid()) {
+            const int anchorRow =
+                    keepQueueRowForTrackId(m_keepQueueAnchorId, m_keepQueueRow - 1);
+            m_keepQueueRow = (anchorRow >= 0) ? anchorRow + 1 : 0;
+        } else {
+            m_keepQueueRow = 0;
+        }
+        if (m_keepQueueRow > rowCount) {
+            m_keepQueueRow = rowCount;
+        }
+        return;
+    }
+    DeckAttributes* pFromDeck = getFromDeck();
+    if (pFromDeck) {
+        // Primary anchor: the playing track sits just before the cursor.
+        const int playingRow = keepQueueRowForTrack(
+                pFromDeck->getLoadedTrack(), m_keepQueueRow - 1);
+        if (playingRow >= 0) {
+            m_keepQueueRow = playingRow + 1;
+        } else {
+            // The playing track was removed from the queue. Fall back to the
+            // cued track on the idle deck, which sits at the cursor.
+            DeckAttributes* pIdleDeck = getOtherDeck(pFromDeck);
+            if (pIdleDeck && !pIdleDeck->isPlaying()) {
+                const int cuedRow = keepQueueRowForTrack(
+                        pIdleDeck->getLoadedTrack(), m_keepQueueRow);
+                if (cuedRow >= 0) {
+                    m_keepQueueRow = cuedRow;
+                }
+            }
+        }
+    }
+    // Keep the cursor within range if the queue shrank and no anchor was found.
+    if (m_keepQueueRow > m_pAutoDJTableModel->rowCount()) {
+        m_keepQueueRow = m_pAutoDJTableModel->rowCount();
+    }
+
+    // A queue edit may have changed which track is next (e.g. the cued track was
+    // deleted or reordered). Reload the idle deck so it isn't left holding a
+    // stale track. Guard against re-entrancy from the reload mutating the queue.
+    if (!m_keepQueueReloading) {
+        m_keepQueueReloading = true;
+        maybeReloadIdleDeckForKeepQueue();
+        m_keepQueueReloading = false;
+    }
+}
+
+int AutoDJProcessor::keepQueueRowForTrack(TrackPointer pTrack, int rowGuess) {
+    if (!pTrack) {
+        return -1;
+    }
+    return keepQueueRowForTrackId(TrackId(pTrack->getId()), rowGuess);
+}
+
+int AutoDJProcessor::keepQueueRowForTrackId(TrackId trackId, int rowGuess) {
+    if (!trackId.isValid()) {
+        return -1;
+    }
+    const QVector<int> rows = m_pAutoDJTableModel->getTrackRows(trackId);
+    if (rows.isEmpty()) {
+        return -1;
+    }
+    // If the track occurs more than once, pick the occurrence closest to the
+    // guess to disambiguate.
+    int bestRow = rows.first();
+    for (int row : rows) {
+        if (qAbs(row - rowGuess) < qAbs(bestRow - rowGuess)) {
+            bestRow = row;
+        }
+    }
+    return bestRow;
+}
+
+void AutoDJProcessor::maybeReloadIdleDeckForKeepQueue() {
+    if (m_eState != ADJ_IDLE) {
+        return;
+    }
+    DeckAttributes* pFromDeck = getFromDeck();
+    if (!pFromDeck) {
+        return;
+    }
+    DeckAttributes* pIdleDeck = getOtherDeck(pFromDeck);
+    if (!pIdleDeck || pIdleDeck->isPlaying()) {
+        return;
+    }
+    // The next track to play is at the cursor row.
+    TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(
+            m_pAutoDJTableModel->index(m_keepQueueRow, 0));
+    // Only reload when there is a valid next track that differs from the one
+    // already cued on the idle deck (e.g. the cued track was deleted/reordered).
+    if (pNextTrack && pNextTrack != pIdleDeck->getLoadedTrack()) {
+        loadNextTrackFromQueue(*pIdleDeck);
+    }
 }
 
 void AutoDJProcessor::maybeFillRandomTracks() {
@@ -1681,6 +2028,11 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
     if constexpr (sDebug) {
         qDebug() << this << "playlistFirstTrackChanged";
     }
+    if (keepQueueEnabled()) {
+        // In Keep Queue mode the next track is at the cursor, not the top of the
+        // queue, so reanchorKeepQueueCursor() handles reloading the idle deck.
+        return;
+    }
     if (m_eState != ADJ_DISABLED) {
         DeckAttributes* pLeftDeck = getLeftDeck();
         DeckAttributes* pRightDeck = getRightDeck();
@@ -1726,6 +2078,9 @@ void AutoDJProcessor::setTransitionMode(TransitionMode newMode) {
     m_pConfig->set(ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             ConfigValue(static_cast<int>(newMode)));
     m_transitionMode = newMode;
+    // Switching to/from Skip Silence changes whether the set estimate uses each
+    // track's audible range or its full file length, so the cache is now stale.
+    invalidateRemainingSetDuration();
 
     if (m_eState != ADJ_IDLE) {
         // We don't want to recalculate a running transition

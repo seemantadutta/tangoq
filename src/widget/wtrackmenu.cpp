@@ -12,6 +12,7 @@
 #include "analyzer/analyzersilence.h"
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
+#include "library/autodj/cortinaregistry.h"
 #include "library/coverartutils.h"
 #include "library/dao/trackschema.h"
 #include "library/dlgtagfetcher.h"
@@ -302,6 +303,9 @@ void WTrackMenu::createActions() {
 
         m_pAutoDJReplaceAct = make_parented<QAction>(tr("Add to Auto DJ Queue (replace)"), this);
         connect(m_pAutoDJReplaceAct, &QAction::triggered, this, &WTrackMenu::slotAddToAutoDJReplace);
+
+        m_pAutoDJCortinaAct = make_parented<QAction>(tr("Add to Auto DJ Queue as Cortina"), this);
+        connect(m_pAutoDJCortinaAct, &QAction::triggered, this, &WTrackMenu::slotAddToAutoDJCortina);
     }
 
     if (featureIsEnabled(Feature::LoadTo)) {
@@ -595,6 +599,7 @@ void WTrackMenu::setupActions() {
         addAction(m_pAutoDJBottomAct);
         addAction(m_pAutoDJTopAct);
         addAction(m_pAutoDJReplaceAct);
+        addAction(m_pAutoDJCortinaAct);
         addSeparator();
     }
 
@@ -927,6 +932,17 @@ void WTrackMenu::updateMenus() {
         const auto pTrack = getFirstTrackPointer();
         m_pSearchRelatedMenu->setEnabled(pTrack != nullptr);
         // TODO Only enable for single track?
+    }
+
+    if (featureIsEnabled(Feature::AutoDJ)) {
+        // In Tango DJ mode the Auto DJ queue is a pre-arranged, cursor-based set.
+        // Adding to the top or replacing it would disrupt the planned milonga, so
+        // grey those out and leave only "Add to Auto DJ Queue (bottom)".
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        m_pAutoDJTopAct->setEnabled(!tangoMode);
+        m_pAutoDJReplaceAct->setEnabled(!tangoMode);
     }
 
     if (featureIsEnabled(Feature::LoadTo)) {
@@ -2662,6 +2678,17 @@ void WTrackMenu::slotAddToAutoDJBottom() {
 
 void WTrackMenu::slotAddToAutoDJTop() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::TOP);
+}
+
+void WTrackMenu::slotAddToAutoDJCortina() {
+    // Add to the bottom of the queue like any other track, then tag the selected
+    // tracks as cortinas (session-only) so the Auto DJ list shows the blue
+    // "!!!CORTINA!!!" styling.
+    addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
+    const TrackIdList trackIds = getTrackIds();
+    for (const auto& trackId : trackIds) {
+        CortinaRegistry::instance().mark(trackId);
+    }
 }
 
 void WTrackMenu::slotAddToAutoDJReplace() {
