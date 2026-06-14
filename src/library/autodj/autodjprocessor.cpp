@@ -124,6 +124,8 @@ AutoDJProcessor::AutoDJProcessor(
           m_keepQueueReloading(false),
           m_keepQueueUpcomingSeconds(0.0),
           m_keepQueueUpcomingTracks(0),
+          m_keepQueueTotalSeconds(0.0),
+          m_keepQueueTotalTracks(0),
           m_keepQueueDurationDirty(true),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
@@ -633,17 +635,17 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             // One of the two decks is playing. Switch into IDLE mode and wait
             // until the playing deck crosses posThreshold to start fading.
             m_eState = ADJ_IDLE;
-            if (leftDeckPlaying) {
-                // Load track into the right deck.
-                emitLoadTrackToPlayer(nextTrack, pRightDeck->group, false);
-                // Move crossfader to the left.
-                setCrossfader(-1.0);
-            } else {
-                // Load track into the left deck.
-                emitLoadTrackToPlayer(nextTrack, pLeftDeck->group, false);
-                // Move crossfader to the right.
-                setCrossfader(1.0);
+            DeckAttributes* pIdleDeck = leftDeckPlaying ? pRightDeck : pLeftDeck;
+            // In Tango/keep-queue mode the next track stays in the queue and the
+            // idle deck keeps its loaded track when Auto DJ is disabled, so a plain
+            // toggle off/on would reload the same track onto the idle deck and
+            // re-render its (otherwise static) waveform - the flicker the DJ sees on
+            // the non-playing deck. Skip the load when it is already cued there.
+            if (!keepQueueEnabled() || nextTrack != pIdleDeck->getLoadedTrack()) {
+                emitLoadTrackToPlayer(nextTrack, pIdleDeck->group, false);
             }
+            // Move the crossfader away from the idle deck.
+            setCrossfader(leftDeckPlaying ? -1.0 : 1.0);
         }
         emitAutoDJStateChanged(m_eState);
     } else { // Disable Auto DJ
@@ -1114,15 +1116,46 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
 
 void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
     const int rowCount = m_pAutoDJTableModel->rowCount();
-    double seconds = 0.0;
-    for (int row = m_keepQueueRow; row < rowCount; ++row) {
+    double totalSeconds = 0.0;
+    double upcomingSeconds = 0.0;
+    // One database pass feeds both caches: the whole-queue total (Set Length) and
+    // the cursor-onward remainder (used by the time-left/end estimate).
+    for (int row = 0; row < rowCount; ++row) {
         TrackPointer pTrack = m_pAutoDJTableModel->getTrack(
                 m_pAutoDJTableModel->index(row, 0));
-        seconds += keepQueueTrackPlaySeconds(pTrack);
+        const double seconds = keepQueueTrackPlaySeconds(pTrack);
+        totalSeconds += seconds;
+        if (row >= m_keepQueueRow) {
+            upcomingSeconds += seconds;
+        }
     }
-    m_keepQueueUpcomingSeconds = seconds;
+    m_keepQueueUpcomingSeconds = upcomingSeconds;
     m_keepQueueUpcomingTracks = rowCount - m_keepQueueRow;
+    m_keepQueueTotalSeconds = totalSeconds;
+    m_keepQueueTotalTracks = rowCount;
     m_keepQueueDurationDirty = false;
+}
+
+mixxx::Duration AutoDJProcessor::getTotalSetDuration() {
+    if (!keepQueueEnabled()) {
+        return mixxx::Duration::empty();
+    }
+    if (m_keepQueueDurationDirty) {
+        recomputeKeepQueueUpcomingDuration();
+    }
+    double seconds = m_keepQueueTotalSeconds;
+    // Subtract the per-boundary gap / crossfade overlap, matching the remaining
+    // duration estimate. Only the fixed modes have a deterministic transition time.
+    if (m_transitionMode == TransitionMode::FixedFullTrack ||
+            m_transitionMode == TransitionMode::FixedSkipSilence) {
+        const int transitions =
+                m_keepQueueTotalTracks > 1 ? m_keepQueueTotalTracks - 1 : 0;
+        seconds -= transitions * m_transitionTime;
+    }
+    if (seconds < 0.0) {
+        seconds = 0.0;
+    }
+    return mixxx::Duration::fromMillis(static_cast<qint64>(seconds * 1000.0));
 }
 
 double AutoDJProcessor::keepQueueAudibleSeconds(const TrackPointer& pTrack) const {

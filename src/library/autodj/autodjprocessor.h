@@ -194,6 +194,15 @@ class AutoDJProcessor : public QObject {
     // Returns an empty Duration when not in Tango mode or when nothing is left.
     mixxx::Duration getRemainingSetDuration();
 
+    // Tango DJ mode set timing: the estimated total playback time of the whole
+    // Auto DJ set, i.e. every queued track (played and upcoming) summed with the
+    // same audible-range / gap accounting as getRemainingSetDuration(). Unlike
+    // the remaining duration this does not depend on the cursor or play position,
+    // so it stays constant while the set plays and only changes when the queue or
+    // transition mode is edited. Shares the same lazily recomputed cache.
+    // Returns an empty Duration when not in Tango mode or when the queue is empty.
+    mixxx::Duration getTotalSetDuration();
+
     double getTransitionTime() const {
         return m_transitionTime;
     }
@@ -355,6 +364,11 @@ class AutoDJProcessor : public QObject {
     // end-time readout from re-reading every queued track from the database.
     double m_keepQueueUpcomingSeconds;
     int m_keepQueueUpcomingTracks;
+    // Cached total play time (seconds) and count of the whole queue (row 0 .. end),
+    // recomputed in the same pass as the upcoming sum. Backs the constant "Set
+    // Length" readout.
+    double m_keepQueueTotalSeconds;
+    int m_keepQueueTotalTracks;
     bool m_keepQueueDurationDirty;
     TransitionMode m_transitionMode;
 

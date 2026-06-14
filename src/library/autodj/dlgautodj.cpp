@@ -460,24 +460,29 @@ void DlgAutoDJ::updateSetEndTime() {
     QString text;
     // The readout is a Tango DJ mode feature only; otherwise it stays empty.
     if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
-        const mixxx::Duration remaining =
-                m_pAutoDJProcessor->getRemainingSetDuration();
-        // A non-positive value means nothing is left to play (finished/empty).
-        if (remaining.toIntegerMillis() > 0) {
-            const QString left = formatSetDuration(remaining);
+        // "Set Length" is the constant total of the whole set; it reads the same
+        // whether Auto DJ is running or not. The running state then *appends*
+        // "Ends" and "Left" so the line never needs to be re-read - the off->on
+        // change is purely additive, which keeps the cognitive load low live.
+        const mixxx::Duration total = m_pAutoDJProcessor->getTotalSetDuration();
+        // A non-positive total means the queue is empty / nothing to play.
+        if (total.toIntegerMillis() > 0) {
+            text = tr("Set Length: %1").arg(formatSetDuration(total));
             if (m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED) {
-                // Running: show the projected end clock plus the time left. The end
-                // time is the most important number, so emphasise it in red.
+                const mixxx::Duration remaining =
+                        m_pAutoDJProcessor->getRemainingSetDuration();
+                // The projected end clock is the most important number, so
+                // emphasise it in red.
                 const QDateTime end = QDateTime::currentDateTime().addMSecs(
                         remaining.toIntegerMillis());
                 const QString endRed = QStringLiteral(
                         "<span style=\"color:#ee4444; font-weight:bold;\">%1</span>")
                                                .arg(end.toString(QStringLiteral(
                                                        "HH:mm:ss")));
-                text = tr("Milonga Ends: %1 · %2 left").arg(endRed, left);
-            } else {
-                // Stopped: there is no start time yet, so show the set length only.
-                text = tr("Milonga length: %1").arg(left);
+                // Non-breaking spaces so the rich-text label keeps the gaps.
+                const QString gap = QStringLiteral("&nbsp;&nbsp;&nbsp;");
+                text += gap + tr("Ends: %1").arg(endRed);
+                text += gap + tr("Left: %1").arg(formatSetDuration(remaining));
             }
         }
     }
