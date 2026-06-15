@@ -1335,6 +1335,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/widget/wnumberpos.cpp
   src/widget/wnumberrate.cpp
   src/widget/woverview.cpp
+  src/widget/wcountdownoverlay.cpp
   src/widget/wpixmapstore.cpp
   src/widget/wpushbutton.cpp
   src/widget/wraterange.cpp

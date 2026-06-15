@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QTimer>
 #include <memory>
 #include <vector>
 
@@ -232,6 +233,9 @@ class AutoDJProcessor : public QObject {
     void autoDJError(AutoDJProcessor::AutoDJError error);
     void transitionTimeChanged(int time);
     void randomTrackRequested(int tracksToAdd);
+    // Emitted when the LIVE-mode accidental-stop guard arms/disarms so the toolbar
+    // can show a "Confirm Stop?" prompt on the Auto DJ button.
+    void stopGuardArmedChanged(bool armed);
 
   private slots:
     void crossfaderChanged(double value);
@@ -253,6 +257,8 @@ class AutoDJProcessor : public QObject {
     void controlSkipNext(double value);
     void controlAddRandomTrack(double value);
     void controlKeepQueue(double value);
+    // Cancels the LIVE-mode stop-guard arm (timeout or a non-confirming action).
+    void disarmStopGuard();
     void slotNumberOfDecksChanged(int decks);
 
   protected:
@@ -309,6 +315,8 @@ class AutoDJProcessor : public QObject {
 
     // Keep Queue mode helpers.
     bool keepQueueEnabled() const;
+    // True while LIVE mode (Tango performance lock) is engaged.
+    bool liveModeEnabled() const;
     // Advances the Keep Queue cursor past pTrack (instead of removing it) if it
     // is the current cursor track. Returns true if the cursor advanced.
     bool advanceKeepQueueCursor(TrackPointer pTrack);
@@ -396,6 +404,14 @@ class AutoDJProcessor : public QObject {
     // Mirrors [Auto DJ],KeepQueue (Tango DJ mode) as a live control so the prefs
     // dialog and the Auto DJ toolbar stay in sync when it changes.
     ControlObject m_keepQueue;
+
+    // LIVE mode (Tango performance lock). Session-only, not persisted: defaults
+    // off at every launch. While on, it arms the accidental-stop guards.
+    ControlObject m_liveMode;
+    // Stop-guard arm state: in LIVE mode the first disable request only arms a
+    // short confirmation window; a second request within it actually stops.
+    bool m_stopGuardArmed;
+    QTimer m_stopGuardTimer;
 
     DISALLOW_COPY_AND_ASSIGN(AutoDJProcessor);
 };

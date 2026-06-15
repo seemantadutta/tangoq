@@ -5,7 +5,10 @@
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
+#include <QStyle>
+#include <QStyleOptionButton>
 #include <QTimeEdit>
 #include <QTimer>
 
@@ -17,6 +20,7 @@
 #include "track/track.h"
 #include "util/assert.h"
 #include "util/duration.h"
+#include "widget/wcountdownoverlay.h"
 #include "widget/wlibrary.h"
 #include "widget/wtracktableview.h"
 
@@ -56,6 +60,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
           m_bShowButtonText(parent->getShowButtonText()),
           m_pAutoDJTableModel(nullptr),
           m_pKeepQueueControl(nullptr),
+          m_pKeyboard(pKeyboard),
+          m_pLiveModeControl(nullptr),
+          m_pStopCountdown(nullptr),
           m_pSetTimeTimer(nullptr) {
     setupUi(this);
 
@@ -243,6 +250,31 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pKeepQueueControl->connectValueChanged(this, [this](double) {
         refreshTangoModeUi();
     });
+
+    // LIVE mode: a session-only performance lock. The toolbar shows a read-only
+    // "LIVE" indicator (red when on); it is toggled deliberately via the
+    // indicator's right-click menu so it can't be flipped by accident.
+    m_pLiveModeControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "live_mode"), this);
+    m_pLiveModeControl->connectValueChanged(this, [this](double) {
+        refreshLiveMode();
+    });
+    // Build the spacing into the label (gap before it, gap to the window edge)
+    // rather than separate spacers, so hiding it when Tango is off leaves no gap.
+    labelLive->setContextMenuPolicy(Qt::CustomContextMenu);
+    labelLive->setContentsMargins(12, 0, 50, 0);
+    connect(labelLive,
+            &QLabel::customContextMenuRequested,
+            this,
+            &DlgAutoDJ::showLiveContextMenu);
+    // Pie-countdown overlay shown on the Auto DJ button while the LIVE-mode stop
+    // guard is armed. Parented to the button so it tracks its position/size and
+    // is transparent to clicks so the button can still be pressed to confirm.
+    m_pStopCountdown = new WCountdownOverlay(pushButtonAutoDJ);
+    connect(m_pAutoDJProcessor,
+            &AutoDJProcessor::stopGuardArmedChanged,
+            this,
+            &DlgAutoDJ::slotStopGuardArmedChanged);
     // Highlight the currently playing track (in red) in Tango DJ mode.
     connect(&PlayerInfo::instance(),
             &PlayerInfo::currentPlayingTrackChanged,
@@ -294,10 +326,18 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     autoDJStateChanged(m_pAutoDJProcessor->getState());
 
     updateSelectionInfo();
+    refreshLiveMode();
 }
 
 DlgAutoDJ::~DlgAutoDJ() {
     qDebug() << "~DlgAutoDJ()";
+
+    // Release the LIVE-mode key suppression so it doesn't outlive this view (a new
+    // DlgAutoDJ re-applies it from refreshLiveMode() if LIVE is still on).
+    if (m_pKeyboard) {
+        m_pKeyboard->setControlSuppressed(ConfigKey("[Channel1]", "play"), false);
+        m_pKeyboard->setControlSuppressed(ConfigKey("[Channel2]", "play"), false);
+    }
 
     // Delete m_pTrackTableView before the table model. This is because the
     // table view saves the header state using the model.
@@ -421,10 +461,18 @@ void DlgAutoDJ::refreshTangoModeUi() {
     const bool tango = m_pKeepQueueControl->toBool();
     // Update the read-only toolbar indicator.
     pushButtonKeepQueue->setChecked(tango);
-    // The set-time readout and the target end-time controls are Tango-only.
+    // The set-time readout, the target end-time controls and the LIVE indicator
+    // are Tango-only.
     labelSetEndTime->setVisible(tango);
     endTimeEdit->setVisible(tango);
     labelEndTimeDelta->setVisible(tango);
+    labelLive->setVisible(tango);
+    // LIVE mode only exists within Tango mode: leaving Tango exits LIVE so its
+    // guards (stop-confirm, deck-key suppression) can't linger outside Tango.
+    if (!tango && m_pLiveModeControl && m_pLiveModeControl->toBool()) {
+        m_pLiveModeControl->set(0.0);
+    }
+    refreshLiveMode();
     // In Tango mode, disable the controls that can wreck a pre-arranged live
     // set if triggered by accident. Dim them so they clearly read as locked,
     // instead of vanishing or still looking clickable.
@@ -563,6 +611,82 @@ void DlgAutoDJ::slotEndTimeChanged(const QTime& time) {
     // Refresh immediately so the over/under indicator tracks the edit without
     // waiting for the next per-second tick.
     updateSetEndTime();
+}
+
+void DlgAutoDJ::refreshLiveMode() {
+    // LIVE is only meaningful in Tango mode; treat it as off otherwise.
+    const bool live = m_pLiveModeControl && m_pLiveModeControl->toBool() &&
+            m_pKeepQueueControl && m_pKeepQueueControl->toBool();
+    // Indicator: bold red "LIVE" when on, greyed (disabled-looking) when off. The
+    // label stays enabled either way so its right-click menu keeps working.
+    if (live) {
+        labelLive->setText(QStringLiteral(
+                "<span style=\"color:#ee2222; font-weight:bold;\">LIVE</span>"));
+    } else {
+        labelLive->setText(QStringLiteral(
+                "<span style=\"color:#666666; font-weight:bold;\">LIVE</span>"));
+    }
+    // Make the deck play/pause keys (D = [Channel1],play, L = [Channel2],play)
+    // inert while LIVE, so an accidental press can't stop the playing deck.
+    if (m_pKeyboard) {
+        m_pKeyboard->setControlSuppressed(ConfigKey("[Channel1]", "play"), live);
+        m_pKeyboard->setControlSuppressed(ConfigKey("[Channel2]", "play"), live);
+    }
+}
+
+void DlgAutoDJ::showLiveContextMenu(const QPoint& pos) {
+    if (!m_pLiveModeControl) {
+        return;
+    }
+    const bool live = m_pLiveModeControl->toBool();
+    QMenu menu(this);
+    QAction* pAction = menu.addAction(live ? tr("Exit LIVE mode") : tr("Enter LIVE mode"));
+    if (menu.exec(labelLive->mapToGlobal(pos)) == pAction) {
+        m_pLiveModeControl->set(live ? 0.0 : 1.0);
+        // Update the indicator and key suppression immediately, in case the proxy
+        // does not deliver its own set back as a valueChanged.
+        refreshLiveMode();
+    }
+}
+
+void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
+    // The Auto DJ icon is a power symbol (left) + android (right) = "Auto DJ".
+    // While armed, a depleting red pie sits over just the power symbol (its
+    // opaque backdrop masks it); the android stays visible. The eaten part grows
+    // until the pie is empty when the window expires. The overlay ignores mouse
+    // events, so a second press on the button confirms the stop.
+    if (armed) {
+        pushButtonAutoDJ->setChecked(true);
+        pushButtonAutoDJ->setToolTip(
+                tr("Press again to stop the set (LIVE mode)."));
+        if (m_pStopCountdown) {
+            // The button is the container: it fills solid red, then the red level
+            // falls to empty over the guard window, revealing the icon beneath.
+            // Constrain the overlay to the button's *visible* area (inside the QSS
+            // margins/border) so it stays within the button instead of spilling
+            // into the margin; the box model differs per skin, so use the style.
+            QStyleOptionButton option;
+            option.initFrom(pushButtonAutoDJ);
+            QRect inner = pushButtonAutoDJ->style()->subElementRect(
+                    QStyle::SE_PushButtonContents, &option, pushButtonAutoDJ);
+            if (!inner.isValid() || inner.isEmpty()) {
+                inner = pushButtonAutoDJ->rect();
+            }
+            // Grab the button area behind the liquid (the overlay is hidden, so it
+            // is not in the grab) to use as the drained-part background.
+            const QPixmap background = pushButtonAutoDJ->grab(inner);
+            m_pStopCountdown->setGeometry(inner);
+            // Matches the AutoDJProcessor stop-guard timer (3 s).
+            m_pStopCountdown->start(3000, background);
+        }
+    } else {
+        if (m_pStopCountdown) {
+            m_pStopCountdown->stop();
+        }
+        // Restore the normal button appearance for the current Auto DJ state
+        // (autoDJStateChanged resets the checked state and tooltip).
+        autoDJStateChanged(m_pAutoDJProcessor->getState());
+    }
 }
 
 void DlgAutoDJ::applyTangoDefaultsIfNeeded() {

@@ -16,6 +16,7 @@ class WLibrary;
 class WTrackTableView;
 class Library;
 class KeyboardEventFilter;
+class WCountdownOverlay;
 class QTimer;
 
 class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
@@ -75,6 +76,14 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Builds the colored over/under delta text comparing the projected end against
     // the target end time (endTimeEdit), e.g. "▲ +0:04:20 over".
     QString formatEndTimeDelta(const QDateTime& projectedEnd) const;
+    // Refreshes the LIVE indicator (red when on, greyed when off) and applies the
+    // matching deck play/pause (D/L) keyboard suppression.
+    void refreshLiveMode();
+    // Right-click menu on the LIVE indicator to deliberately enter/exit LIVE mode.
+    void showLiveContextMenu(const QPoint& pos);
+    // Shows/clears the "Confirm Stop?" prompt on the Auto DJ button when the
+    // LIVE-mode stop guard arms/disarms.
+    void slotStopGuardArmedChanged(bool armed);
     void keyPressEvent(QKeyEvent* pEvent) override;
 
     const UserSettingsPointer m_pConfig;
@@ -88,6 +97,16 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Observes [AutoDJ],keep_queue (Tango DJ mode) so the toolbar refreshes
     // immediately when it is toggled in Preferences.
     ControlProxy* m_pKeepQueueControl;
+
+    // The app keyboard filter, used to suppress the deck play/pause keys (D/L)
+    // while LIVE mode is on. Not owned.
+    KeyboardEventFilter* const m_pKeyboard;
+    // Observes [AutoDJ],live_mode so the LIVE indicator and key suppression track
+    // the session-only LIVE state.
+    ControlProxy* m_pLiveModeControl;
+    // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
+    // stop guard is armed (parented to the button). Owned by the button.
+    WCountdownOverlay* m_pStopCountdown;
 
     // Ticks once a second to keep the Tango set end-time readout current. Only
     // runs while Tango mode is on (see refreshTangoModeUi).

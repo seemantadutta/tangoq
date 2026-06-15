@@ -137,7 +137,9 @@ AutoDJProcessor::AutoDJProcessor(
           m_addRandomTrack(ConfigKey(kControlGroup, QStringLiteral("add_random_track"))),
           m_fadeNow(ConfigKey(kControlGroup, QStringLiteral("fade_now"))),
           m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
-          m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))) {
+          m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))),
+          m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
+          m_stopGuardArmed(false) {
     m_pAutoDJTableModel = make_parented<PlaylistTableModel>(
             this, pTrackCollectionManager, "mixxx.db.model.autodj");
     m_pAutoDJTableModel->selectPlaylist(iAutoDJPlaylistId);
@@ -203,6 +205,16 @@ AutoDJProcessor::AutoDJProcessor(
             &ControlObject::valueChanged,
             this,
             &AutoDJProcessor::controlKeepQueue);
+
+    // LIVE mode is session-only (not restored from config), so it always starts
+    // off. The stop guard auto-disarms a few seconds after the first disable
+    // request if no confirming second request arrives.
+    m_stopGuardTimer.setSingleShot(true);
+    m_stopGuardTimer.setInterval(3000);
+    connect(&m_stopGuardTimer,
+            &QTimer::timeout,
+            this,
+            &AutoDJProcessor::disarmStopGuard);
 
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
@@ -428,6 +440,26 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
 }
 
 AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
+    // LIVE mode accidental-stop guard (Tango mode only): while a set is running,
+    // the first disable request only arms a short confirmation window; a second
+    // request within it actually stops. Covers the button, Shift+F12 and MIDI.
+    if (!enable && liveModeEnabled() && keepQueueEnabled() &&
+            m_eState != ADJ_DISABLED) {
+        if (!m_stopGuardArmed) {
+            m_stopGuardArmed = true;
+            m_stopGuardTimer.start();
+            // Keep Auto DJ enabled; the toolbar shows a "Confirm Stop?" prompt.
+            m_enabledAutoDJ.setAndConfirm(1.0);
+            emit stopGuardArmedChanged(true);
+            return ADJ_OK;
+        }
+        // Second request within the window: confirmed stop, fall through.
+        disarmStopGuard();
+    } else if (m_stopGuardArmed) {
+        // Any other request (e.g. re-enable) cancels a pending arm.
+        disarmStopGuard();
+    }
+
     if (enable) { // Enable Auto DJ
         DeckAttributes* pLeftDeck = getLeftDeck();
         DeckAttributes* pRightDeck = getRightDeck();
@@ -1071,6 +1103,19 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
 
 bool AutoDJProcessor::keepQueueEnabled() const {
     return m_keepQueue.toBool();
+}
+
+bool AutoDJProcessor::liveModeEnabled() const {
+    return m_liveMode.toBool();
+}
+
+void AutoDJProcessor::disarmStopGuard() {
+    if (!m_stopGuardArmed) {
+        return;
+    }
+    m_stopGuardArmed = false;
+    m_stopGuardTimer.stop();
+    emit stopGuardArmedChanged(false);
 }
 
 mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {

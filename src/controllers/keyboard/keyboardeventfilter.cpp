@@ -56,6 +56,12 @@ bool KeyboardEventFilter::eventFilter(QObject*, QEvent* e) {
                  it != m_keySequenceToControlHash.constEnd() && it.key() == ksv; ++it) {
                 const ConfigKey& configKey = it.value();
                 if (configKey.group != "[KeyboardShortcuts]") {
+                    if (m_suppressedControls.contains(configKey)) {
+                        // Suppressed (e.g. deck play/pause locked while Auto DJ
+                        // LIVE mode is on). Swallow the key so it has no effect.
+                        result = true;
+                        continue;
+                    }
                     ControlObject* control = ControlObject::getControl(configKey);
                     if (control) {
                         //qDebug() << configKey << "MidiOpCode::NoteOn" << 1;
@@ -199,4 +205,12 @@ void KeyboardEventFilter::setKeyboardConfig(ConfigObject<ConfigValueKbd>* pKbdCo
 
 ConfigObject<ConfigValueKbd>* KeyboardEventFilter::getKeyboardConfig() {
     return m_pKbdConfigObject;
+}
+
+void KeyboardEventFilter::setControlSuppressed(const ConfigKey& key, bool suppressed) {
+    if (suppressed) {
+        m_suppressedControls.insert(key);
+    } else {
+        m_suppressedControls.remove(key);
+    }
 }
