@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QString>
 #include <QWidget>
 
@@ -47,6 +48,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void updateSelectionInfo();
     void slotTransitionModeChanged(int comboboxIndex);
     void slotRepeatPlaylistChanged(bool checked);
+    void slotEndTimeChanged(const QTime& time);
 
   signals:
     void addRandomTrackButton(bool buttonChecked);
@@ -67,8 +69,12 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void applyTangoDefaultsIfNeeded();
     // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
     void updateNowPlaying();
-    // Refreshes the Tango DJ mode set end-time / time-left readout.
+    // Refreshes the Tango DJ mode set end-time / time-left readout, including the
+    // over/under delta against the target end time.
     void updateSetEndTime();
+    // Builds the colored over/under delta text comparing the projected end against
+    // the target end time (endTimeEdit), e.g. "▲ +0:04:20 over".
+    QString formatEndTimeDelta(const QDateTime& projectedEnd) const;
     void keyPressEvent(QKeyEvent* pEvent) override;
 
     const UserSettingsPointer m_pConfig;
@@ -90,6 +96,8 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // the label when the value actually changed (avoids needless toolbar repaints
     // that can flicker sibling widgets such as the waveform).
     QString m_lastSetTimeText;
+    // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
+    QString m_lastEndTimeDeltaText;
 
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;

@@ -19,6 +19,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
 
   private slots:
     void slotToggleTangoMode(bool checked);
+    void slotSetCortinaLength(int);
     void slotSetMinimumAvailable(int);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRequeueIgnore(Qt::CheckState state);

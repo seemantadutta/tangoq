@@ -1,6 +1,7 @@
 #include "library/autodj/autodjprocessor.h"
 
 #include "engine/channels/enginedeck.h"
+#include "library/autodj/cortinaregistry.h"
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "moc_autodjprocessor.cpp"
@@ -126,6 +127,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_keepQueueUpcomingTracks(0),
           m_keepQueueTotalSeconds(0.0),
           m_keepQueueTotalTracks(0),
+          m_keepQueueCortinaSeconds(45),
           m_keepQueueDurationDirty(true),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
@@ -1079,9 +1081,7 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // database to inspect its audible range), but it only changes on queue/cursor/
     // mode edits. Recompute it lazily and serve the cached value to the 1 Hz UI
     // refresh; only the cheap current-track remainder below is computed per call.
-    if (m_keepQueueDurationDirty) {
-        recomputeKeepQueueUpcomingDuration();
-    }
+    refreshSetDurationCacheIfNeeded();
     double seconds = m_keepQueueUpcomingSeconds;
     int remainingTracks = m_keepQueueUpcomingTracks;
     // Add the unplayed remainder of the current (playing or paused) track. The
@@ -1114,6 +1114,27 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     return mixxx::Duration::fromMillis(static_cast<qint64>(seconds * 1000.0));
 }
 
+void AutoDJProcessor::refreshSetDurationCacheIfNeeded() {
+    // The cortina budget is baked into the cached sums, so a change to it (only
+    // possible while Auto DJ is stopped) must re-dirty the cache.
+    const int cortinaSeconds =
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("CortinaLength")),
+                    45);
+    if (cortinaSeconds != m_keepQueueCortinaSeconds) {
+        m_keepQueueCortinaSeconds = cortinaSeconds;
+        m_keepQueueDurationDirty = true;
+    }
+    if (m_keepQueueDurationDirty) {
+        recomputeKeepQueueUpcomingDuration();
+    }
+}
+
+bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
+    return pTrack &&
+            CortinaRegistry::instance().contains(TrackId(pTrack->getId()));
+}
+
 void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
     const int rowCount = m_pAutoDJTableModel->rowCount();
     double totalSeconds = 0.0;
@@ -1140,9 +1161,7 @@ mixxx::Duration AutoDJProcessor::getTotalSetDuration() {
     if (!keepQueueEnabled()) {
         return mixxx::Duration::empty();
     }
-    if (m_keepQueueDurationDirty) {
-        recomputeKeepQueueUpcomingDuration();
-    }
+    refreshSetDurationCacheIfNeeded();
     double seconds = m_keepQueueTotalSeconds;
     // Subtract the per-boundary gap / crossfade overlap, matching the remaining
     // duration estimate. Only the fixed modes have a deterministic transition time.
@@ -1178,6 +1197,12 @@ double AutoDJProcessor::keepQueueTrackPlaySeconds(const TrackPointer& pTrack) co
     if (!pTrack) {
         return 0.0;
     }
+    // Cortinas are faded out manually with the crossfader, so the estimate budgets
+    // only the configured cortina length regardless of fade mode. Cap at the file
+    // length so a hand-picked cortina shorter than the budget isn't over-counted.
+    if (isCortina(pTrack)) {
+        return std::min<double>(m_keepQueueCortinaSeconds, pTrack->getDuration());
+    }
     // In Skip Silence mode the engine plays only the audible range, so subtract the
     // trimmed leading/trailing silence using the analyzed N60dBSound cue. Tracks
     // not yet analyzed have no such cue, so fall back to the full file duration.
@@ -1194,6 +1219,18 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
         const TrackPointer& pTrack, double playPosition) const {
     const double fullSeconds = pTrack->getDuration();
     const double currentSeconds = fullSeconds * playPosition;
+    // Cortina: budget a fixed play time using the ACTUAL elapsed position. While
+    // the DJ stays within budget the projected end clock holds steady; once they
+    // ride the cortina past the budget the remainder floors at 0 and the end clock
+    // slips later in real time, which is the correct, self-correcting behaviour.
+    if (isCortina(pTrack)) {
+        // Cap at the file length: the deck can't play past the end even if the
+        // budget is longer than the track.
+        const double budget = std::min<double>(
+                m_keepQueueCortinaSeconds, fullSeconds);
+        const double remaining = budget - currentSeconds;
+        return remaining > 0.0 ? remaining : 0.0;
+    }
     // In Skip Silence mode the current track fades out at its last audible sample,
     // not the end of the file, so count the remainder up to that point.
     if (m_transitionMode == TransitionMode::FixedSkipSilence) {

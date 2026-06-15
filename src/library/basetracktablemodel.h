@@ -80,6 +80,11 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // prefix) for tracks tagged in the CortinaRegistry. Only the Auto DJ model
     // turns this on, so other track tables are unaffected.
     void setShowCortinaMarks(bool enable);
+    // True only for the Auto DJ model (see setShowCortinaMarks). Used to scope the
+    // cortina context-menu action to the Auto DJ list.
+    bool showCortinaMarks() const {
+        return m_showCortinaMarks;
+    }
 
     // Calculate the number of columns from all valid
     // column headers.

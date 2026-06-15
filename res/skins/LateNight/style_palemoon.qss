@@ -713,6 +713,45 @@ WBeatSpinBox::down-button,
       }
 
 
+/********************** AutoDJ Tango end-time picker *******************/
+/* Match the AutoDJ transition spinbox so the Tango end-time QTimeEdit blends
+   into the toolbar instead of showing the default white field. */
+  #endTimeEdit {
+    color: #a7998b;
+    selection-color: #a7998b;
+    selection-background-color: #111;
+    height: 19px;
+    padding: 0px -15px 0px 3px;
+    margin: 0px 2px 3px 2px;
+    border-width: 3px 19px 2px 3px;
+    border-image: url(skins:LateNight/palemoon/buttons/btn_embedded_spinbox_autodj.svg) 3 19 2 3;
+    }
+    #endTimeEdit:focus {
+      border-image: url(skins:LateNight/palemoon/buttons/btn_embedded_spinbox_focus_blue.svg) 3 19 2 3;
+      selection-color: #000;
+      selection-background-color: #d2d2d2;
+    }
+  #endTimeEdit::up-button,
+  #endTimeEdit::down-button {
+    subcontrol-origin: content;
+    position: relative;
+    width: 18px;
+    padding: 0px;
+    }
+    #endTimeEdit::up-button {
+      height: 11px;
+      subcontrol-position: top right;
+      image: url(skins:LateNight/palemoon/buttons/btn__spinbox_up.svg) no-repeat;
+      margin: -2px -3px 0px 0px;
+      }
+    #endTimeEdit::down-button {
+      height: 11px;
+      subcontrol-position: bottom right;
+      image: url(skins:LateNight/palemoon/buttons/btn__spinbox_down.svg) no-repeat;
+      margin: 0px -3px -1px 0px;
+      }
+
+
 /************** Mixer ***************************************************/
 
 #CrossfaderContainer[highlight="1"] {

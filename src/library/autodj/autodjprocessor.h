@@ -330,8 +330,15 @@ class AutoDJProcessor : public QObject {
     void invalidateRemainingSetDuration() {
         m_keepQueueDurationDirty = true;
     }
+    // Picks up a changed "Default cortina length" preference (only editable while
+    // Auto DJ is stopped) and recomputes the cached sums when stale.
+    void refreshSetDurationCacheIfNeeded();
+    // True if the track is tagged as a cortina (faded out manually, so the set
+    // estimate budgets only the configured cortina length for it).
+    bool isCortina(const TrackPointer& pTrack) const;
     // Estimated playback seconds an upcoming (not-yet-loaded) track contributes:
-    // its audible range in Skip Silence mode, otherwise the full file duration.
+    // the cortina budget if tagged, else its audible range in Skip Silence mode,
+    // else the full file duration.
     double keepQueueTrackPlaySeconds(const TrackPointer& pTrack) const;
     // Unplayed seconds of the current (playing/paused) track at playPosition,
     // stopping at the last audible sample in Skip Silence mode.
@@ -369,6 +376,9 @@ class AutoDJProcessor : public QObject {
     // Length" readout.
     double m_keepQueueTotalSeconds;
     int m_keepQueueTotalTracks;
+    // Cortina play-time budget (seconds) baked into the cached sums above. Read
+    // from [Auto DJ]/CortinaLength; a change re-dirties the cache.
+    int m_keepQueueCortinaSeconds;
     bool m_keepQueueDurationDirty;
     TransitionMode m_transitionMode;
 

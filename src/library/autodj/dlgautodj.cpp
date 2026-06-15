@@ -6,6 +6,7 @@
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QTimeEdit>
 #include <QTimer>
 
 #include "controllers/keyboard/keyboardeventfilter.h"
@@ -22,6 +23,9 @@
 namespace {
 const char* kPreferenceGroupName = "[Auto DJ]";
 const char* kRepeatPlaylistPreference = "Requeue";
+const char* kEndTimePreference = "TangoEndTime";
+const QString kDefaultEndTime = QStringLiteral("23:30:00");
+const QString kEndTimeFormat = QStringLiteral("HH:mm:ss");
 
 // Formats a set duration as HH:MM:SS, e.g. "2:03:47" or "0:47:12".
 QString formatSetDuration(const mixxx::Duration& duration) {
@@ -253,6 +257,22 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pSetTimeTimer->setInterval(1000);
     connect(m_pSetTimeTimer, &QTimer::timeout, this, &DlgAutoDJ::updateSetEndTime);
 
+    // Target end time for the milonga (Tango DJ mode). The over/under indicator
+    // next to it compares the projected set end against this. Editable at any time
+    // and persisted; defaults to 23:30:00.
+    QTime endTime = QTime::fromString(
+            m_pConfig->getValue(ConfigKey(kPreferenceGroupName, kEndTimePreference),
+                    kDefaultEndTime),
+            kEndTimeFormat);
+    if (!endTime.isValid()) {
+        endTime = QTime::fromString(kDefaultEndTime, kEndTimeFormat);
+    }
+    endTimeEdit->setTime(endTime);
+    connect(endTimeEdit,
+            &QTimeEdit::timeChanged,
+            this,
+            &DlgAutoDJ::slotEndTimeChanged);
+
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
     // mind that AutoDJ may already be active when DlgAutoDJ is created (due to
     // skin changes, etc.).
@@ -401,6 +421,10 @@ void DlgAutoDJ::refreshTangoModeUi() {
     const bool tango = m_pKeepQueueControl->toBool();
     // Update the read-only toolbar indicator.
     pushButtonKeepQueue->setChecked(tango);
+    // The set-time readout and the target end-time controls are Tango-only.
+    labelSetEndTime->setVisible(tango);
+    endTimeEdit->setVisible(tango);
+    labelEndTimeDelta->setVisible(tango);
     // In Tango mode, disable the controls that can wreck a pre-arranged live
     // set if triggered by accident. Dim them so they clearly read as locked,
     // instead of vanishing or still looking clickable.
@@ -458,6 +482,7 @@ void DlgAutoDJ::updateNowPlaying() {
 
 void DlgAutoDJ::updateSetEndTime() {
     QString text;
+    QString deltaText;
     // The readout is a Tango DJ mode feature only; otherwise it stays empty.
     if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
         // "Set Length" is the constant total of the whole set; it reads the same
@@ -483,16 +508,61 @@ void DlgAutoDJ::updateSetEndTime() {
                 const QString gap = QStringLiteral("&nbsp;&nbsp;&nbsp;");
                 text += gap + tr("Ends: %1").arg(endRed);
                 text += gap + tr("Left: %1").arg(formatSetDuration(remaining));
+                // Over/under against the target end time, shown only while running
+                // (there is no projected end clock otherwise).
+                deltaText = formatEndTimeDelta(end);
             }
         }
     }
-    // Only touch the label when the text actually changes. Re-setting it every
+    // Only touch the labels when the text actually changes. Re-setting them every
     // second otherwise forces a needless toolbar repaint, which can make sibling
     // widgets (e.g. the deck waveforms) flicker.
     if (text != m_lastSetTimeText) {
         m_lastSetTimeText = text;
         labelTangoSetTime->setText(text);
     }
+    if (deltaText != m_lastEndTimeDeltaText) {
+        m_lastEndTimeDeltaText = deltaText;
+        labelEndTimeDelta->setText(deltaText);
+    }
+}
+
+QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
+    // Anchor the target time-of-day to the calendar day nearest the projected end
+    // so the comparison stays correct across midnight (e.g. target 00:15 vs an end
+    // clock of 23:58). Start from the projected end (same date and time zone) and
+    // overwrite just the time of day.
+    QDateTime target = projectedEnd;
+    target.setTime(endTimeEdit->time());
+    constexpr qint64 kHalfDaySecs = 12 * 3600;
+    const qint64 toEnd = target.secsTo(projectedEnd);
+    if (toEnd > kHalfDaySecs) {
+        target = target.addDays(1);
+    } else if (toEnd < -kHalfDaySecs) {
+        target = target.addDays(-1);
+    }
+    const qint64 deltaSecs = target.secsTo(projectedEnd);
+    if (deltaSecs == 0) {
+        return tr("● on time");
+    }
+    // Positive => the set ends after the target (running over); negative => under.
+    const bool over = deltaSecs > 0;
+    const QString magnitude = formatSetDuration(
+            mixxx::Duration::fromMillis(qAbs(deltaSecs) * 1000));
+    return QStringLiteral("<span style=\"color:%1; font-weight:bold;\">%2 %3%4 %5</span>")
+            .arg(over ? QStringLiteral("#ee4444") : QStringLiteral("#55aa55"),
+                    over ? QStringLiteral("▲") : QStringLiteral("▼"),
+                    over ? QStringLiteral("+") : QStringLiteral("-"),
+                    magnitude,
+                    over ? tr("over") : tr("under"));
+}
+
+void DlgAutoDJ::slotEndTimeChanged(const QTime& time) {
+    m_pConfig->setValue(ConfigKey(kPreferenceGroupName, kEndTimePreference),
+            time.toString(kEndTimeFormat));
+    // Refresh immediately so the over/under indicator tracks the edit without
+    // waiting for the next per-second tick.
+    updateSetEndTime();
 }
 
 void DlgAutoDJ::applyTangoDefaultsIfNeeded() {

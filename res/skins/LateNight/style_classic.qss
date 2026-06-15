@@ -685,6 +685,48 @@ WLibrary {
         }
 
 
+/********************** AutoDJ Tango end-time picker *************************/
+/* Match the AutoDJ transition spinbox so the Tango end-time QTimeEdit blends
+   into the toolbar instead of showing the default white field. */
+  #endTimeEdit {
+    color: #888;
+    border-width: 3px 19px 2px 3px;
+    border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
+    height: 19px;
+    padding: 0px -15px 0px 3px;
+    margin: 0px 2px 3px 2px;
+    background-color: #0f0f0f;
+    }
+    #endTimeEdit:focus {
+      border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border_focus_orange.svg) 3 19 2 3;
+    }
+  #endTimeEdit::up-button,
+  #endTimeEdit::down-button {
+    subcontrol-origin: content;
+    position: relative;
+    width: 17px;
+    padding: 0px;
+    }
+    #endTimeEdit::up-button {
+      height: 11px;
+      subcontrol-position: top right;
+      image: url(skins:LateNight/classic/buttons/spinbox_up.svg) no-repeat;
+      margin: -2px -3px 0px 0px;
+      }
+      #endTimeEdit::up-button:pressed {
+        image: url(skins:LateNight/classic/buttons/spinbox_up_pressed.svg) no-repeat;
+      }
+    #endTimeEdit::down-button {
+      height: 11px;
+      subcontrol-position: bottom right;
+      image: url(skins:LateNight/classic/buttons/spinbox_down.svg) no-repeat;
+      margin: 0px -3px -1px 0px;
+      }
+      #endTimeEdit::down-button:pressed {
+        image: url(skins:LateNight/classic/buttons/spinbox_down_pressed.svg) no-repeat;
+      }
+
+
 
 /************** Mixer *********************************************************/
 
