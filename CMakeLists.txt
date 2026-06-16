@@ -936,6 +936,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/autodj/cortinaregistry.cpp
   src/library/autodj/dlgautodj.cpp
   src/library/autodj/dlgautodj.ui
+  src/library/autodj/dlgautodjwindow.cpp
   src/library/banshee/bansheedbconnection.cpp
   src/library/banshee/bansheefeature.cpp
   src/library/banshee/bansheeplaylistmodel.cpp

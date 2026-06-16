@@ -5,6 +5,7 @@
 
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/dlgautodj.h"
+#include "library/autodj/dlgautodjwindow.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/parser.h"
@@ -54,6 +55,8 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_pAutoDJProcessor(nullptr),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_pAutoDJView(nullptr),
+          m_showAutoDJWindowControl(ConfigKey(
+                  QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_window"))),
           m_autoDjCratesDao(m_iAutoDJPlaylistId, pLibrary->trackCollectionManager(), m_pConfig) {
     qRegisterMetaType<AutoDJProcessor::AutoDJState>("AutoDJState");
     m_pAutoDJProcessor = new AutoDJProcessor(this,
@@ -71,6 +74,14 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             Qt::QueuedConnection);
 
     m_playlistDao.setAutoDJProcessor(m_pAutoDJProcessor);
+
+    // Detached Auto DJ queue window toggle (bound to the View menu). The window is
+    // created lazily the first time it is shown.
+    m_showAutoDJWindowControl.setButtonMode(ControlPushButton::TOGGLE);
+    connect(&m_showAutoDJWindowControl,
+            &ControlObject::valueChanged,
+            this,
+            &AutoDJFeature::slotShowAutoDJWindowChanged);
 
     // Create the "Crates" tree-item under the root item.
     std::unique_ptr<TreeItem> pRootItem = TreeItem::newRoot(this);
@@ -121,7 +132,60 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
 }
 
 AutoDJFeature::~AutoDJFeature() {
+    // Destroy the detached window (a second view of the processor's model) before
+    // the processor, so its table view never references a freed model.
+    m_pAutoDJWindow.reset();
     delete m_pAutoDJProcessor;
+}
+
+void AutoDJFeature::slotShowAutoDJWindowChanged(double value) {
+    setAutoDJWindowVisible(value > 0.0);
+}
+
+void AutoDJFeature::setAutoDJWindowVisible(bool visible) {
+    if (visible) {
+        if (!m_pAutoDJWindow) {
+            m_pAutoDJWindow = std::make_unique<DlgAutoDJWindow>(
+                    m_pConfig, m_pLibrary, m_pAutoDJProcessor->getTableModel());
+            // Route loads the same way the docked Auto DJ view does.
+            connect(m_pAutoDJWindow.get(),
+                    &DlgAutoDJWindow::loadTrack,
+                    this,
+                    &AutoDJFeature::loadTrack);
+            connect(m_pAutoDJWindow.get(),
+                    &DlgAutoDJWindow::loadTrackToPlayer,
+                    this,
+                    &LibraryFeature::loadTrackToPlayer);
+            // Closing the window clears the toggle so the View menu check follows.
+            connect(m_pAutoDJWindow.get(),
+                    &DlgAutoDJWindow::closed,
+                    this,
+                    [this]() {
+                        m_showAutoDJWindowControl.set(0.0);
+                    });
+        }
+        // Re-apply each time it is shown so it tracks the current skin.
+        m_pAutoDJWindow->setStyleSheet(libraryStyleSheet());
+        m_pAutoDJWindow->show();
+        m_pAutoDJWindow->raise();
+        m_pAutoDJWindow->activateWindow();
+    } else if (m_pAutoDJWindow) {
+        m_pAutoDJWindow->hide();
+    }
+}
+
+QString AutoDJFeature::libraryStyleSheet() const {
+    // The skin applies the library stylesheet (track-table colors, header
+    // styling, alternating rows, etc.) to the WLibrary widget. Copy it onto the
+    // detached window so its track table matches the docked Auto DJ view. Walk
+    // up the parent chain in case a skin sets the style on an ancestor instead.
+    for (const QWidget* w = m_pLibraryWidget; w; w = w->parentWidget()) {
+        const QString sheet = w->styleSheet();
+        if (!sheet.isEmpty()) {
+            return sheet;
+        }
+    }
+    return QString();
 }
 
 QVariant AutoDJFeature::title() {
@@ -131,6 +195,12 @@ QVariant AutoDJFeature::title() {
 void AutoDJFeature::bindLibraryWidget(
         WLibrary* libraryWidget,
         KeyboardEventFilter* keyboard) {
+    // Remember the docked library widget so the detached window can mirror its
+    // skin stylesheet (re-bound on every skin load).
+    m_pLibraryWidget = libraryWidget;
+    if (m_pAutoDJWindow) {
+        m_pAutoDJWindow->setStyleSheet(libraryStyleSheet());
+    }
     m_pAutoDJView = new DlgAutoDJ(
             libraryWidget,
             m_pConfig,

@@ -5,7 +5,9 @@
 #include <QPointer>
 #include <QUrl>
 #include <QVariant>
+#include <memory>
 
+#include "control/controlpushbutton.h"
 #include "library/dao/autodjcratesdao.h"
 #include "library/libraryfeature.h"
 #include "library/trackset/crate/crate.h"
@@ -13,7 +15,9 @@
 #include "util/parented_ptr.h"
 
 class DlgAutoDJ;
+class DlgAutoDJWindow;
 class Library;
+class WLibrary;
 class PlayerManagerInterface;
 class TrackCollection;
 class AutoDJProcessor;
@@ -66,6 +70,20 @@ class AutoDJFeature : public LibraryFeature {
     parented_ptr<TreeItemModel> m_pSidebarModel;
     DlgAutoDJ* m_pAutoDJView;
 
+    // Toggle control for the detached Auto DJ queue window ([AutoDJ],
+    // show_autodj_window). The View menu binds to it; the window follows it.
+    ControlPushButton m_showAutoDJWindowControl;
+    // Lazily-created detached queue window, owned here.
+    std::unique_ptr<DlgAutoDJWindow> m_pAutoDJWindow;
+    // The docked library widget, captured in bindLibraryWidget(). Used as the
+    // source of the skin's library stylesheet for the detached window.
+    QPointer<WLibrary> m_pLibraryWidget;
+    // Shows (creating it on first use) or hides the detached queue window.
+    void setAutoDJWindowVisible(bool visible);
+    // The skin's library stylesheet, so the detached window's track table
+    // matches the docked Auto DJ view.
+    QString libraryStyleSheet() const;
+
     // Initialize the list of crates loaded into the auto-DJ queue.
     void constructCrateChildModel();
     void removeCrateFromAutoDj(CrateId crateId = CrateId());
@@ -89,6 +107,8 @@ class AutoDJFeature : public LibraryFeature {
     QPointer<WLibrarySidebar> m_pSidebarWidget;
 
   private slots:
+    // Reacts to the [AutoDJ],show_autodj_window control (from the View menu).
+    void slotShowAutoDJWindowChanged(double value);
     void slotClearQueue();
     // Add a crate to the auto-DJ queue.
     void slotAddCrateToAutoDj(CrateId crateId);

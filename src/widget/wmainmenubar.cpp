@@ -332,6 +332,24 @@ void WMainMenuBar::initialize() {
     connect(m_pViewKeywheel, &QAction::triggered, this, &WMainMenuBar::showKeywheel);
     pViewMenu->addAction(m_pViewKeywheel);
 
+    // Detached, always-visible Auto DJ queue window, toggled via the
+    // [AutoDJ],show_autodj_window control owned by AutoDJFeature.
+    QString autoDJWindowTitle = tr("Auto DJ Window");
+    QString autoDJWindowText =
+            tr("Show the Auto DJ queue in a separate, always-visible window.");
+    auto* pViewAutoDJWindow = new QAction(autoDJWindowTitle, this);
+    pViewAutoDJWindow->setCheckable(true);
+    pViewAutoDJWindow->setStatusTip(autoDJWindowText);
+    pViewAutoDJWindow->setWhatsThis(buildWhatsThis(autoDJWindowTitle, autoDJWindowText));
+    // The [AutoDJ],show_autodj_window control is created later by AutoDJFeature,
+    // during CoreServices init (after this menu is first built). Bind through the
+    // visibility-control mechanism, which (re)connects the proxy on skin load -
+    // by which point the control exists. A direct ControlProxy created here would
+    // bind to a throwaway default control and never see the real one.
+    createVisibilityControl(pViewAutoDJWindow,
+            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_window")));
+    pViewMenu->addAction(pViewAutoDJWindow);
+
     QString maximizeLibraryTitle = tr("Maximize Library");
     QString maximizeLibraryText = tr("Maximize the track library to take up all the available screen space.") +
             " " + mayNotBeSupported;
