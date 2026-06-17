@@ -1,14 +1,16 @@
 #include "library/autodj/autodjfeature.h"
 
+#include <QDockWidget>
 #include <QMenu>
 #include <QtDebug>
 
+#include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/dlgautodj.h"
-#include "library/autodj/dlgautodjwindow.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/parser.h"
+#include "library/playlisttablemodel.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackset/crate/cratestorage.h"
@@ -19,8 +21,10 @@
 #include "util/clipboard.h"
 #include "util/defs.h"
 #include "util/dnd.h"
+#include "widget/wdocktitlebar.h"
 #include "widget/wlibrary.h"
 #include "widget/wlibrarysidebar.h"
+#include "widget/wtracktableview.h"
 
 namespace {
 
@@ -31,18 +35,18 @@ const QString kViewName = QStringLiteral("Auto DJ");
 namespace {
 constexpr int kMaxRetrieveAttempts = 3;
 
-    int findOrCrateAutoDjPlaylistId(PlaylistDAO& playlistDAO) {
-        int playlistId = playlistDAO.getPlaylistIdFromName(AUTODJ_TABLE);
-        // If the AutoDJ playlist does not exist yet then create it.
-        if (playlistId < 0) {
-            playlistId = playlistDAO.createPlaylist(
-                    AUTODJ_TABLE, PlaylistDAO::PLHT_AUTO_DJ);
-            VERIFY_OR_DEBUG_ASSERT(playlistId >= 0) {
-                qWarning() << "Failed to create Auto DJ playlist!";
-            }
+int findOrCrateAutoDjPlaylistId(PlaylistDAO& playlistDAO) {
+    int playlistId = playlistDAO.getPlaylistIdFromName(AUTODJ_TABLE);
+    // If the AutoDJ playlist does not exist yet then create it.
+    if (playlistId < 0) {
+        playlistId = playlistDAO.createPlaylist(
+                AUTODJ_TABLE, PlaylistDAO::PLHT_AUTO_DJ);
+        VERIFY_OR_DEBUG_ASSERT(playlistId >= 0) {
+            qWarning() << "Failed to create Auto DJ playlist!";
         }
-        return playlistId;
     }
+    return playlistId;
+}
 } // anonymous namespace
 
 AutoDJFeature::AutoDJFeature(Library* pLibrary,
@@ -55,8 +59,9 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_pAutoDJProcessor(nullptr),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_pAutoDJView(nullptr),
-          m_showAutoDJWindowControl(ConfigKey(
-                  QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_window"))),
+          m_showAutoDJDockControl(ConfigKey(
+                  QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_dock"))),
+          m_pTangoModeControl(nullptr),
           m_autoDjCratesDao(m_iAutoDJPlaylistId, pLibrary->trackCollectionManager(), m_pConfig) {
     qRegisterMetaType<AutoDJProcessor::AutoDJState>("AutoDJState");
     m_pAutoDJProcessor = new AutoDJProcessor(this,
@@ -75,13 +80,20 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
 
     m_playlistDao.setAutoDJProcessor(m_pAutoDJProcessor);
 
-    // Detached Auto DJ queue window toggle (bound to the View menu). The window is
-    // created lazily the first time it is shown.
-    m_showAutoDJWindowControl.setButtonMode(ControlPushButton::TOGGLE);
-    connect(&m_showAutoDJWindowControl,
+    // Dockable Auto DJ queue panel toggle (bound to the View menu).
+    m_showAutoDJDockControl.setButtonMode(ControlPushButton::TOGGLE);
+    connect(&m_showAutoDJDockControl,
             &ControlObject::valueChanged,
             this,
-            &AutoDJFeature::slotShowAutoDJWindowChanged);
+            &AutoDJFeature::slotShowAutoDJDockChanged);
+
+    // Observe Tango mode ([AutoDJ],keep_queue, created by the processor above) so
+    // the queue panel can be gated behind it.
+    m_pTangoModeControl = new ControlProxy(
+            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")),
+            this);
+    m_pTangoModeControl->connectValueChanged(
+            this, &AutoDJFeature::slotTangoModeChanged);
 
     // Create the "Crates" tree-item under the root item.
     std::unique_ptr<TreeItem> pRootItem = TreeItem::newRoot(this);
@@ -132,53 +144,14 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
 }
 
 AutoDJFeature::~AutoDJFeature() {
-    // Destroy the detached window (a second view of the processor's model) before
-    // the processor, so its table view never references a freed model.
-    m_pAutoDJWindow.reset();
     delete m_pAutoDJProcessor;
-}
-
-void AutoDJFeature::slotShowAutoDJWindowChanged(double value) {
-    setAutoDJWindowVisible(value > 0.0);
-}
-
-void AutoDJFeature::setAutoDJWindowVisible(bool visible) {
-    if (visible) {
-        if (!m_pAutoDJWindow) {
-            m_pAutoDJWindow = std::make_unique<DlgAutoDJWindow>(
-                    m_pConfig, m_pLibrary, m_pAutoDJProcessor->getTableModel());
-            // Route loads the same way the docked Auto DJ view does.
-            connect(m_pAutoDJWindow.get(),
-                    &DlgAutoDJWindow::loadTrack,
-                    this,
-                    &AutoDJFeature::loadTrack);
-            connect(m_pAutoDJWindow.get(),
-                    &DlgAutoDJWindow::loadTrackToPlayer,
-                    this,
-                    &LibraryFeature::loadTrackToPlayer);
-            // Closing the window clears the toggle so the View menu check follows.
-            connect(m_pAutoDJWindow.get(),
-                    &DlgAutoDJWindow::closed,
-                    this,
-                    [this]() {
-                        m_showAutoDJWindowControl.set(0.0);
-                    });
-        }
-        // Re-apply each time it is shown so it tracks the current skin.
-        m_pAutoDJWindow->setStyleSheet(libraryStyleSheet());
-        m_pAutoDJWindow->show();
-        m_pAutoDJWindow->raise();
-        m_pAutoDJWindow->activateWindow();
-    } else if (m_pAutoDJWindow) {
-        m_pAutoDJWindow->hide();
-    }
 }
 
 QString AutoDJFeature::libraryStyleSheet() const {
     // The skin applies the library stylesheet (track-table colors, header
     // styling, alternating rows, etc.) to the WLibrary widget. Copy it onto the
-    // detached window so its track table matches the docked Auto DJ view. Walk
-    // up the parent chain in case a skin sets the style on an ancestor instead.
+    // dockable queue panel so its track table matches the docked Auto DJ view.
+    // Walk up the parent chain in case a skin sets the style on an ancestor.
     for (const QWidget* w = m_pLibraryWidget; w; w = w->parentWidget()) {
         const QString sheet = w->styleSheet();
         if (!sheet.isEmpty()) {
@@ -188,6 +161,114 @@ QString AutoDJFeature::libraryStyleSheet() const {
     return QString();
 }
 
+QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
+    VERIFY_OR_DEBUG_ASSERT(!m_pAutoDJDock) {
+        // Only one dock is supported; hand back the existing one rather than
+        // leaking a second view.
+        return m_pAutoDJDock;
+    }
+    auto* pDock = new QDockWidget(tr("Auto DJ Queue"), parent);
+    // A stable object name is required for QMainWindow::saveState()/
+    // restoreState()/restoreDockWidget() to persist size/position/visibility.
+    pDock->setObjectName(QStringLiteral("AutoDJDock"));
+    pDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
+    // Replace the native title bar with a themed one so the skin's gradient
+    // shows in both the docked and floating states (Qt draws a native, unstyled
+    // title bar on floating docks otherwise). Re-docking is offered through this
+    // bar's float/dock button, a double-click, and the right-click menu below.
+    pDock->setTitleBarWidget(new WDockTitleBar(pDock));
+
+    // A second view onto the shared, live Auto DJ queue model, so it stays in
+    // sync with the docked Auto DJ view (including the Tango cursor highlight).
+    auto* pTrackTableView = new WTrackTableView(pDock, m_pConfig, m_pLibrary, 1.0);
+    pTrackTableView->loadTrackModel(m_pAutoDJProcessor->getTableModel());
+    connect(pTrackTableView,
+            &WTrackTableView::loadTrack,
+            this,
+            &AutoDJFeature::loadTrack);
+    connect(pTrackTableView,
+            &WTrackTableView::loadTrackToPlayer,
+            this,
+            &LibraryFeature::loadTrackToPlayer);
+    pDock->setWidget(pTrackTableView);
+
+    // Right-clicking the dock title bar offers an explicit Float/Dock toggle,
+    // in addition to the native drag and title-bar float button.
+    pDock->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(pDock,
+            &QWidget::customContextMenuRequested,
+            this,
+            [this](const QPoint& pos) {
+                if (!m_pAutoDJDock) {
+                    return;
+                }
+                // Parent to the dock and tag with an object name so the menu
+                // inherits the skin stylesheet and is themed like other menus
+                // (a parentless QMenu would render with native styling).
+                QMenu menu(m_pAutoDJDock);
+                menu.setObjectName(QStringLiteral("AutoDJContextMenu"));
+                QAction* pToggle = menu.addAction(m_pAutoDJDock->isFloating()
+                                ? tr("Dock to Side")
+                                : tr("Float"));
+                if (menu.exec(m_pAutoDJDock->mapToGlobal(pos)) == pToggle) {
+                    m_pAutoDJDock->setFloating(!m_pAutoDJDock->isFloating());
+                }
+            });
+
+    // Keep the View-menu check in sync when the user closes the dock.
+    connect(pDock,
+            &QDockWidget::visibilityChanged,
+            this,
+            &AutoDJFeature::slotAutoDJDockVisibilityChanged);
+
+    m_pAutoDJDock = pDock;
+    m_pAutoDJDock->setStyleSheet(libraryStyleSheet());
+    return pDock;
+}
+
+bool AutoDJFeature::tangoModeEnabled() const {
+    return m_pTangoModeControl && m_pTangoModeControl->toBool();
+}
+
+void AutoDJFeature::slotShowAutoDJDockChanged(double value) {
+    if (!m_pAutoDJDock) {
+        return;
+    }
+    // The queue panel is a Tango-mode feature; never show it outside Tango mode.
+    m_pAutoDJDock->setVisible(value > 0.0 && tangoModeEnabled());
+}
+
+void AutoDJFeature::slotTangoModeChanged(double value) {
+    // Leaving Tango mode hides the queue panel and clears the toggle so the View
+    // menu unchecks (and is greyed out by the menu's own Tango gate).
+    if (value <= 0.0) {
+        m_showAutoDJDockControl.set(0.0);
+        if (m_pAutoDJDock) {
+            m_pAutoDJDock->hide();
+        }
+    }
+}
+
+void AutoDJFeature::slotAutoDJDockVisibilityChanged(bool visible) {
+    if (!m_pAutoDJDock) {
+        return;
+    }
+    // Enforce the Tango-mode gate even against a restored window layout: the
+    // panel must never end up visible outside Tango mode.
+    if (visible && !tangoModeEnabled()) {
+        m_pAutoDJDock->hide();
+        return;
+    }
+    // QDockWidget::visibilityChanged(false) also fires when the main window is
+    // minimized. Mirror only genuine user-driven show/hide: in that case the
+    // dock's own explicit hidden state matches the reported visibility.
+    if (m_pAutoDJDock->isHidden() == visible) {
+        return;
+    }
+    m_showAutoDJDockControl.set(visible ? 1.0 : 0.0);
+}
+
 QVariant AutoDJFeature::title() {
     return tr("Auto DJ");
 }
@@ -195,11 +276,11 @@ QVariant AutoDJFeature::title() {
 void AutoDJFeature::bindLibraryWidget(
         WLibrary* libraryWidget,
         KeyboardEventFilter* keyboard) {
-    // Remember the docked library widget so the detached window can mirror its
-    // skin stylesheet (re-bound on every skin load).
+    // Remember the docked library widget so the dockable queue panel can mirror
+    // its skin stylesheet (re-bound on every skin load).
     m_pLibraryWidget = libraryWidget;
-    if (m_pAutoDJWindow) {
-        m_pAutoDJWindow->setStyleSheet(libraryStyleSheet());
+    if (m_pAutoDJDock) {
+        m_pAutoDJDock->setStyleSheet(libraryStyleSheet());
     }
     m_pAutoDJView = new DlgAutoDJ(
             libraryWidget,
@@ -243,7 +324,7 @@ TreeItemModel* AutoDJFeature::sidebarModel() const {
 }
 
 void AutoDJFeature::activate() {
-    //qDebug() << "AutoDJFeature::activate()";
+    // qDebug() << "AutoDJFeature::activate()";
     emit switchToView(kViewName);
     emit disableSearch();
     emit enableCoverArtDisplay(true);
@@ -257,7 +338,7 @@ void AutoDJFeature::clear() {
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);
     if (btn == QMessageBox::Yes) {
-            m_playlistDao.clearAutoDJQueue();
+        m_playlistDao.clearAutoDJQueue();
     }
 }
 
@@ -269,7 +350,7 @@ void AutoDJFeature::paste() {
 void AutoDJFeature::deleteItem(const QModelIndex& index) {
     TreeItem* pSelectedItem = static_cast<TreeItem*>(index.internalPointer());
     if (!pSelectedItem || pSelectedItem == m_pCratesTreeItem) {
-            return;
+        return;
     }
     CrateId crateId(pSelectedItem->getData());
     removeCrateFromAutoDj(crateId);
@@ -376,7 +457,7 @@ void AutoDJFeature::slotAddRandomTrack() {
                 pRandomTrack = m_pLibrary->trackCollectionManager()->getTrackById(randomTrackId);
                 VERIFY_OR_DEBUG_ASSERT(pRandomTrack) {
                     qWarning() << "Track does not exist:"
-                            << randomTrackId;
+                               << randomTrackId;
                     continue;
                 }
                 if (!pRandomTrack->getFileInfo().checkFileExists()) {

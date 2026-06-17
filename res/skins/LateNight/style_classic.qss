@@ -1189,7 +1189,8 @@ WCoverArtMenu,
 WCueMenuPopup,
 WCueMenuPopup QLabel,
 #CueLabelEdit,
-#LatencyLabel, WTime {
+#LatencyLabel, WTime,
+QMenu#AutoDJContextMenu {
   color: #f0bb2b;
 }
 /* Override the 'missing' color in Tracks > Missing,
@@ -2371,6 +2372,43 @@ WTrackTableViewHeader {
     }
 
 
+/*********** Auto DJ Queue dock panel **************************/
+/* The detached/dockable Auto DJ queue panel copies this library stylesheet. It
+   uses a custom WDockTitleBar (instead of the native title bar) so the themed
+   gradient shows in both the docked and floating states. */
+
+QDockWidget {
+  color: #bbb;
+}
+WDockTitleBar {
+  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 #222,
+    stop:1 #111);
+  border-bottom: 1px solid #000;
+}
+WDockTitleBar QLabel#AutoDJDockTitleLabel {
+  color: #bbb;
+  padding-left: 2px;
+}
+WDockTitleBar QToolButton {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 1px;
+  width: 14px;
+  height: 14px;
+}
+WDockTitleBar QToolButton:hover {
+  background-color: #444;
+  border: 1px solid #555;
+}
+QToolButton#AutoDJDockFloatButton {
+  qproperty-icon: url(skins:LateNight/classic/buttons/btn__expand.svg);
+}
+QToolButton#AutoDJDockCloseButton {
+  qproperty-icon: url(skins:LateNight/classic/buttons/btn__settings_close.svg);
+}
+
 
 /*********** scrollbars *********************************/
 #LibraryContainer QScrollBar,
@@ -2605,7 +2643,8 @@ WEffectSelector QAbstractScrollArea,
 WEffectChainPresetSelector QAbstractScrollArea,
 WEffectChainPresetButton QMenu,
 WSearchLineEdit QAbstractScrollArea,
-#fadeModeCombobox QAbstractScrollArea {
+#fadeModeCombobox QAbstractScrollArea,
+QMenu#AutoDJContextMenu {
   border: 1px solid #888;
   border-radius: 2px;
 }
@@ -2648,8 +2687,15 @@ WEffectChainPresetButton QMenu QCheckBox,
 WSearchLineEdit QAbstractScrollArea,
 WSearchLineEdit::item,
 #fadeModeCombobox QAbstractScrollArea,
-#fadeModeCombobox::item {
+#fadeModeCombobox::item,
+QMenu#AutoDJContextMenu,
+QMenu#AutoDJContextMenu::item {
   background-color: #0f0f0f;
+}
+/* These menus have no icons, checkmarks or submenus, so drop the reserved side
+   columns and let each item hug its text. */
+QMenu#AutoDJContextMenu::item {
+  padding: 4px 16px 4px 16px;
 }
 WEffectSelector,
 #fadeModeCombobox {
@@ -2688,7 +2734,10 @@ WSearchLineEdit::item:selected,
 #SkinSettingsNumToggle[hover="true"],
 #SkinSettingsNumToggleHeader[hover="true"],
 #SkinSettingsMixerToggle[hover="true"],
-#SkinSettingsLabelButton[hover="true"] {
+#SkinSettingsLabelButton[hover="true"],
+QMenu#AutoDJContextMenu::item:selected,
+QMenu#AutoDJContextMenu::item:hover,
+QMenu#AutoDJContextMenu::item:focus {
   background-color: #5E4507;
   color: #fff;
   /* remove OS focus indicator */

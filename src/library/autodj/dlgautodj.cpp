@@ -99,8 +99,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &WTrackTableView::setSelectedClick);
 
     QBoxLayout* box = qobject_cast<QBoxLayout*>(layout());
-    VERIFY_OR_DEBUG_ASSERT(box) { //Assumes the form layout is a QVBox/QHBoxLayout!
-    } else {
+    VERIFY_OR_DEBUG_ASSERT(box) { // Assumes the form layout is a QVBox/QHBoxLayout!
+    }
+    else {
         box->removeWidget(m_pTrackTablePlaceholder);
         m_pTrackTablePlaceholder->hide();
         box->insertWidget(1, m_pTrackTableView);
@@ -114,7 +115,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pTrackTableView->loadTrackModel(m_pAutoDJTableModel);
 
     // Do not set this because it disables auto-scrolling
-    //m_pTrackTableView->setDragDropMode(QAbstractItemView::InternalMove);
+    // m_pTrackTableView->setDragDropMode(QAbstractItemView::InternalMove);
 
     connect(pushButtonAutoDJ,
             &QPushButton::clicked,
@@ -640,6 +641,9 @@ void DlgAutoDJ::showLiveContextMenu(const QPoint& pos) {
     }
     const bool live = m_pLiveModeControl->toBool();
     QMenu menu(this);
+    // Tag with an object name so the skin stylesheet themes it like other menus
+    // instead of falling back to native styling.
+    menu.setObjectName(QStringLiteral("AutoDJContextMenu"));
     QAction* pAction = menu.addAction(live ? tr("Exit LIVE mode") : tr("Enter LIVE mode"));
     if (menu.exec(labelLive->mapToGlobal(pos)) == pAction) {
         m_pLiveModeControl->set(live ? 0.0 : 1.0);

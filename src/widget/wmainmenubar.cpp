@@ -31,20 +31,28 @@ QString vinylControlDefaultKeyBinding(int deck) {
     // kMaximumVinylControlInputs.
     DEBUG_ASSERT(deck < kMaximumVinylControlInputs);
     switch (deck) {
-        case 0: return QObject::tr("Ctrl+t");
-        case 1: return QObject::tr("Ctrl+y");
-        case 2: return QObject::tr("Ctrl+u");
-        case 3: return QObject::tr("Ctrl+i");
-        default: return QString();
+    case 0:
+        return QObject::tr("Ctrl+t");
+    case 1:
+        return QObject::tr("Ctrl+y");
+    case 2:
+        return QObject::tr("Ctrl+u");
+    case 3:
+        return QObject::tr("Ctrl+i");
+    default:
+        return QString();
     }
 }
 #endif // __VINYLCONTROL__
 
 QString loadToDeckDefaultKeyBinding(int deck) {
     switch (deck) {
-        case 0: return QObject::tr("Ctrl+o");
-        case 1: return QObject::tr("Ctrl+Shift+O");
-        default: return QString();
+    case 0:
+        return QObject::tr("Ctrl+o");
+    case 1:
+        return QObject::tr("Ctrl+Shift+O");
+    default:
+        return QString();
     }
 }
 
@@ -72,10 +80,9 @@ QUrl documentationUrl(
         return QUrl(docUrl);
     }
 }
-}  // namespace
+} // namespace
 
-WMainMenuBar::WMainMenuBar(QWidget* pParent, UserSettingsPointer pConfig,
-                           ConfigObject<ConfigValueKbd>* pKbdConfig)
+WMainMenuBar::WMainMenuBar(QWidget* pParent, UserSettingsPointer pConfig, ConfigObject<ConfigValueKbd>* pKbdConfig)
         : QMenuBar(pParent),
           m_pConfig(pConfig),
           m_pKbdConfig(pKbdConfig) {
@@ -96,7 +103,7 @@ void WMainMenuBar::initialize() {
     for (unsigned int deck = 0; deck < kMaxLoadToDeckActions; ++deck) {
         QString playerLoadStatusText = loadTrackStatusText.arg(QString::number(deck + 1));
         QAction* pFileLoadSongToPlayer = new QAction(
-            loadTrackText.arg(QString::number(deck + 1)), this);
+                loadTrackText.arg(QString::number(deck + 1)), this);
 
         QString binding = m_pKbdConfig->getValue(
                 ConfigKey("[KeyboardShortcuts]", QString("FileMenu_LoadDeck%1").arg(deck + 1)),
@@ -107,12 +114,11 @@ void WMainMenuBar::initialize() {
         }
         pFileLoadSongToPlayer->setStatusTip(playerLoadStatusText);
         pFileLoadSongToPlayer->setWhatsThis(
-            buildWhatsThis(openText, playerLoadStatusText));
+                buildWhatsThis(openText, playerLoadStatusText));
         // Visibility of load to deck actions is set in
         // WMainMenuBar::onNumberOfDecksChanged.
         pFileLoadSongToPlayer->setVisible(false);
-        connect(pFileLoadSongToPlayer, &QAction::triggered,
-                this, [this, deck] { emit loadTrackToDeck(deck + 1); });
+        connect(pFileLoadSongToPlayer, &QAction::triggered, this, [this, deck] { emit loadTrackToDeck(deck + 1); });
 
         pFileMenu->addAction(pFileLoadSongToPlayer);
         m_loadToDeckActions.push_back(pFileLoadSongToPlayer);
@@ -124,8 +130,8 @@ void WMainMenuBar::initialize() {
     QString quitText = tr("Quits Mixxx");
     auto* pFileQuit = new QAction(quitTitle, this);
     pFileQuit->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]", "FileMenu_Quit"),
-                                                  tr("Ctrl+q"))));
+            QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]", "FileMenu_Quit"),
+                    tr("Ctrl+q"))));
     pFileQuit->setShortcutContext(Qt::ApplicationShortcut);
     pFileQuit->setStatusTip(quitText);
     pFileQuit->setWhatsThis(buildWhatsThis(quitTitle, quitText));
@@ -173,9 +179,9 @@ void WMainMenuBar::initialize() {
     QString createPlaylistText = tr("Create a new playlist");
     auto* pLibraryCreatePlaylist = new QAction(createPlaylistTitle, this);
     pLibraryCreatePlaylist->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "LibraryMenu_NewPlaylist"),
-                tr("Ctrl+n"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "LibraryMenu_NewPlaylist"),
+                    tr("Ctrl+n"))));
     pLibraryCreatePlaylist->setShortcutContext(Qt::ApplicationShortcut);
     pLibraryCreatePlaylist->setStatusTip(createPlaylistText);
     pLibraryCreatePlaylist->setWhatsThis(buildWhatsThis(createPlaylistTitle, createPlaylistText));
@@ -186,9 +192,9 @@ void WMainMenuBar::initialize() {
     QString createCrateText = tr("Create a new crate");
     auto* pLibraryCreateCrate = new QAction(createCrateTitle, this);
     pLibraryCreateCrate->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]",
-                                                  "LibraryMenu_NewCrate"),
-                                                  tr("Ctrl+Shift+N"))));
+            QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]",
+                                                        "LibraryMenu_NewCrate"),
+                    tr("Ctrl+Shift+N"))));
     pLibraryCreateCrate->setShortcutContext(Qt::ApplicationShortcut);
     pLibraryCreateCrate->setStatusTip(createCrateText);
     pLibraryCreateCrate->setWhatsThis(buildWhatsThis(createCrateTitle, createCrateText));
@@ -243,9 +249,9 @@ void WMainMenuBar::initialize() {
     auto* pViewShowSkinSettings = new QAction(showSkinSettingsTitle, this);
     pViewShowSkinSettings->setCheckable(true);
     pViewShowSkinSettings->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-            ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowSkinSettings"),
-            tr("Ctrl+1", "Menubar|View|Show Skin Settings"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowSkinSettings"),
+                    tr("Ctrl+1", "Menubar|View|Show Skin Settings"))));
     pViewShowSkinSettings->setStatusTip(showSkinSettingsText);
     pViewShowSkinSettings->setWhatsThis(buildWhatsThis(showSkinSettingsTitle, showSkinSettingsText));
     createVisibilityControl(pViewShowSkinSettings,
@@ -259,9 +265,9 @@ void WMainMenuBar::initialize() {
     auto* pViewShowMicrophone = new QAction(showMicrophoneTitle, this);
     pViewShowMicrophone->setCheckable(true);
     pViewShowMicrophone->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-            ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowMicrophone"),
-            tr("Ctrl+2", "Menubar|View|Show Microphone Section"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowMicrophone"),
+                    tr("Ctrl+2", "Menubar|View|Show Microphone Section"))));
     pViewShowMicrophone->setStatusTip(showMicrophoneText);
     pViewShowMicrophone->setWhatsThis(buildWhatsThis(showMicrophoneTitle, showMicrophoneText));
     createVisibilityControl(pViewShowMicrophone,
@@ -275,9 +281,9 @@ void WMainMenuBar::initialize() {
     auto* pViewVinylControl = new QAction(showVinylControlTitle, this);
     pViewVinylControl->setCheckable(true);
     pViewVinylControl->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-            ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowVinylControl"),
-            tr("Ctrl+3", "Menubar|View|Show Vinyl Control Section"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowVinylControl"),
+                    tr("Ctrl+3", "Menubar|View|Show Vinyl Control Section"))));
     pViewVinylControl->setStatusTip(showVinylControlText);
     pViewVinylControl->setWhatsThis(buildWhatsThis(showVinylControlTitle, showVinylControlText));
     createVisibilityControl(pViewVinylControl,
@@ -291,15 +297,14 @@ void WMainMenuBar::initialize() {
     auto* pViewShowPreviewDeck = new QAction(showPreviewDeckTitle, this);
     pViewShowPreviewDeck->setCheckable(true);
     pViewShowPreviewDeck->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowPreviewDeck"),
-                tr("Ctrl+4", "Menubar|View|Show Preview Deck"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowPreviewDeck"),
+                    tr("Ctrl+4", "Menubar|View|Show Preview Deck"))));
     pViewShowPreviewDeck->setStatusTip(showPreviewDeckText);
     pViewShowPreviewDeck->setWhatsThis(buildWhatsThis(showPreviewDeckTitle, showPreviewDeckText));
     createVisibilityControl(pViewShowPreviewDeck,
             ConfigKey(kSkinGroup, QStringLiteral("show_preview_decks")));
     pViewMenu->addAction(pViewShowPreviewDeck);
-
 
     QString showCoverArtTitle = tr("Show Cover Art");
     QString showCoverArtText = tr("Show cover art in the Mixxx interface.") +
@@ -307,9 +312,9 @@ void WMainMenuBar::initialize() {
     auto* pViewShowCoverArt = new QAction(showCoverArtTitle, this);
     pViewShowCoverArt->setCheckable(true);
     pViewShowCoverArt->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowCoverArt"),
-                tr("Ctrl+6", "Menubar|View|Show Cover Art"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowCoverArt"),
+                    tr("Ctrl+6", "Menubar|View|Show Cover Art"))));
     pViewShowCoverArt->setStatusTip(showCoverArtText);
     pViewShowCoverArt->setWhatsThis(buildWhatsThis(showCoverArtTitle, showCoverArtText));
     createVisibilityControl(pViewShowCoverArt,
@@ -332,23 +337,29 @@ void WMainMenuBar::initialize() {
     connect(m_pViewKeywheel, &QAction::triggered, this, &WMainMenuBar::showKeywheel);
     pViewMenu->addAction(m_pViewKeywheel);
 
-    // Detached, always-visible Auto DJ queue window, toggled via the
-    // [AutoDJ],show_autodj_window control owned by AutoDJFeature.
-    QString autoDJWindowTitle = tr("Auto DJ Window");
-    QString autoDJWindowText =
-            tr("Show the Auto DJ queue in a separate, always-visible window.");
-    auto* pViewAutoDJWindow = new QAction(autoDJWindowTitle, this);
-    pViewAutoDJWindow->setCheckable(true);
-    pViewAutoDJWindow->setStatusTip(autoDJWindowText);
-    pViewAutoDJWindow->setWhatsThis(buildWhatsThis(autoDJWindowTitle, autoDJWindowText));
-    // The [AutoDJ],show_autodj_window control is created later by AutoDJFeature,
-    // during CoreServices init (after this menu is first built). Bind through the
-    // visibility-control mechanism, which (re)connects the proxy on skin load -
-    // by which point the control exists. A direct ControlProxy created here would
-    // bind to a throwaway default control and never see the real one.
-    createVisibilityControl(pViewAutoDJWindow,
-            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_window")));
-    pViewMenu->addAction(pViewAutoDJWindow);
+    // Dockable, always-visible Auto DJ queue panel, toggled via the
+    // [AutoDJ],show_autodj_dock control owned by AutoDJFeature. The control is
+    // created later by AutoDJFeature, during CoreServices init (after this menu
+    // is first built). Bind through the visibility-control mechanism, which
+    // (re)connects the proxy on skin load - by which point the control exists. A
+    // direct ControlProxy created here would bind to a throwaway default control
+    // and never see the real one.
+    QString autoDJQueueTitle = tr("Auto DJ Side Panel");
+    QString autoDJQueueText =
+            tr("Show the Auto DJ queue in a dockable side panel that stays "
+               "visible while browsing the library. Available in Tango mode "
+               "only.");
+    auto* pViewAutoDJQueue = new QAction(autoDJQueueTitle, this);
+    pViewAutoDJQueue->setCheckable(true);
+    pViewAutoDJQueue->setStatusTip(autoDJQueueText);
+    pViewAutoDJQueue->setWhatsThis(buildWhatsThis(autoDJQueueTitle, autoDJQueueText));
+    // Gated behind Tango mode ([AutoDJ],keep_queue): the queue panel is only
+    // meaningful when the played-track cursor is kept, so the item is hidden
+    // entirely outside Tango mode (the menu is unchanged from stock Mixxx then).
+    createVisibilityControl(pViewAutoDJQueue,
+            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_dock")),
+            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")));
+    pViewMenu->addAction(pViewAutoDJQueue);
 
     QString maximizeLibraryTitle = tr("Maximize Library");
     QString maximizeLibraryText = tr("Maximize the track library to take up all the available screen space.") +
@@ -356,9 +367,9 @@ void WMainMenuBar::initialize() {
     auto* pViewMaximizeLibrary = new QAction(maximizeLibraryTitle, this);
     pViewMaximizeLibrary->setCheckable(true);
     pViewMaximizeLibrary->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "ViewMenu_MaximizeLibrary"),
-                tr("Space", "Menubar|View|Maximize Library"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_MaximizeLibrary"),
+                    tr("Space", "Menubar|View|Maximize Library"))));
     pViewMaximizeLibrary->setStatusTip(maximizeLibraryText);
     pViewMaximizeLibrary->setWhatsThis(buildWhatsThis(maximizeLibraryTitle, maximizeLibraryText));
     createVisibilityControl(pViewMaximizeLibrary,
@@ -420,9 +431,9 @@ void WMainMenuBar::initialize() {
         m_vinylControlEnabledActions.push_back(vc_checkbox);
 
         QString binding = m_pKbdConfig->getValue(
-            ConfigKey("[KeyboardShortcuts]",
-                    QString("OptionsMenu_EnableVinyl%1").arg(i + 1)),
-            vinylControlDefaultKeyBinding(i));
+                ConfigKey("[KeyboardShortcuts]",
+                        QString("OptionsMenu_EnableVinyl%1").arg(i + 1)),
+                vinylControlDefaultKeyBinding(i));
         if (!binding.isEmpty()) {
             vc_checkbox->setShortcut(QKeySequence(binding));
             vc_checkbox->setShortcutContext(Qt::ApplicationShortcut);
@@ -437,9 +448,8 @@ void WMainMenuBar::initialize() {
         vc_checkbox->setVisible(false);
         vc_checkbox->setStatusTip(vinylControlText);
         vc_checkbox->setWhatsThis(buildWhatsThis(vinylControlTitle,
-                                                 vinylControlText));
-        connect(vc_checkbox, &QAction::triggered,
-                this, [this, i] { emit toggleVinylControl(i); });
+                vinylControlText));
+        connect(vc_checkbox, &QAction::triggered, this, [this, i] { emit toggleVinylControl(i); });
         pVinylControlMenu->addAction(vc_checkbox);
     }
     pOptionsMenu->addMenu(pVinylControlMenu);
@@ -450,9 +460,9 @@ void WMainMenuBar::initialize() {
     QString recordText = tr("Record your mix to a file");
     auto* pOptionsRecord = new QAction(recordTitle, this);
     pOptionsRecord->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "OptionsMenu_RecordMix"),
-                tr("Ctrl+R"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_RecordMix"),
+                    tr("Ctrl+R"))));
     pOptionsRecord->setShortcutContext(Qt::ApplicationShortcut);
     pOptionsRecord->setCheckable(true);
     pOptionsRecord->setStatusTip(recordText);
@@ -471,7 +481,7 @@ void WMainMenuBar::initialize() {
     pOptionsBroadcasting->setShortcut(
             QKeySequence(m_pKbdConfig->getValue(
                     ConfigKey("[KeyboardShortcuts]",
-                              "OptionsMenu_EnableLiveBroadcasting"),
+                            "OptionsMenu_EnableLiveBroadcasting"),
                     tr("Ctrl+L"))));
     pOptionsBroadcasting->setShortcutContext(Qt::ApplicationShortcut);
     pOptionsBroadcasting->setCheckable(true);
@@ -491,12 +501,12 @@ void WMainMenuBar::initialize() {
     QString keyboardShortcutTitle = tr("Enable &Keyboard Shortcuts");
     QString keyboardShortcutText = tr("Toggles keyboard shortcuts on or off");
     bool keyboardShortcutsEnabled = m_pConfig->getValueString(
-        ConfigKey("[Keyboard]", "Enabled")) == "1";
+                                            ConfigKey("[Keyboard]", "Enabled")) == "1";
     auto* pOptionsKeyboard = new QAction(keyboardShortcutTitle, this);
     pOptionsKeyboard->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "OptionsMenu_EnableShortcuts"),
-                tr("Ctrl+`"))));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_EnableShortcuts"),
+                    tr("Ctrl+`"))));
     pOptionsKeyboard->setShortcutContext(Qt::ApplicationShortcut);
     pOptionsKeyboard->setCheckable(true);
     pOptionsKeyboard->setChecked(keyboardShortcutsEnabled);
@@ -512,9 +522,9 @@ void WMainMenuBar::initialize() {
     QString preferencesText = tr("Change Mixxx settings (e.g. playback, MIDI, controls)");
     auto* pOptionsPreferences = new QAction(preferencesTitle, this);
     pOptionsPreferences->setShortcut(
-        QKeySequence(m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]", "OptionsMenu_Preferences"),
-                showPreferencesKeyBinding())));
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_Preferences"),
+                    showPreferencesKeyBinding())));
     pOptionsPreferences->setShortcutContext(Qt::ApplicationShortcut);
     pOptionsPreferences->setStatusTip(preferencesText);
     pOptionsPreferences->setWhatsThis(buildWhatsThis(preferencesTitle, preferencesText));
@@ -535,9 +545,9 @@ void WMainMenuBar::initialize() {
         QString reloadSkinText = tr("Reload the skin");
         auto* pDeveloperReloadSkin = new QAction(reloadSkinTitle, this);
         pDeveloperReloadSkin->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_ReloadSkin"),
-                    tr("Ctrl+Shift+R"))));
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "OptionsMenu_ReloadSkin"),
+                        tr("Ctrl+Shift+R"))));
         pDeveloperReloadSkin->setShortcutContext(Qt::ApplicationShortcut);
         pDeveloperReloadSkin->setStatusTip(reloadSkinText);
         pDeveloperReloadSkin->setWhatsThis(buildWhatsThis(reloadSkinTitle, reloadSkinText));
@@ -548,9 +558,9 @@ void WMainMenuBar::initialize() {
         QString developerToolsText = tr("Opens the developer tools dialog");
         auto* pDeveloperTools = new QAction(developerToolsTitle, this);
         pDeveloperTools->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperTools"),
-                    tr("Ctrl+Shift+T"))));
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperTools"),
+                        tr("Ctrl+Shift+T"))));
         pDeveloperTools->setShortcutContext(Qt::ApplicationShortcut);
         pDeveloperTools->setCheckable(true);
         pDeveloperTools->setChecked(false);
@@ -565,16 +575,16 @@ void WMainMenuBar::initialize() {
 
         QString enableExperimentTitle = tr("Stats: &Experiment Bucket");
         QString enableExperimentToolsText = tr(
-            "Enables experiment mode. Collects stats in the EXPERIMENT tracking bucket.");
+                "Enables experiment mode. Collects stats in the EXPERIMENT tracking bucket.");
         auto* pDeveloperStatsExperiment = new QAction(enableExperimentTitle, this);
         pDeveloperStatsExperiment->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperStatsExperiment"),
-                    tr("Ctrl+Shift+E"))));
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperStatsExperiment"),
+                        tr("Ctrl+Shift+E"))));
         pDeveloperStatsExperiment->setShortcutContext(Qt::ApplicationShortcut);
         pDeveloperStatsExperiment->setStatusTip(enableExperimentToolsText);
         pDeveloperStatsExperiment->setWhatsThis(buildWhatsThis(
-            enableExperimentTitle, enableExperimentToolsText));
+                enableExperimentTitle, enableExperimentToolsText));
         pDeveloperStatsExperiment->setCheckable(true);
         pDeveloperStatsExperiment->setChecked(Experiment::isExperiment());
         connect(pDeveloperStatsExperiment,
@@ -585,16 +595,16 @@ void WMainMenuBar::initialize() {
 
         QString enableBaseTitle = tr("Stats: &Base Bucket");
         QString enableBaseToolsText = tr(
-            "Enables base mode. Collects stats in the BASE tracking bucket.");
+                "Enables base mode. Collects stats in the BASE tracking bucket.");
         auto* pDeveloperStatsBase = new QAction(enableBaseTitle, this);
         pDeveloperStatsBase->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperStatsBase"),
-                    tr("Ctrl+Shift+B"))));
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "OptionsMenu_DeveloperStatsBase"),
+                        tr("Ctrl+Shift+B"))));
         pDeveloperStatsBase->setShortcutContext(Qt::ApplicationShortcut);
         pDeveloperStatsBase->setStatusTip(enableBaseToolsText);
         pDeveloperStatsBase->setWhatsThis(buildWhatsThis(
-            enableBaseTitle, enableBaseToolsText));
+                enableBaseTitle, enableBaseToolsText));
         pDeveloperStatsBase->setCheckable(true);
         pDeveloperStatsBase->setChecked(Experiment::isBase());
         connect(pDeveloperStatsBase,
@@ -607,12 +617,12 @@ void WMainMenuBar::initialize() {
         QString scriptDebuggerTitle = tr("Deb&ugger Enabled");
         QString scriptDebuggerText = tr("Enables the debugger during skin parsing");
         bool scriptDebuggerEnabled = m_pConfig->getValueString(
-            ConfigKey("[ScriptDebugger]", "Enabled")) == "1";
+                                             ConfigKey("[ScriptDebugger]", "Enabled")) == "1";
         auto* pDeveloperDebugger = new QAction(scriptDebuggerTitle, this);
         pDeveloperDebugger->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_EnableDebugger"),
-                    tr("Ctrl+Shift+D"))));
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_EnableDebugger"),
+                        tr("Ctrl+Shift+D"))));
         pDeveloperDebugger->setShortcutContext(Qt::ApplicationShortcut);
         pDeveloperDebugger->setWhatsThis(buildWhatsThis(keyboardShortcutTitle, keyboardShortcutText));
         pDeveloperDebugger->setCheckable(true);
@@ -903,8 +913,8 @@ void WMainMenuBar::slotDeveloperStatsExperiment(bool enable) {
 }
 
 void WMainMenuBar::slotDeveloperDebugger(bool toggle) {
-    m_pConfig->set(ConfigKey("[ScriptDebugger]","Enabled"),
-                   ConfigValue(toggle ? 1 : 0));
+    m_pConfig->set(ConfigKey("[ScriptDebugger]", "Enabled"),
+            ConfigValue(toggle ? 1 : 0));
 }
 
 void WMainMenuBar::slotVisitUrl(const QUrl& url) {
@@ -912,8 +922,9 @@ void WMainMenuBar::slotVisitUrl(const QUrl& url) {
 }
 
 void WMainMenuBar::createVisibilityControl(QAction* pAction,
-                                           const ConfigKey& key) {
-    auto* pConnection = new VisibilityControlConnection(this, pAction, key);
+        const ConfigKey& key,
+        const ConfigKey& gateKey) {
+    auto* pConnection = new VisibilityControlConnection(this, pAction, key, gateKey);
     connect(this,
             &WMainMenuBar::internalOnNewSkinLoaded,
             pConnection,
@@ -944,23 +955,43 @@ void WMainMenuBar::onNumberOfDecksChanged(int decks) {
 }
 
 VisibilityControlConnection::VisibilityControlConnection(
-    QObject* pParent, QAction* pAction, const ConfigKey& key)
+        QObject* pParent, QAction* pAction, const ConfigKey& key, const ConfigKey& gateKey)
         : QObject(pParent),
           m_key(key),
+          m_gateKey(gateKey),
           m_pAction(pAction) {
     connect(m_pAction, &QAction::triggered, this, &VisibilityControlConnection::slotActionToggled);
 }
 
 void VisibilityControlConnection::slotClearControl() {
     m_pControl.reset();
+    m_pGateControl.reset();
     m_pAction->setEnabled(false);
 }
 
 void VisibilityControlConnection::slotReconnectControl() {
     m_pControl.reset(new ControlProxy(m_key, this, ControlFlag::NoAssertIfMissing));
     m_pControl->connectValueChanged(this, &VisibilityControlConnection::slotControlChanged);
-    m_pAction->setEnabled(m_pControl->valid());
+    if (m_gateKey.isValid()) {
+        m_pGateControl.reset(new ControlProxy(m_gateKey, this, ControlFlag::NoAssertIfMissing));
+        m_pGateControl->connectValueChanged(this, &VisibilityControlConnection::slotGateChanged);
+    }
+    updateActionState();
     slotControlChanged();
+}
+
+void VisibilityControlConnection::updateActionState() {
+    m_pAction->setEnabled(m_pControl && m_pControl->valid());
+    // A gated action (e.g. Auto DJ Queue) is hidden entirely while its gate
+    // (Tango mode) is closed, so the menu is unchanged outside that mode rather
+    // than showing a greyed-out item.
+    if (m_pGateControl) {
+        m_pAction->setVisible(m_pGateControl->toBool());
+    }
+}
+
+void VisibilityControlConnection::slotGateChanged() {
+    updateActionState();
 }
 
 void VisibilityControlConnection::slotControlChanged() {

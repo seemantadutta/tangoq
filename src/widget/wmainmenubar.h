@@ -14,8 +14,13 @@ class QAction;
 class VisibilityControlConnection : public QObject {
     Q_OBJECT
   public:
-    VisibilityControlConnection(QObject* pParent, QAction* pAction,
-                                const ConfigKey& key);
+    // When gateKey is a valid control, the action is only enabled while that
+    // control is non-zero (in addition to the visibility control existing). Used
+    // to gate the Auto DJ Queue item behind Tango mode.
+    VisibilityControlConnection(QObject* pParent,
+            QAction* pAction,
+            const ConfigKey& key,
+            const ConfigKey& gateKey = ConfigKey());
 
   public slots:
     void slotClearControl();
@@ -23,19 +28,26 @@ class VisibilityControlConnection : public QObject {
 
   private slots:
     void slotControlChanged();
+    void slotGateChanged();
     void slotActionToggled(bool toggle);
 
   private:
+    // Recomputes the action's enabled state from the visibility control's
+    // validity, and (when gated) its visibility from the gate control - the
+    // action is hidden entirely while the gate is closed.
+    void updateActionState();
+
     ConfigKey m_key;
+    ConfigKey m_gateKey;
     QScopedPointer<ControlProxy> m_pControl;
+    QScopedPointer<ControlProxy> m_pGateControl;
     QAction* m_pAction;
 };
 
 class WMainMenuBar : public QMenuBar {
     Q_OBJECT
   public:
-    WMainMenuBar(QWidget* pParent, UserSettingsPointer pConfig,
-                 ConfigObject<ConfigValueKbd>* pKbdConfig);
+    WMainMenuBar(QWidget* pParent, UserSettingsPointer pConfig, ConfigObject<ConfigValueKbd>* pKbdConfig);
 #ifndef __APPLE__
     void hideMenuBar();
     void showMenuBar();
@@ -105,7 +117,9 @@ class WMainMenuBar : public QMenuBar {
     /// while the menubar is hidden
     void connectMenuToSlotShowMenuBar(const QMenu* pMenu);
 #endif
-    void createVisibilityControl(QAction* pAction, const ConfigKey& key);
+    void createVisibilityControl(QAction* pAction,
+            const ConfigKey& key,
+            const ConfigKey& gateKey = ConfigKey());
 
     UserSettingsPointer m_pConfig;
     QAction* m_pViewKeywheel;

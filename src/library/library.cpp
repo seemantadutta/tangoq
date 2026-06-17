@@ -71,6 +71,7 @@ Library::Library(
           m_pLibraryControl(make_parented<LibraryControl>(this)),
           m_pLibraryWidget(nullptr),
           m_pMixxxLibraryFeature(nullptr),
+          m_pAutoDJFeature(nullptr),
           m_pPlaylistFeature(nullptr),
           m_pCrateFeature(nullptr),
           m_pAnalysisFeature(nullptr) {
@@ -98,7 +99,8 @@ Library::Library(
             Qt::DirectConnection /* signal-to-signal */);
 #endif
 
-    addFeature(new AutoDJFeature(this, m_pConfig, pPlayerManager));
+    m_pAutoDJFeature = new AutoDJFeature(this, m_pConfig, pPlayerManager);
+    addFeature(m_pAutoDJFeature);
 
     m_pPlaylistFeature = new PlaylistFeature(this, UserSettingsPointer(m_pConfig));
     addFeature(m_pPlaylistFeature);
@@ -516,6 +518,13 @@ void Library::addFeature(LibraryFeature* feature) {
             &LibraryFeature::restoreModelState,
             this,
             &Library::restoreModelState);
+}
+
+QDockWidget* Library::createAutoDJDockWidget(QWidget* parent) {
+    VERIFY_OR_DEBUG_ASSERT(m_pAutoDJFeature) {
+        return nullptr;
+    }
+    return m_pAutoDJFeature->createAutoDJDockWidget(parent);
 }
 
 void Library::onPlayerManagerTrackAnalyzerProgress(

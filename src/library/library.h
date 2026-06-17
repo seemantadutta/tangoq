@@ -16,6 +16,7 @@
 #include "util/parented_ptr.h"
 
 class AnalysisFeature;
+class AutoDJFeature;
 class BrowseFeature;
 class ControlObject;
 class CrateFeature;
@@ -33,6 +34,8 @@ class WSearchLineEdit;
 class WLibrarySidebar;
 class WLibrary;
 class QAbstractItemModel;
+class QDockWidget;
+class QWidget;
 
 #ifdef __ENGINEPRIME__
 namespace mixxx {
@@ -72,6 +75,11 @@ class Library: public QObject {
                     KeyboardEventFilter* pKeyboard);
 
     void addFeature(LibraryFeature* feature);
+
+    /// Builds the dockable Auto DJ queue panel (a second, always-available view
+    /// of the Auto DJ queue). Ownership passes to `parent` (the main window),
+    /// which is responsible for placing it via QMainWindow::addDockWidget().
+    QDockWidget* createAutoDJDockWidget(QWidget* parent);
 
     /// Needed for exposing models to QML
     LibraryTableModel* trackTableModel() const;
@@ -170,6 +178,7 @@ class Library: public QObject {
     const static QString m_sAutoDJViewName;
     WLibrary* m_pLibraryWidget;
     MixxxLibraryFeature* m_pMixxxLibraryFeature;
+    AutoDJFeature* m_pAutoDJFeature;
     PlaylistFeature* m_pPlaylistFeature;
     CrateFeature* m_pCrateFeature;
     AnalysisFeature* m_pAnalysisFeature;
