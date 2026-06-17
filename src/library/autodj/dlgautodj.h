@@ -1,8 +1,10 @@
 #pragma once
 
+#include <QDateTime>
 #include <QString>
 #include <QWidget>
 
+#include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/ui_dlgautodj.h"
 #include "library/libraryview.h"
@@ -14,6 +16,8 @@ class WLibrary;
 class WTrackTableView;
 class Library;
 class KeyboardEventFilter;
+class WCountdownOverlay;
+class QTimer;
 
 class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     Q_OBJECT
@@ -45,6 +49,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void updateSelectionInfo();
     void slotTransitionModeChanged(int comboboxIndex);
     void slotRepeatPlaylistChanged(bool checked);
+    void slotEndTimeChanged(const QTime& time);
 
   signals:
     void addRandomTrackButton(bool buttonChecked);
@@ -56,6 +61,29 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void setupActionButton(QPushButton* pButton,
             void (DlgAutoDJ::*pSlot)(bool),
             const QString& fallbackText);
+    // Refreshes the Tango DJ mode indicator and disables/greys the controls
+    // that don't make sense in Tango mode (Shuffle, Add Random, Repeat, Skip,
+    // column sorting), reading the mode from the config.
+    void refreshTangoModeUi();
+    // Applies the Tango fade/gap defaults (Skip Silence + short gap) the first
+    // time, only if they are still at their factory defaults.
+    void applyTangoDefaultsIfNeeded();
+    // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
+    void updateNowPlaying();
+    // Refreshes the Tango DJ mode set end-time / time-left readout, including the
+    // over/under delta against the target end time.
+    void updateSetEndTime();
+    // Builds the colored over/under delta text comparing the projected end against
+    // the target end time (endTimeEdit), e.g. "▲ +0:04:20 over".
+    QString formatEndTimeDelta(const QDateTime& projectedEnd) const;
+    // Refreshes the LIVE indicator (red when on, greyed when off) and applies the
+    // matching deck play/pause (D/L) keyboard suppression.
+    void refreshLiveMode();
+    // Right-click menu on the LIVE indicator to deliberately enter/exit LIVE mode.
+    void showLiveContextMenu(const QPoint& pos);
+    // Shows/clears the "Confirm Stop?" prompt on the Auto DJ button when the
+    // LIVE-mode stop guard arms/disarms.
+    void slotStopGuardArmedChanged(bool armed);
     void keyPressEvent(QKeyEvent* pEvent) override;
 
     const UserSettingsPointer m_pConfig;
@@ -65,6 +93,30 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     const bool m_bShowButtonText;
 
     PlaylistTableModel* m_pAutoDJTableModel;
+
+    // Observes [AutoDJ],keep_queue (Tango DJ mode) so the toolbar refreshes
+    // immediately when it is toggled in Preferences.
+    ControlProxy* m_pKeepQueueControl;
+
+    // The app keyboard filter, used to suppress the deck play/pause keys (D/L)
+    // while LIVE mode is on. Not owned.
+    KeyboardEventFilter* const m_pKeyboard;
+    // Observes [AutoDJ],live_mode so the LIVE indicator and key suppression track
+    // the session-only LIVE state.
+    ControlProxy* m_pLiveModeControl;
+    // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
+    // stop guard is armed (parented to the button). Owned by the button.
+    WCountdownOverlay* m_pStopCountdown;
+
+    // Ticks once a second to keep the Tango set end-time readout current. Only
+    // runs while Tango mode is on (see refreshTangoModeUi).
+    QTimer* m_pSetTimeTimer;
+    // Last text shown in labelTangoSetTime, so the per-second tick only repaints
+    // the label when the value actually changed (avoids needless toolbar repaints
+    // that can flicker sibling widgets such as the waveform).
+    QString m_lastSetTimeText;
+    // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
+    QString m_lastEndTimeDeltaText;
 
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;

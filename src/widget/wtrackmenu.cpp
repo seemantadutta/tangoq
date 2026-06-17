@@ -12,6 +12,8 @@
 #include "analyzer/analyzersilence.h"
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
+#include "library/autodj/cortinaregistry.h"
+#include "library/basetracktablemodel.h"
 #include "library/coverartutils.h"
 #include "library/dao/trackschema.h"
 #include "library/dlgtagfetcher.h"
@@ -38,6 +40,7 @@
 #include "track/track.h"
 #include "util/defs.h"
 #include "util/desktophelper.h"
+#include "util/duration.h"
 #include "util/parented_ptr.h"
 #include "util/qt.h"
 #include "util/widgethelper.h"
@@ -91,6 +94,29 @@ void storeActionTextAndScaleInProperties(QAction* pAction, const double scale) {
     }
     pAction->setProperty(kOrigTrTextProperty, QVariant::fromValue(pAction->text()));
     pAction->setProperty(kBpmScaleProperty, QVariant(scale));
+}
+
+// Sums the duration of the given rows by reading the model's Duration column,
+// the same cheap approach as PlaylistTableModel::getTotalDuration (no per-track
+// database access). Returns empty for a non-tabular model or empty selection.
+mixxx::Duration sumTracksDuration(
+        TrackModel* pTrackModel, const QModelIndexList& indices) {
+    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(pTrackModel);
+    if (!pTableModel || indices.isEmpty()) {
+        return mixxx::Duration::empty();
+    }
+    const int durationColumn =
+            pTableModel->fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION);
+    if (durationColumn < 0) {
+        return mixxx::Duration::empty();
+    }
+    double totalSeconds = 0.0;
+    for (const auto& index : indices) {
+        totalSeconds += index.sibling(index.row(), durationColumn)
+                                .data(Qt::EditRole)
+                                .toDouble();
+    }
+    return mixxx::Duration::fromSeconds(totalSeconds);
 }
 
 } // namespace
@@ -302,7 +328,27 @@ void WTrackMenu::createActions() {
 
         m_pAutoDJReplaceAct = make_parented<QAction>(tr("Add to Auto DJ Queue (replace)"), this);
         connect(m_pAutoDJReplaceAct, &QAction::triggered, this, &WTrackMenu::slotAddToAutoDJReplace);
+
+        m_pAutoDJCortinaAct = make_parented<QAction>(tr("Add to Auto DJ Queue as Cortina"), this);
+        connect(m_pAutoDJCortinaAct, &QAction::triggered, this, &WTrackMenu::slotAddToAutoDJCortina);
     }
+
+    // The in-place cortina toggle belongs to the Auto DJ queue list, whose model
+    // lacks the AddToAutoDJ capability and so is NOT a featureIsEnabled(Feature::
+    // AutoDJ) context. Create it unconditionally, keep it hidden by default, and
+    // reveal it only for the Auto DJ list in Tango mode (see updateMenus()). Its
+    // label flips between "Set as Cortina" and "Set as Track".
+    m_pCortinaToggleAct = make_parented<QAction>(tr("Set as Cortina"), this);
+    m_pCortinaToggleAct->setVisible(false);
+    connect(m_pCortinaToggleAct, &QAction::triggered, this, &WTrackMenu::slotToggleCortina);
+
+    // Non-clickable info line with the total duration of the selected tracks.
+    // Like the cortina toggle it must also work in the Auto DJ queue list (not a
+    // Feature::AutoDJ context), so create it unconditionally and hide it until
+    // updateMenus() reveals it in Tango mode.
+    m_pSelectionDurationAct = make_parented<QAction>(QString(), this);
+    m_pSelectionDurationAct->setEnabled(false);
+    m_pSelectionDurationAct->setVisible(false);
 
     if (featureIsEnabled(Feature::LoadTo)) {
         m_pAddToPreviewDeck = make_parented<QAction>(tr("Preview Deck"), m_pLoadToMenu);
@@ -591,12 +637,22 @@ void WTrackMenu::setupActions() {
         addSeparator();
     }
 
+    // Selected-tracks duration info line, above the Auto DJ / cortina actions.
+    // Shown only in Tango mode (updateMenus); its separator is toggled with it.
+    addAction(m_pSelectionDurationAct);
+    m_pSelectionDurationSeparator = addSeparator();
+    m_pSelectionDurationSeparator->setVisible(false);
+
     if (featureIsEnabled(Feature::AutoDJ)) {
         addAction(m_pAutoDJBottomAct);
         addAction(m_pAutoDJTopAct);
         addAction(m_pAutoDJReplaceAct);
+        addAction(m_pAutoDJCortinaAct);
         addSeparator();
     }
+
+    // Shown only in Tango mode (updateMenus), including in the Auto DJ queue list.
+    addAction(m_pCortinaToggleAct);
 
     if (featureIsEnabled(Feature::LoadTo)) {
         m_pLoadToMenu->addMenu(m_pDeckMenu);
@@ -927,6 +983,67 @@ void WTrackMenu::updateMenus() {
         const auto pTrack = getFirstTrackPointer();
         m_pSearchRelatedMenu->setEnabled(pTrack != nullptr);
         // TODO Only enable for single track?
+    }
+
+    if (featureIsEnabled(Feature::AutoDJ)) {
+        // In Tango DJ mode the Auto DJ queue is a pre-arranged, cursor-based set.
+        // Adding to the top or replacing it would disrupt the planned milonga, so
+        // grey those out and leave only "Add to Auto DJ Queue (bottom)".
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        m_pAutoDJTopAct->setEnabled(!tangoMode);
+        m_pAutoDJReplaceAct->setEnabled(!tangoMode);
+    }
+
+    // The in-place cortina toggle is independent of Feature::AutoDJ so it can
+    // appear in the Auto DJ queue list (whose model has no AddToAutoDJ capability).
+    // Scope it to that list and to Tango mode. The label flips so the action reads
+    // as "Set as Cortina" for normal tracks and "Set as Track" for cortinas.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        const bool show = tangoMode && isCortinaList();
+        m_pCortinaToggleAct->setVisible(show);
+        if (show) {
+            const TrackIdList trackIds = getTrackIds();
+            bool allCortina = !trackIds.isEmpty();
+            for (const auto& trackId : trackIds) {
+                if (!CortinaRegistry::instance().contains(trackId)) {
+                    allCortina = false;
+                    break;
+                }
+            }
+            m_pCortinaToggleAct->setText(
+                    allCortina ? tr("Set as Track") : tr("Set as Cortina"));
+        }
+    }
+
+    // Selected-tracks duration info line. Tango mode only, shown wherever the Auto
+    // DJ add actions are available (library/crate/playlist) and also in the Auto DJ
+    // queue list (Feature::AutoDJ is false there, hence the isCortinaList() check).
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        const bool show = tangoMode &&
+                (featureIsEnabled(Feature::AutoDJ) || isCortinaList());
+        m_pSelectionDurationAct->setVisible(show);
+        if (m_pSelectionDurationSeparator) {
+            m_pSelectionDurationSeparator->setVisible(show);
+        }
+        if (show) {
+            const QModelIndexList& indices = getTrackIndices();
+            const mixxx::Duration total = sumTracksDuration(m_pTrackModel, indices);
+            m_pSelectionDurationAct->setText(
+                    tr("%1  (%2)")
+                            .arg(mixxx::DurationBase::formatTime(
+                                         total.toDoubleSeconds()),
+                                    tr("%n track(s)",
+                                            "",
+                                            static_cast<int>(indices.size()))));
+        }
     }
 
     if (featureIsEnabled(Feature::LoadTo)) {
@@ -2664,6 +2781,40 @@ void WTrackMenu::slotAddToAutoDJTop() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::TOP);
 }
 
+void WTrackMenu::slotAddToAutoDJCortina() {
+    // Add to the bottom of the queue like any other track, then tag the selected
+    // tracks as cortinas (session-only) so the Auto DJ list shows the blue
+    // "!!!CORTINA!!!" styling.
+    addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
+    const TrackIdList trackIds = getTrackIds();
+    for (const auto& trackId : trackIds) {
+        CortinaRegistry::instance().mark(trackId);
+    }
+}
+
+void WTrackMenu::slotToggleCortina() {
+    // Flip the selected track(s) between cortina and normal track in place. Lets
+    // the DJ fix a mistakenly-tagged track (the registry is keyed by track id, so
+    // a re-added track keeps its old mark) or promote/demote without re-adding.
+    // Mirror the label logic: if every selection is already a cortina, clear them
+    // all; otherwise mark them all.
+    const TrackIdList trackIds = getTrackIds();
+    bool allCortina = !trackIds.isEmpty();
+    for (const auto& trackId : trackIds) {
+        if (!CortinaRegistry::instance().contains(trackId)) {
+            allCortina = false;
+            break;
+        }
+    }
+    for (const auto& trackId : trackIds) {
+        if (allCortina) {
+            CortinaRegistry::instance().unmark(trackId);
+        } else {
+            CortinaRegistry::instance().mark(trackId);
+        }
+    }
+}
+
 void WTrackMenu::slotAddToAutoDJReplace() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::REPLACE);
 }
@@ -2773,6 +2924,13 @@ void WTrackMenu::clearTrackSelection() {
     m_pTrack = nullptr;
     m_deckGroup = QString();
     m_trackIndexList.clear();
+}
+
+bool WTrackMenu::isCortinaList() const {
+    // The Auto DJ queue model is the only one that shows cortina marks, so use
+    // that flag to scope the cortina toggle to the Auto DJ list.
+    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(m_pTrackModel);
+    return pTableModel && pTableModel->showCortinaMarks();
 }
 
 bool WTrackMenu::featureIsEnabled(Feature flag) const {

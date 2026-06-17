@@ -5,7 +5,9 @@
 #include <QPointer>
 #include <QUrl>
 #include <QVariant>
+#include <memory>
 
+#include "control/controlpushbutton.h"
 #include "library/dao/autodjcratesdao.h"
 #include "library/libraryfeature.h"
 #include "library/trackset/crate/crate.h"
@@ -14,6 +16,9 @@
 
 class DlgAutoDJ;
 class Library;
+class WLibrary;
+class QDockWidget;
+class ControlProxy;
 class PlayerManagerInterface;
 class TrackCollection;
 class AutoDJProcessor;
@@ -26,8 +31,8 @@ class AutoDJFeature : public LibraryFeature {
     Q_OBJECT
   public:
     AutoDJFeature(Library* pLibrary,
-                  UserSettingsPointer pConfig,
-                  PlayerManagerInterface* pPlayerManager);
+            UserSettingsPointer pConfig,
+            PlayerManagerInterface* pPlayerManager);
     virtual ~AutoDJFeature();
 
     QVariant title() override;
@@ -40,8 +45,13 @@ class AutoDJFeature : public LibraryFeature {
     bool dragMoveAccept(const QUrl& url) override;
 
     void bindLibraryWidget(WLibrary* libraryWidget,
-                    KeyboardEventFilter* keyboard) override;
+            KeyboardEventFilter* keyboard) override;
     void bindSidebarWidget(WLibrarySidebar* pSidebarWidget) override;
+
+    // Builds the detached/dockable Auto DJ queue panel (a second view of the
+    // queue model). Owned by Qt via the passed parent (the main window); the
+    // feature keeps only a QPointer. Placed by MixxxMainWindow.
+    QDockWidget* createAutoDJDockWidget(QWidget* parent);
 
     TreeItemModel* sidebarModel() const override;
 
@@ -66,6 +76,25 @@ class AutoDJFeature : public LibraryFeature {
     parented_ptr<TreeItemModel> m_pSidebarModel;
     DlgAutoDJ* m_pAutoDJView;
 
+    // Toggle control for the dockable Auto DJ queue panel ([AutoDJ],
+    // show_autodj_dock). The View menu binds to it; the dock follows it and
+    // writes it back when the user closes the dock.
+    ControlPushButton m_showAutoDJDockControl;
+    // Observes Tango mode ([AutoDJ],keep_queue, owned by the processor). The
+    // queue panel is gated behind it. Parented to this; Qt owns it.
+    ControlProxy* m_pTangoModeControl;
+    // The dockable queue panel. Owned by Qt (parented to the main window); we
+    // hold a QPointer so it auto-nulls if the window is destroyed first.
+    QPointer<QDockWidget> m_pAutoDJDock;
+    // The docked library widget, captured in bindLibraryWidget(). Used as the
+    // source of the skin's library stylesheet for the dockable queue panel.
+    QPointer<WLibrary> m_pLibraryWidget;
+    // The skin's library stylesheet, so the dockable queue panel's track table
+    // matches the docked Auto DJ view.
+    QString libraryStyleSheet() const;
+    // True while Tango mode ([AutoDJ],keep_queue) is engaged.
+    bool tangoModeEnabled() const;
+
     // Initialize the list of crates loaded into the auto-DJ queue.
     void constructCrateChildModel();
     void removeCrateFromAutoDj(CrateId crateId = CrateId());
@@ -89,6 +118,15 @@ class AutoDJFeature : public LibraryFeature {
     QPointer<WLibrarySidebar> m_pSidebarWidget;
 
   private slots:
+    // Reacts to the [AutoDJ],show_autodj_dock control (from the View menu).
+    void slotShowAutoDJDockChanged(double value);
+    // Reacts to Tango mode ([AutoDJ],keep_queue) turning on/off; hides the queue
+    // panel when Tango mode is left.
+    void slotTangoModeChanged(double value);
+    // Mirrors the dock's user-driven show/hide back into the control (so the
+    // View menu check follows the dock's close button), ignoring visibility
+    // changes caused by the main window being minimized.
+    void slotAutoDJDockVisibilityChanged(bool visible);
     void slotClearQueue();
     // Add a crate to the auto-DJ queue.
     void slotAddCrateToAutoDj(CrateId crateId);

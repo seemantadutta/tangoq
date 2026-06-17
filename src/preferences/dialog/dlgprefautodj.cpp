@@ -4,6 +4,7 @@
 #include <QTimeZone>
 #endif
 
+#include "control/controlobject.h"
 #include "moc_dlgprefautodj.cpp"
 
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
@@ -81,14 +82,60 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             this,
             &DlgPrefAutoDJ::slotSetRandomQueueMin);
 
+    // Tango DJ mode (persisted as [Auto DJ], KeepQueue; the toolbar shows a
+    // read-only indicator and the queue/transition behavior follows it).
+    bool tangoMode = m_pConfig->getValue<bool>(ConfigKey("[Auto DJ]", "KeepQueue"));
+    TangoModeCheckBox->setChecked(tangoMode);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), tangoMode);
+    connect(TangoModeCheckBox,
+            &QCheckBox::toggled,
+            this,
+            &DlgPrefAutoDJ::slotToggleTangoMode);
+
+    // Default cortina length, used only to estimate the Tango set length / end
+    // time (cortinas are faded out manually, so only this budget is counted).
+    int cortinaLength =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaLength"), 45);
+    CortinaLengthSpinBox->setValue(cortinaLength);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), cortinaLength);
+    connect(CortinaLengthSpinBox,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaLength);
+
     setScrollSafeGuardForAllInputWidgets(this);
 }
 
+void DlgPrefAutoDJ::slotToggleTangoMode(bool checked) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), checked);
+}
+
+void DlgPrefAutoDJ::slotSetCortinaLength(int seconds) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), seconds);
+}
+
 void DlgPrefAutoDJ::slotUpdate() {
+    // Tango DJ mode switches the Auto DJ queue between two incompatible
+    // behaviors, so only allow changing it while Auto DJ is stopped.
+    const bool autoDJRunning =
+            ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
+    TangoModeCheckBox->setEnabled(!autoDJRunning);
+    // The cortina length feeds the set-length estimate, which is only recomputed
+    // when Auto DJ is stopped; lock it while running like the Tango mode toggle.
+    CortinaLengthSpinBox->setEnabled(!autoDJRunning);
 }
 
 void DlgPrefAutoDJ::slotApply() {
     //Copy from Buffer to actual values
+    // Set the live control; the AutoDJProcessor persists it to [Auto DJ],KeepQueue
+    // and the Auto DJ toolbar refreshes immediately.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"),
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), false)
+                    ? 1.0
+                    : 0.0);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLength"),
+            m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45));
     m_pConfig->setValue(ConfigKey("[Auto DJ]","MinimumAvailable"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "MinimumAvailableBuff"), 20));
@@ -110,6 +157,15 @@ void DlgPrefAutoDJ::slotApply() {
 
 void DlgPrefAutoDJ::slotCancel() {
     // Load actual values and reset Buffer Values where ever needed
+    bool tangoMode = m_pConfig->getValue<bool>(ConfigKey("[Auto DJ]", "KeepQueue"));
+    TangoModeCheckBox->setChecked(tangoMode);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), tangoMode);
+
+    int cortinaLength =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaLength"), 45);
+    CortinaLengthSpinBox->setValue(cortinaLength);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), cortinaLength);
+
     MinimumAvailableSpinBox->setValue(
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "MinimumAvailable"), 20));
@@ -150,6 +206,13 @@ void DlgPrefAutoDJ::slotCancel() {
 }
 
 void DlgPrefAutoDJ::slotResetToDefaults() {
+    // Tango DJ mode is off by default.
+    TangoModeCheckBox->setChecked(false);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), false);
+
+    CortinaLengthSpinBox->setValue(45);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
+
     // Re-queue tracks in AutoDJ
     MinimumAvailableSpinBox->setValue(20);
 

@@ -5,6 +5,7 @@
 #include <QMimeData>
 #include <QScreen>
 
+#include "library/autodj/cortinaregistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
 #include "library/starrating.h"
@@ -359,6 +360,42 @@ QAbstractItemDelegate* BaseTrackTableModel::delegateForColumn(
     return new DefaultDelegate(pTableView);
 }
 
+void BaseTrackTableModel::setNowPlayingTrack(TrackId trackId) {
+    if (trackId == m_nowPlayingTrackId) {
+        return;
+    }
+    m_nowPlayingTrackId = trackId;
+    // Repaint so the highlighted row's text color updates.
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::ForegroundRole});
+    }
+}
+
+void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
+    if (m_showCortinaMarks == enable) {
+        return;
+    }
+    m_showCortinaMarks = enable;
+    if (enable) {
+        // Repaint the whole table (text color + title prefix) whenever the set of
+        // tagged tracks changes.
+        connect(&CortinaRegistry::instance(),
+                &CortinaRegistry::cortinaMarksChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::ForegroundRole, Qt::DisplayRole});
+                    }
+                });
+    } else {
+        disconnect(&CortinaRegistry::instance(), nullptr, this, nullptr);
+    }
+}
+
 QVariant BaseTrackTableModel::data(
         const QModelIndex& index,
         int role) const {
@@ -381,6 +418,24 @@ QVariant BaseTrackTableModel::data(
         bgColor.setAlphaF(static_cast<float>(m_backgroundColorOpacity));
         return QBrush(bgColor);
     } else if (role == Qt::ForegroundRole) {
+        // Currently playing track: red text (Auto DJ Tango mode now-playing).
+        if (m_nowPlayingTrackId.isValid()) {
+            const auto rowId = rawSiblingValue(
+                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
+            if (TrackId(rowId) == m_nowPlayingTrackId) {
+                return QVariant::fromValue(QColor(0xee, 0x44, 0x44));
+            }
+        }
+        // Cortina tracks: blue text (Auto DJ Tango mode). The red now-playing
+        // colour above wins, so a cortina that is currently playing still reads
+        // as playing.
+        if (m_showCortinaMarks) {
+            const auto rowId = rawSiblingValue(
+                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
+            if (CortinaRegistry::instance().contains(TrackId(rowId))) {
+                return QVariant::fromValue(QColor(0x33, 0x88, 0xff));
+            }
+        }
         // Custom text color for missing tracks
         // Visible in playlists, crates and Missing feature.
         // Check this first so played, missing tracks (unlikely case, but possible)
@@ -429,6 +484,19 @@ QVariant BaseTrackTableModel::data(
             role != kDataExportRole &&
             role != Qt::TextAlignmentRole) {
         return QVariant();
+    }
+
+    // Prefix cortina-tagged tracks' title with "!!!CORTINA!!!" in the Auto DJ
+    // list (display only; the stored title is untouched).
+    if (role == Qt::DisplayRole && m_showCortinaMarks &&
+            mapColumn(index.column()) == ColumnCache::COLUMN_LIBRARYTABLE_TITLE) {
+        const auto rowId = rawSiblingValue(
+                index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
+        if (CortinaRegistry::instance().contains(TrackId(rowId))) {
+            const QString title =
+                    roleValue(index, rawValue(index), role).toString();
+            return QStringLiteral("!!!CORTINA!!! %1").arg(title);
+        }
     }
 
     return roleValue(index, rawValue(index), role);

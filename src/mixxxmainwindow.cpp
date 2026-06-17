@@ -3,6 +3,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDebug>
+#include <QDockWidget>
 #include <QFileDialog>
 #include <QOpenGLContext>
 #include <QUrl>
@@ -384,6 +385,21 @@ void MixxxMainWindow::initialize() {
     // million different variables the first waveform may be horribly
     // corrupted. See bug 521509 -- bkgood ?? -- vrince
     setCentralWidget(m_pCentralWidget);
+
+    // Add the dockable Auto DJ queue panel beside the skin. It lives on the
+    // QMainWindow (not inside the skin), so it survives skin reloads. It is
+    // created after restoreState() (which ran in the constructor, before the
+    // library existed), so its saved size/position/visibility is restored
+    // explicitly via restoreDockWidget().
+    if (QDockWidget* pAutoDJDock =
+                    m_pCoreServices->getLibrary()->createAutoDJDockWidget(this)) {
+        addDockWidget(Qt::RightDockWidgetArea, pAutoDJDock);
+        // Default width on first run; restoreDockWidget() overrides it later.
+        resizeDocks({pAutoDJDock}, {300}, Qt::Horizontal);
+        // Opt-in: hidden unless the user previously left it open.
+        pAutoDJDock->hide();
+        restoreDockWidget(pAutoDJDock);
+    }
 
 #ifndef __APPLE__
     // Ask for permission to auto-hide the menu bar if applicable.

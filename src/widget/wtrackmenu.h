@@ -173,6 +173,8 @@ class WTrackMenu : public QMenu {
     void slotAddToAutoDJBottom();
     void slotAddToAutoDJTop();
     void slotAddToAutoDJReplace();
+    void slotAddToAutoDJCortina();
+    void slotToggleCortina();
 
     // Cover
     void slotCoverInfoSelected(CoverInfoRelative coverInfo);
@@ -219,6 +221,9 @@ class WTrackMenu : public QMenu {
     void updateMenus();
 
     bool featureIsEnabled(Feature flag) const;
+    // True when this menu is operating on the Auto DJ queue list (the only model
+    // that shows cortina marks). Scopes the cortina toggle to that list.
+    bool isCortinaList() const;
 
     void addSelectionToPlaylist(int iPlaylistId);
     void updateSelectionCrates(QWidget* pWidget);
@@ -290,6 +295,15 @@ class WTrackMenu : public QMenu {
     parented_ptr<QAction> m_pAutoDJBottomAct;
     parented_ptr<QAction> m_pAutoDJTopAct;
     parented_ptr<QAction> m_pAutoDJReplaceAct;
+    parented_ptr<QAction> m_pAutoDJCortinaAct;
+    // Tango DJ mode only: checkable toggle to mark/unmark the selected Auto DJ
+    // track(s) as cortinas in place (without re-adding them).
+    parented_ptr<QAction> m_pCortinaToggleAct;
+    // Tango DJ mode only: greyed, non-clickable info line above the Auto DJ /
+    // cortina actions showing the total duration of the selected tracks, plus its
+    // trailing separator (owned by the menu).
+    parented_ptr<QAction> m_pSelectionDurationAct;
+    QAction* m_pSelectionDurationSeparator{};
 
     // Remove from table
     parented_ptr<QAction> m_pRemoveAct;

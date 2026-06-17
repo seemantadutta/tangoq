@@ -933,6 +933,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/analysis/dlganalysis.ui
   src/library/autodj/autodjfeature.cpp
   src/library/autodj/autodjprocessor.cpp
+  src/library/autodj/cortinaregistry.cpp
   src/library/autodj/dlgautodj.cpp
   src/library/autodj/dlgautodj.ui
   src/library/banshee/bansheedbconnection.cpp
@@ -1334,6 +1335,8 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/widget/wnumberpos.cpp
   src/widget/wnumberrate.cpp
   src/widget/woverview.cpp
+  src/widget/wcountdownoverlay.cpp
+  src/widget/wdocktitlebar.cpp
   src/widget/wpixmapstore.cpp
   src/widget/wpushbutton.cpp
   src/widget/wraterange.cpp

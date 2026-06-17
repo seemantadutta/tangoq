@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QTimer>
 #include <memory>
 #include <vector>
 
@@ -13,7 +14,9 @@
 #include "library/playlisttablemodel.h"
 #include "preferences/usersettings.h"
 #include "track/track_decl.h"
+#include "track/trackid.h"
 #include "util/class.h"
+#include "util/duration.h"
 #include "util/parented_ptr.h"
 
 class TrackCollectionManager;
@@ -181,6 +184,26 @@ class AutoDJProcessor : public QObject {
         return m_eState;
     }
 
+    // Tango DJ mode set timing: the estimated remaining playback time of the
+    // current Auto DJ set, i.e. the unplayed part of the current (playing or
+    // paused) track plus all upcoming tracks from the cursor onward, adjusted for
+    // the configured gap/crossfade. In Skip Silence mode the per-track estimate
+    // uses the analyzed audible range (N60dBSound cue) instead of the full file
+    // length, so trimmed leading/trailing silence is not over-counted. The
+    // expensive upcoming-tracks sum is cached and only recomputed when the queue,
+    // cursor or transition mode changes, so the per-second UI refresh is cheap.
+    // Returns an empty Duration when not in Tango mode or when nothing is left.
+    mixxx::Duration getRemainingSetDuration();
+
+    // Tango DJ mode set timing: the estimated total playback time of the whole
+    // Auto DJ set, i.e. every queued track (played and upcoming) summed with the
+    // same audible-range / gap accounting as getRemainingSetDuration(). Unlike
+    // the remaining duration this does not depend on the cursor or play position,
+    // so it stays constant while the set plays and only changes when the queue or
+    // transition mode is edited. Shares the same lazily recomputed cache.
+    // Returns an empty Duration when not in Tango mode or when the queue is empty.
+    mixxx::Duration getTotalSetDuration();
+
     double getTransitionTime() const {
         return m_transitionTime;
     }
@@ -210,6 +233,9 @@ class AutoDJProcessor : public QObject {
     void autoDJError(AutoDJProcessor::AutoDJError error);
     void transitionTimeChanged(int time);
     void randomTrackRequested(int tracksToAdd);
+    // Emitted when the LIVE-mode accidental-stop guard arms/disarms so the toolbar
+    // can show a "Confirm Stop?" prompt on the Auto DJ button.
+    void stopGuardArmedChanged(bool armed);
 
   private slots:
     void crossfaderChanged(double value);
@@ -230,6 +256,9 @@ class AutoDJProcessor : public QObject {
     void controlShuffle(double value);
     void controlSkipNext(double value);
     void controlAddRandomTrack(double value);
+    void controlKeepQueue(double value);
+    // Cancels the LIVE-mode stop-guard arm (timeout or a non-confirming action).
+    void disarmStopGuard();
     void slotNumberOfDecksChanged(int decks);
 
   protected:
@@ -283,6 +312,50 @@ class AutoDJProcessor : public QObject {
     // Removes the provided track from the top of the AutoDJ queue if it is
     // present.
     bool removeTrackFromTopOfQueue(TrackPointer pTrack);
+
+    // Keep Queue mode helpers.
+    bool keepQueueEnabled() const;
+    // True while LIVE mode (Tango performance lock) is engaged.
+    bool liveModeEnabled() const;
+    // Advances the Keep Queue cursor past pTrack (instead of removing it) if it
+    // is the current cursor track. Returns true if the cursor advanced.
+    bool advanceKeepQueueCursor(TrackPointer pTrack);
+    // Re-anchors the Keep Queue cursor to the currently playing track after the
+    // queue is edited, so it keeps pointing at the correct next track even when
+    // tracks are added, removed or reordered while Auto DJ is running.
+    void reanchorKeepQueueCursor();
+    // Reloads the idle deck if a queue edit changed which track is next, so a
+    // deleted or reordered cued track isn't left loaded and played off-list.
+    void maybeReloadIdleDeckForKeepQueue();
+    // Returns the model row of pTrack nearest rowGuess (to disambiguate
+    // duplicates), or -1 if pTrack is not in the queue.
+    int keepQueueRowForTrack(TrackPointer pTrack, int rowGuess);
+    int keepQueueRowForTrackId(TrackId trackId, int rowGuess);
+
+    // Set-duration cache (see getRemainingSetDuration). Recomputes the upcoming
+    // tracks' total play time only when something that affects it changes.
+    void recomputeKeepQueueUpcomingDuration();
+    void invalidateRemainingSetDuration() {
+        m_keepQueueDurationDirty = true;
+    }
+    // Picks up a changed "Default cortina length" preference (only editable while
+    // Auto DJ is stopped) and recomputes the cached sums when stale.
+    void refreshSetDurationCacheIfNeeded();
+    // True if the track is tagged as a cortina (faded out manually, so the set
+    // estimate budgets only the configured cortina length for it).
+    bool isCortina(const TrackPointer& pTrack) const;
+    // Estimated playback seconds an upcoming (not-yet-loaded) track contributes:
+    // the cortina budget if tagged, else its audible range in Skip Silence mode,
+    // else the full file duration.
+    double keepQueueTrackPlaySeconds(const TrackPointer& pTrack) const;
+    // Unplayed seconds of the current (playing/paused) track at playPosition,
+    // stopping at the last audible sample in Skip Silence mode.
+    double keepQueueCurrentTrackRemainingSeconds(
+            const TrackPointer& pTrack, double playPosition) const;
+    // Audible length in seconds from the analyzed N60dBSound cue, or 0 if the
+    // track has no such cue (e.g. not yet analyzed).
+    double keepQueueAudibleSeconds(const TrackPointer& pTrack) const;
+
     void maybeFillRandomTracks();
     UserSettingsPointer m_pConfig;
     parented_ptr<PlaylistTableModel> m_pAutoDJTableModel;
@@ -290,6 +363,31 @@ class AutoDJProcessor : public QObject {
     AutoDJState m_eState;
     double m_transitionProgress;
     double m_transitionTime; // the desired value set by the user
+    // Keep Queue ("Tango") mode: 0-based row index of the next track to play.
+    // Acts as a cursor so played tracks stay in the list instead of being
+    // removed, and Auto DJ stops when it reaches the end.
+    int m_keepQueueRow;
+    // Identity of the last-played track (sits at cursor-1). Used to re-anchor the
+    // cursor across the full model rebuild that every queue edit triggers while
+    // Auto DJ is stopped, so adding/removing tracks does not reset it to the top.
+    TrackId m_keepQueueAnchorId;
+    // Guards against re-entrancy while reloading the idle deck after a queue edit.
+    bool m_keepQueueReloading;
+    // Cached total play time (seconds) and count of the upcoming tracks
+    // (cursor .. end), recomputed lazily when m_keepQueueDurationDirty is set by
+    // a queue edit, cursor move or transition-mode change. Keeps the 1 Hz set
+    // end-time readout from re-reading every queued track from the database.
+    double m_keepQueueUpcomingSeconds;
+    int m_keepQueueUpcomingTracks;
+    // Cached total play time (seconds) and count of the whole queue (row 0 .. end),
+    // recomputed in the same pass as the upcoming sum. Backs the constant "Set
+    // Length" readout.
+    double m_keepQueueTotalSeconds;
+    int m_keepQueueTotalTracks;
+    // Cortina play-time budget (seconds) baked into the cached sums above. Read
+    // from [Auto DJ]/CortinaLength; a change re-dirties the cache.
+    int m_keepQueueCortinaSeconds;
+    bool m_keepQueueDurationDirty;
     TransitionMode m_transitionMode;
 
     PlayerManagerInterface* m_pPlayerManager;
@@ -303,6 +401,17 @@ class AutoDJProcessor : public QObject {
     ControlPushButton m_addRandomTrack;
     ControlPushButton m_fadeNow;
     ControlPushButton m_enabledAutoDJ;
+    // Mirrors [Auto DJ],KeepQueue (Tango DJ mode) as a live control so the prefs
+    // dialog and the Auto DJ toolbar stay in sync when it changes.
+    ControlObject m_keepQueue;
+
+    // LIVE mode (Tango performance lock). Session-only, not persisted: defaults
+    // off at every launch. While on, it arms the accidental-stop guards.
+    ControlObject m_liveMode;
+    // Stop-guard arm state: in LIVE mode the first disable request only arms a
+    // short confirmation window; a second request within it actually stops.
+    bool m_stopGuardArmed;
+    QTimer m_stopGuardTimer;
 
     DISALLOW_COPY_AND_ASSIGN(AutoDJProcessor);
 };

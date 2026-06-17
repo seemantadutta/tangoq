@@ -2,6 +2,7 @@
 
 #include <QMultiHash>
 #include <QObject>
+#include <QSet>
 
 #include "control/controlobject.h"
 #include "preferences/configobject.h"
@@ -27,6 +28,11 @@ class KeyboardEventFilter : public QObject {
 
     // Returns a valid QString with modifier keys from a QKeyEvent
     static QKeySequence getKeySeq(QKeyEvent* e);
+
+    // Suppress (or restore) a control's keyboard shortcuts. While suppressed, key
+    // presses mapped to that control are swallowed and have no effect. Used by Auto
+    // DJ LIVE mode to make the deck play/pause keys (D/L) inert during a set.
+    void setControlSuppressed(const ConfigKey& key, bool suppressed);
 
 #ifndef __APPLE__
   signals:
@@ -66,4 +72,6 @@ class KeyboardEventFilter : public QObject {
     ConfigObject<ConfigValueKbd> *m_pKbdConfigObject;
     // Multi-hash of key sequence to
     QMultiHash<ConfigValueKbd, ConfigKey> m_keySequenceToControlHash;
+    // Controls whose keyboard shortcuts are currently suppressed (no-op).
+    QSet<ConfigKey> m_suppressedControls;
 };

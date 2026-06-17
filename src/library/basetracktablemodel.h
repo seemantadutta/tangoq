@@ -72,6 +72,20 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
             const QVariant& value,
             int role = Qt::EditRole) final;
 
+    // Highlights the currently playing track (red text) in this model. Used by
+    // the Auto DJ view in Tango DJ mode; pass an invalid TrackId to clear.
+    void setNowPlayingTrack(TrackId trackId);
+
+    // Enables the Tango cortina styling (blue text + "!!!CORTINA!!!" title
+    // prefix) for tracks tagged in the CortinaRegistry. Only the Auto DJ model
+    // turns this on, so other track tables are unaffected.
+    void setShowCortinaMarks(bool enable);
+    // True only for the Auto DJ model (see setShowCortinaMarks). Used to scope the
+    // cortina context-menu action to the Auto DJ list.
+    bool showCortinaMarks() const {
+        return m_showCortinaMarks;
+    }
+
     // Calculate the number of columns from all valid
     // column headers.
     // Reimplement in derived classes if a more efficient
@@ -290,6 +304,10 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     QVector<ColumnHeader> m_columnHeaders;
 
     TrackId m_previewDeckTrackId;
+    TrackId m_nowPlayingTrackId;
+    // When true, render CortinaRegistry-tagged tracks with blue text and a
+    // "!!!CORTINA!!!" title prefix (Auto DJ Tango mode only).
+    bool m_showCortinaMarks = false;
 
     mutable QModelIndex m_toolTipIndex;
 
