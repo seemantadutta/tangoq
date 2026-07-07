@@ -257,8 +257,17 @@ class AutoDJProcessor : public QObject {
     void controlSkipNext(double value);
     void controlAddRandomTrack(double value);
     void controlKeepQueue(double value);
+    // Persists a live cortina-length change (from the cockpit nudge buttons or
+    // the prefs Apply) to config and refreshes the envelope budget + estimate.
+    void controlCortinaLength(double value);
+    // Triggered from the Auto DJ queue right-click "Reset AutoDJ Queue State"
+    // action to restart the Tango set from the top (see resetKeepQueueSet).
+    void controlResetQueueState(double value);
     // Cancels the LIVE-mode stop-guard arm (timeout or a non-confirming action).
     void disarmStopGuard();
+    // Fires when a cortina's Nc silent gap has elapsed: resumes the paused
+    // cortina (before-gap) or hard-starts the next tanda track (after-gap).
+    void slotCortinaGapElapsed();
     void slotNumberOfDecksChanged(int decks);
 
   protected:
@@ -313,6 +322,12 @@ class AutoDJProcessor : public QObject {
     // present.
     bool removeTrackFromTopOfQueue(TrackPointer pTrack);
 
+    // Restarts the Tango set from the top: marks every queued track unplayed
+    // (clearing the grey "played" colour, but keeping the user's play counts) and
+    // resets the play cursor to row 0. Only acts while Auto DJ is stopped and in
+    // Keep Queue mode. Lets a fully-played set be replayed.
+    void resetKeepQueueSet();
+
     // Keep Queue mode helpers.
     bool keepQueueEnabled() const;
     // True while LIVE mode (Tango performance lock) is engaged.
@@ -338,12 +353,32 @@ class AutoDJProcessor : public QObject {
     void invalidateRemainingSetDuration() {
         m_keepQueueDurationDirty = true;
     }
-    // Picks up a changed "Default cortina length" preference (only editable while
-    // Auto DJ is stopped) and recomputes the cached sums when stale.
+    // Picks up changed cortina preferences (length, and the Cortina Fade
+    // settings while Auto DJ is stopped) and recomputes the cached sums when
+    // stale.
     void refreshSetDurationCacheIfNeeded();
     // True if the track is tagged as a cortina (faded out manually, so the set
     // estimate budgets only the configured cortina length for it).
     bool isCortina(const TrackPointer& pTrack) const;
+    // Cortina Fade transition driver (Tango mode only). When Cortina Fade mode
+    // is on and a cortina plays solo in ADJ_IDLE, it runs a small phase machine:
+    // Nc silent before-gap (cortina paused at its first sound), then a crossfader
+    // envelope as a pure function of the elapsed audible time (ramp in over X,
+    // hold for Y, ramp out over Z against the stopped partner deck), then an Nc
+    // after-gap (cortina stopped) after which the next tanda track is
+    // hard-started. Returns true when it claims the callback (the caller must
+    // then skip the normal transition handling for this deck).
+    bool maybeHandleCortinaFade(DeckAttributes* thisDeck, double thisPlayPosition);
+    // Reads the Cortina Fade settings from [Auto DJ]. Called at construction and
+    // when Auto DJ is enabled (they are only editable while it is stopped), so
+    // the engine behaviour never depends on the UI refresh timer.
+    void loadCortinaFadeSettings();
+    // Enters the Nc silent after-gap: parks the crossfader on the next deck's
+    // side, stops the cortina and starts the gap timer.
+    void startCortinaAfterGap(DeckAttributes* pCortinaDeck);
+    // Stops the gap timer and resets all Cortina Fade phase state, handing
+    // control back to the normal transition machinery.
+    void cancelCortinaFade();
     // Estimated playback seconds an upcoming (not-yet-loaded) track contributes:
     // the cortina budget if tagged, else its audible range in Skip Silence mode,
     // else the full file duration.
@@ -387,7 +422,36 @@ class AutoDJProcessor : public QObject {
     // Cortina play-time budget (seconds) baked into the cached sums above. Read
     // from [Auto DJ]/CortinaLength; a change re-dirties the cache.
     int m_keepQueueCortinaSeconds;
+    // Cortina counts in the cached sums, used to exclude cortina boundaries from
+    // the Nt transition adjustment when Cortina Fade mode is on (those
+    // boundaries use the Nc gaps, which keepQueueTrackPlaySeconds counts).
+    int m_keepQueueUpcomingCortinas;
+    int m_keepQueueTotalCortinas;
     bool m_keepQueueDurationDirty;
+    // Cortina Fade transition settings (Tango mode), snapshot from [Auto DJ] by
+    // loadCortinaFadeSettings(). When m_cortinaFadeEnabled is true the engine
+    // fades a cortina in over m_cortinaFadeInSeconds (X) and out over
+    // m_cortinaFadeOutSeconds (Z); m_cortinaGapSeconds (Nc) is the silent gap
+    // before and after the cortina. The hold time Y = cortina length - X - Z is
+    // derived. When false, cortinas keep the legacy hard-in / manual fade-out.
+    bool m_cortinaFadeEnabled;
+    int m_cortinaFadeInSeconds;
+    int m_cortinaFadeOutSeconds;
+    int m_cortinaGapSeconds;
+    // Cortina Fade phase machine (see maybeHandleCortinaFade). The gap timer
+    // holds the Nc silence of the current gap phase; m_pCortinaDeck and
+    // m_cortinaTrackId pin down the deck/track the phases refer to, so a track
+    // or state change under a running phase safely cancels it.
+    enum class CortinaFadePhase {
+        None,      // inactive; normal transition machinery in charge
+        BeforeGap, // cortina paused at its first sound, gap timer running
+        Envelope,  // cortina playing; crossfader driven by elapsed time
+        AfterGap,  // cortina stopped after fade-out, gap timer running
+    };
+    CortinaFadePhase m_cortinaFadePhase;
+    QTimer m_cortinaGapTimer;
+    DeckAttributes* m_pCortinaDeck;
+    TrackId m_cortinaTrackId;
     TransitionMode m_transitionMode;
 
     PlayerManagerInterface* m_pPlayerManager;
@@ -404,6 +468,16 @@ class AutoDJProcessor : public QObject {
     // Mirrors [Auto DJ],KeepQueue (Tango DJ mode) as a live control so the prefs
     // dialog and the Auto DJ toolbar stay in sync when it changes.
     ControlObject m_keepQueue;
+
+    // Live cortina-length budget (seconds). The single source of truth shared by
+    // the Preferences field (stop-only) and the cockpit nudge buttons (live). On
+    // change it persists to [Auto DJ],CortinaLength and updates the envelope
+    // budget + set-length estimate immediately. Clamped to [5, 600] s.
+    ControlObject m_cortinaLength;
+
+    // Momentary trigger from the Auto DJ queue "Reset AutoDJ Queue State" menu
+    // action. Re-armed to 0 after each handled trigger.
+    ControlPushButton m_resetQueueState;
 
     // LIVE mode (Tango performance lock). Session-only, not persisted: defaults
     // off at every launch. While on, it arms the accidental-stop guards.

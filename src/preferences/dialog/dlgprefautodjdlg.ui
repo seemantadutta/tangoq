@@ -59,7 +59,7 @@
          <item>
           <widget class="QSpinBox" name="CortinaLengthSpinBox">
            <property name="toolTip">
-            <string>Assumed play time of a cortina when estimating the set length and end time. Cortinas are faded out manually with the crossfader, so only this budgeted time is counted instead of the whole track. Can only be changed while Auto DJ is stopped.</string>
+            <string>Cortina length budget. In Cortina Fade mode it is the on-deck envelope length (fade-in + hold + fade-out); otherwise it is the play time assumed when estimating the set length and end time. This field is the default and can only be changed here while Auto DJ is stopped; during a set, nudge it live with the − / + buttons in the Auto DJ toolbar.</string>
            </property>
            <property name="suffix">
             <string> s</string>
@@ -101,6 +101,234 @@
           </spacer>
          </item>
         </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="CortinaFadeModeLayout">
+         <item>
+          <widget class="QLabel" name="CortinaFadeModeLabel">
+           <property name="text">
+            <string>Cortina transition</string>
+           </property>
+           <property name="buddy">
+            <cstring>CortinaFadeModeComboBox</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="CortinaFadeModeComboBox">
+           <property name="toolTip">
+            <string>How cortinas are played. &quot;Hard cut&quot; keeps the current behavior (the cortina starts at full volume and is faded out manually with the crossfader). &quot;Cortina Fade&quot; automatically fades the cortina in and out using the times below. Can only be changed while Auto DJ is stopped.</string>
+           </property>
+           <item>
+            <property name="text">
+             <string>Hard cut (manual fade-out)</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cortina Fade (auto fade in/out)</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerCortinaFadeMode">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="CortinaFadeInLayout">
+         <item>
+          <widget class="QLabel" name="CortinaFadeInLabel">
+           <property name="text">
+            <string>Cortina fade-in</string>
+           </property>
+           <property name="buddy">
+            <cstring>CortinaFadeInSpinBox</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="CortinaFadeInSpinBox">
+           <property name="toolTip">
+            <string>Time over which the cortina fades in from silence (X). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while Auto DJ is stopped.</string>
+           </property>
+           <property name="suffix">
+            <string> s</string>
+           </property>
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>600</number>
+           </property>
+           <property name="value">
+            <number>5</number>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>70</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>90</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerCortinaFadeIn">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="CortinaFadeOutLayout">
+         <item>
+          <widget class="QLabel" name="CortinaFadeOutLabel">
+           <property name="text">
+            <string>Cortina fade-out</string>
+           </property>
+           <property name="buddy">
+            <cstring>CortinaFadeOutSpinBox</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="CortinaFadeOutSpinBox">
+           <property name="toolTip">
+            <string>Time over which the cortina fades out to silence (Z). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while Auto DJ is stopped.</string>
+           </property>
+           <property name="suffix">
+            <string> s</string>
+           </property>
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>600</number>
+           </property>
+           <property name="value">
+            <number>5</number>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>70</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>90</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerCortinaFadeOut">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="CortinaGapLayout">
+         <item>
+          <widget class="QLabel" name="CortinaGapLabel">
+           <property name="text">
+            <string>Cortina gap</string>
+           </property>
+           <property name="buddy">
+            <cstring>CortinaGapSpinBox</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="CortinaGapSpinBox">
+           <property name="toolTip">
+            <string>Silent gap inserted before and after the cortina (Nc). Only used in &quot;Cortina Fade&quot; mode; intra-tanda gaps still use the Auto DJ transition time. Can only be changed while Auto DJ is stopped.</string>
+           </property>
+           <property name="suffix">
+            <string> s</string>
+           </property>
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>60</number>
+           </property>
+           <property name="value">
+            <number>2</number>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>70</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>90</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerCortinaGap">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="CortinaHoldLabel">
+         <property name="toolTip">
+          <string>Cortina hold time (Y) at full volume, computed as cortina length minus fade-in and fade-out.</string>
+         </property>
+         <property name="text">
+          <string>Cortina hold time: 35 s</string>
+         </property>
+        </widget>
        </item>
       </layout>
     </widget>

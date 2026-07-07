@@ -98,6 +98,15 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // immediately when it is toggled in Preferences.
     ControlProxy* m_pKeepQueueControl;
 
+    // Live cortina-length budget, shared with Preferences. The cockpit − / +
+    // buttons nudge it by ±2 s (the only way to change it mid-set); the read-only
+    // value label mirrors it. Tango-only.
+    ControlProxy* m_pCortinaLengthControl;
+    // Bumps the cortina length by delta seconds, clamped to [5, 600].
+    void nudgeCortinaLength(int delta);
+    // Refreshes the cockpit cortina-length value label from the control.
+    void updateCortinaLengthReadout();
+
     // The app keyboard filter, used to suppress the deck play/pause keys (D/L)
     // while LIVE mode is on. Not owned.
     KeyboardEventFilter* const m_pKeyboard;

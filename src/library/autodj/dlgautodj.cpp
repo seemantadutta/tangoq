@@ -1,5 +1,8 @@
 #include "library/autodj/dlgautodj.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <QDateTime>
 #include <QGraphicsOpacityEffect>
 #include <QHeaderView>
@@ -60,6 +63,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
           m_bShowButtonText(parent->getShowButtonText()),
           m_pAutoDJTableModel(nullptr),
           m_pKeepQueueControl(nullptr),
+          m_pCortinaLengthControl(nullptr),
           m_pKeyboard(pKeyboard),
           m_pLiveModeControl(nullptr),
           m_pStopCountdown(nullptr),
@@ -251,6 +255,33 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pKeepQueueControl->connectValueChanged(this, [this](double) {
         refreshTangoModeUi();
     });
+
+    // Cockpit cortina-length nudge (Tango DJ mode). The − / + buttons bump the
+    // shared [AutoDJ],cortina_length control by the nudge step; the value label
+    // mirrors it and also reflects changes made in Preferences.
+    m_pCortinaLengthControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "cortina_length"), this);
+    m_pCortinaLengthControl->connectValueChanged(this, [this](double) {
+        updateCortinaLengthReadout();
+    });
+    // Live-editable nudge step (1..10 s). Kept in the cockpit (not the stop-only
+    // Preferences) so it can be tuned during a set; persisted so it is remembered.
+    spinBoxCortinaNudgeStep->setValue(
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaNudgeStep"), 2));
+    connect(spinBoxCortinaNudgeStep,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            [this](int step) {
+                m_pConfig->setValue(
+                        ConfigKey("[Auto DJ]", "CortinaNudgeStep"), step);
+            });
+    connect(pushButtonCortinaLengthDown, &QPushButton::clicked, this, [this]() {
+        nudgeCortinaLength(-spinBoxCortinaNudgeStep->value());
+    });
+    connect(pushButtonCortinaLengthUp, &QPushButton::clicked, this, [this]() {
+        nudgeCortinaLength(spinBoxCortinaNudgeStep->value());
+    });
+    updateCortinaLengthReadout();
 
     // LIVE mode: a session-only performance lock. The toolbar shows a read-only
     // "LIVE" indicator (red when on); it is toggled deliberately via the
@@ -467,7 +498,15 @@ void DlgAutoDJ::refreshTangoModeUi() {
     labelSetEndTime->setVisible(tango);
     endTimeEdit->setVisible(tango);
     labelEndTimeDelta->setVisible(tango);
+    labelCortinaLengthCaption->setVisible(tango);
+    pushButtonCortinaLengthDown->setVisible(tango);
+    labelCortinaLengthValue->setVisible(tango);
+    pushButtonCortinaLengthUp->setVisible(tango);
+    spinBoxCortinaNudgeStep->setVisible(tango);
     labelLive->setVisible(tango);
+    if (tango) {
+        updateCortinaLengthReadout();
+    }
     // LIVE mode only exists within Tango mode: leaving Tango exits LIVE so its
     // guards (stop-confirm, deck-key suppression) can't linger outside Tango.
     if (!tango && m_pLiveModeControl && m_pLiveModeControl->toBool()) {
@@ -518,6 +557,22 @@ void DlgAutoDJ::refreshTangoModeUi() {
     }
     updateNowPlaying();
     updateSetEndTime();
+}
+
+void DlgAutoDJ::nudgeCortinaLength(int delta) {
+    const int current = static_cast<int>(std::lround(m_pCortinaLengthControl->get()));
+    const int next = std::clamp(current + delta, 5, 600);
+    if (next != current) {
+        m_pCortinaLengthControl->set(next);
+    }
+    // The control does not echo its own set back to this proxy, so refresh the
+    // readout directly (a change from Preferences arrives via connectValueChanged).
+    updateCortinaLengthReadout();
+}
+
+void DlgAutoDJ::updateCortinaLengthReadout() {
+    const int seconds = static_cast<int>(std::lround(m_pCortinaLengthControl->get()));
+    labelCortinaLengthValue->setText(tr("%1 s").arg(seconds));
 }
 
 void DlgAutoDJ::updateNowPlaying() {

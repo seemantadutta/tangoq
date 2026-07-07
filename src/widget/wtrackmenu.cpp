@@ -5,6 +5,7 @@
 #include <QInputDialog>
 #include <QList>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QModelIndex>
 #include <QVBoxLayout>
 
@@ -342,6 +343,18 @@ void WTrackMenu::createActions() {
     m_pCortinaToggleAct->setVisible(false);
     connect(m_pCortinaToggleAct, &QAction::triggered, this, &WTrackMenu::slotToggleCortina);
 
+    // Reset the Tango set state (mark all unplayed + restart from the top). Like
+    // the cortina toggle it lives on the Auto DJ queue list, so create it
+    // unconditionally, hidden, and reveal it only there (and only while Auto DJ is
+    // stopped and not LIVE) in updateMenus().
+    m_pResetAutoDJQueueStateAct = make_parented<QAction>(
+            tr("Reset AutoDJ Queue State"), this);
+    m_pResetAutoDJQueueStateAct->setVisible(false);
+    connect(m_pResetAutoDJQueueStateAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotResetAutoDJQueueState);
+
     // Non-clickable info line with the total duration of the selected tracks.
     // Like the cortina toggle it must also work in the Auto DJ queue list (not a
     // Feature::AutoDJ context), so create it unconditionally and hide it until
@@ -653,6 +666,12 @@ void WTrackMenu::setupActions() {
 
     // Shown only in Tango mode (updateMenus), including in the Auto DJ queue list.
     addAction(m_pCortinaToggleAct);
+
+    // Reset AutoDJ Queue State: Auto DJ queue list only, revealed in updateMenus()
+    // with its own leading separator so it reads as a distinct, deliberate action.
+    m_pResetAutoDJQueueStateSeparator = addSeparator();
+    m_pResetAutoDJQueueStateSeparator->setVisible(false);
+    addAction(m_pResetAutoDJQueueStateAct);
 
     if (featureIsEnabled(Feature::LoadTo)) {
         m_pLoadToMenu->addMenu(m_pDeckMenu);
@@ -1017,6 +1036,26 @@ void WTrackMenu::updateMenus() {
             }
             m_pCortinaToggleAct->setText(
                     allCortina ? tr("Set as Track") : tr("Set as Cortina"));
+        }
+    }
+
+    // Reset AutoDJ Queue State: Auto DJ queue list, Tango mode, and only while Auto
+    // DJ is stopped and not in LIVE mode - so it can never wipe a running set.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        const bool autoDJRunning = ControlObject::get(ConfigKey(
+                                           QStringLiteral("[AutoDJ]"),
+                                           QStringLiteral("enabled"))) > 0.0;
+        const bool liveMode = ControlObject::get(ConfigKey(
+                                      QStringLiteral("[AutoDJ]"),
+                                      QStringLiteral("live_mode"))) > 0.0;
+        const bool show = tangoMode && isCortinaList() &&
+                !autoDJRunning && !liveMode;
+        m_pResetAutoDJQueueStateAct->setVisible(show);
+        if (m_pResetAutoDJQueueStateSeparator) {
+            m_pResetAutoDJQueueStateSeparator->setVisible(show);
         }
     }
 
@@ -2813,6 +2852,27 @@ void WTrackMenu::slotToggleCortina() {
             CortinaRegistry::instance().mark(trackId);
         }
     }
+}
+
+void WTrackMenu::slotResetAutoDJQueueState() {
+    // Deliberate, confirmed action: restart the Tango set from the top. Marks
+    // every queued track unplayed (reverting the grey "played" colour) and resets
+    // the play cursor to the first track, so a fully-played set can be replayed.
+    const auto answer = QMessageBox::question(this,
+            tr("Reset AutoDJ Queue State"),
+            tr("Mark all tracks in the Auto DJ queue as unplayed and restart the "
+               "set from the top?\n\nThis does not change your play counts."),
+            QMessageBox::Yes | QMessageBox::Cancel,
+            QMessageBox::Cancel);
+    if (answer != QMessageBox::Yes) {
+        return;
+    }
+    // The AutoDJProcessor owns the play cursor and the queue model, so route the
+    // reset through its control (it clears the played flags and the cursor).
+    ControlObject::set(
+            ConfigKey(QStringLiteral("[AutoDJ]"),
+                    QStringLiteral("reset_queue_state")),
+            1.0);
 }
 
 void WTrackMenu::slotAddToAutoDJReplace() {

@@ -5,12 +5,14 @@
 #endif
 
 #include "control/controlobject.h"
+#include "control/controlproxy.h"
 #include "moc_dlgprefautodj.cpp"
 
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
                              UserSettingsPointer pConfig)
         : DlgPreferencePage(pParent),
-          m_pConfig(pConfig) {
+          m_pConfig(pConfig),
+          m_pCortinaLengthControl(nullptr) {
     setupUi(this);
 
     // The minimum available for randomly-selected tracks
@@ -102,6 +104,62 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             QOverload<int>::of(&QSpinBox::valueChanged),
             this,
             &DlgPrefAutoDJ::slotSetCortinaLength);
+    // The cortina length can also be nudged live from the Auto DJ toolbar. Mirror
+    // those changes into this (stop-only) field so it always shows the current
+    // value, even while greyed out during a running set.
+    m_pCortinaLengthControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "cortina_length"), this);
+    m_pCortinaLengthControl->connectValueChanged(this, [this](double v) {
+        const int seconds = static_cast<int>(v);
+        if (CortinaLengthSpinBox->value() != seconds) {
+            CortinaLengthSpinBox->setValue(seconds);
+        }
+    });
+
+    // Cortina transition mode: 0 = hard cut (current; cortina starts at full and
+    // is faded out manually), 1 = Cortina Fade (the engine fades the cortina in
+    // and out automatically over the times below).
+    int cortinaFadeMode =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeMode"), 0);
+    CortinaFadeModeComboBox->setCurrentIndex(cortinaFadeMode);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), cortinaFadeMode);
+    connect(CortinaFadeModeComboBox,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaFadeMode);
+
+    // Cortina fade-in (X) and fade-out (Z); the hold time Y = cortina length - X
+    // - Z is derived and shown read-only.
+    int cortinaFadeIn =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeIn"), 5);
+    CortinaFadeInSpinBox->setValue(cortinaFadeIn);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), cortinaFadeIn);
+    connect(CortinaFadeInSpinBox,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaFadeIn);
+
+    int cortinaFadeOut =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"), 5);
+    CortinaFadeOutSpinBox->setValue(cortinaFadeOut);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), cortinaFadeOut);
+    connect(CortinaFadeOutSpinBox,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaFadeOut);
+
+    // Cortina gap (Nc): silent gap before and after the cortina.
+    int cortinaGap =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaGap"), 2);
+    CortinaGapSpinBox->setValue(cortinaGap);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaGapBuff"), cortinaGap);
+    connect(CortinaGapSpinBox,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaGap);
+
+    updateCortinaHoldLabel();
+    updateCortinaFadeEnabled();
 
     setScrollSafeGuardForAllInputWidgets(this);
 }
@@ -112,6 +170,59 @@ void DlgPrefAutoDJ::slotToggleTangoMode(bool checked) {
 
 void DlgPrefAutoDJ::slotSetCortinaLength(int seconds) {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), seconds);
+    // The hold time depends on the cortina length, so keep its readout current.
+    updateCortinaHoldLabel();
+}
+
+void DlgPrefAutoDJ::slotSetCortinaFadeMode(int index) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), index);
+    updateCortinaFadeEnabled();
+}
+
+void DlgPrefAutoDJ::slotSetCortinaFadeIn(int seconds) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), seconds);
+    updateCortinaHoldLabel();
+}
+
+void DlgPrefAutoDJ::slotSetCortinaFadeOut(int seconds) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), seconds);
+    updateCortinaHoldLabel();
+}
+
+void DlgPrefAutoDJ::slotSetCortinaGap(int seconds) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaGapBuff"), seconds);
+}
+
+void DlgPrefAutoDJ::updateCortinaHoldLabel() {
+    const int cortinaLength = CortinaLengthSpinBox->value();
+    const int hold = cortinaLength -
+            CortinaFadeInSpinBox->value() - CortinaFadeOutSpinBox->value();
+    if (hold >= 0) {
+        CortinaHoldLabel->setText(tr("Cortina hold time: %1 s").arg(hold));
+    } else {
+        // Fade-in + fade-out exceed the cortina length. The engine clamps at
+        // runtime, but surface it so the user can correct the values.
+        CortinaHoldLabel->setText(
+                tr("Cortina hold time: 0 s — fade-in + fade-out exceed the "
+                   "cortina length (%1 s)")
+                        .arg(cortinaLength));
+    }
+}
+
+void DlgPrefAutoDJ::updateCortinaFadeEnabled() {
+    // The fade-in/out/gap inputs only apply in Cortina Fade mode, and (like the
+    // other Tango set-timing inputs) only while Auto DJ is stopped.
+    const bool autoDJRunning =
+            ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
+    const bool enabled =
+            CortinaFadeModeComboBox->currentIndex() == 1 && !autoDJRunning;
+    CortinaFadeInLabel->setEnabled(enabled);
+    CortinaFadeInSpinBox->setEnabled(enabled);
+    CortinaFadeOutLabel->setEnabled(enabled);
+    CortinaFadeOutSpinBox->setEnabled(enabled);
+    CortinaGapLabel->setEnabled(enabled);
+    CortinaGapSpinBox->setEnabled(enabled);
+    CortinaHoldLabel->setEnabled(enabled);
 }
 
 void DlgPrefAutoDJ::slotUpdate() {
@@ -123,6 +234,10 @@ void DlgPrefAutoDJ::slotUpdate() {
     // The cortina length feeds the set-length estimate, which is only recomputed
     // when Auto DJ is stopped; lock it while running like the Tango mode toggle.
     CortinaLengthSpinBox->setEnabled(!autoDJRunning);
+    // Cortina transition mode and its fade inputs likewise change behavior that
+    // is only safe to alter while Auto DJ is stopped.
+    CortinaFadeModeComboBox->setEnabled(!autoDJRunning);
+    updateCortinaFadeEnabled();
 }
 
 void DlgPrefAutoDJ::slotApply() {
@@ -133,9 +248,24 @@ void DlgPrefAutoDJ::slotApply() {
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), false)
                     ? 1.0
                     : 0.0);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLength"),
+    // Route cortina length through the live control so the AutoDJProcessor
+    // persists it to [Auto DJ],CortinaLength and the cockpit readout updates
+    // immediately (mirrors the Tango mode toggle above).
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_length"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45));
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeMode"),
+            m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), 0));
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeIn"),
+            m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), 5));
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"),
+            m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), 5));
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaGap"),
+            m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaGapBuff"), 2));
     m_pConfig->setValue(ConfigKey("[Auto DJ]","MinimumAvailable"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "MinimumAvailableBuff"), 20));
@@ -165,6 +295,29 @@ void DlgPrefAutoDJ::slotCancel() {
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaLength"), 45);
     CortinaLengthSpinBox->setValue(cortinaLength);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), cortinaLength);
+
+    int cortinaFadeMode =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeMode"), 0);
+    CortinaFadeModeComboBox->setCurrentIndex(cortinaFadeMode);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), cortinaFadeMode);
+
+    int cortinaFadeIn =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeIn"), 5);
+    CortinaFadeInSpinBox->setValue(cortinaFadeIn);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), cortinaFadeIn);
+
+    int cortinaFadeOut =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"), 5);
+    CortinaFadeOutSpinBox->setValue(cortinaFadeOut);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), cortinaFadeOut);
+
+    int cortinaGap =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaGap"), 2);
+    CortinaGapSpinBox->setValue(cortinaGap);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaGapBuff"), cortinaGap);
+
+    updateCortinaHoldLabel();
+    updateCortinaFadeEnabled();
 
     MinimumAvailableSpinBox->setValue(
             m_pConfig->getValue(
@@ -212,6 +365,17 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
 
     CortinaLengthSpinBox->setValue(45);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
+
+    CortinaFadeModeComboBox->setCurrentIndex(0);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), 0);
+    CortinaFadeInSpinBox->setValue(5);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), 5);
+    CortinaFadeOutSpinBox->setValue(5);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), 5);
+    CortinaGapSpinBox->setValue(2);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaGapBuff"), 2);
+    updateCortinaHoldLabel();
+    updateCortinaFadeEnabled();
 
     // Re-queue tracks in AutoDJ
     MinimumAvailableSpinBox->setValue(20);

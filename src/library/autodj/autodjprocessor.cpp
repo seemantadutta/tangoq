@@ -1,5 +1,8 @@
 #include "library/autodj/autodjprocessor.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include "engine/channels/enginedeck.h"
 #include "library/autodj/cortinaregistry.h"
 #include "mixer/basetrackplayer.h"
@@ -128,7 +131,16 @@ AutoDJProcessor::AutoDJProcessor(
           m_keepQueueTotalSeconds(0.0),
           m_keepQueueTotalTracks(0),
           m_keepQueueCortinaSeconds(45),
+          m_keepQueueUpcomingCortinas(0),
+          m_keepQueueTotalCortinas(0),
           m_keepQueueDurationDirty(true),
+          m_cortinaFadeEnabled(false),
+          m_cortinaFadeInSeconds(5),
+          m_cortinaFadeOutSeconds(5),
+          m_cortinaGapSeconds(2),
+          m_cortinaFadePhase(CortinaFadePhase::None),
+          m_pCortinaDeck(nullptr),
+          m_cortinaTrackId(),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
           m_coCrossfaderReverse(QStringLiteral("[Mixer Profile]"), QStringLiteral("xFaderReverse")),
@@ -138,6 +150,8 @@ AutoDJProcessor::AutoDJProcessor(
           m_fadeNow(ConfigKey(kControlGroup, QStringLiteral("fade_now"))),
           m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
           m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))),
+          m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
+          m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_stopGuardArmed(false) {
     m_pAutoDJTableModel = make_parented<PlaylistTableModel>(
@@ -206,6 +220,25 @@ AutoDJProcessor::AutoDJProcessor(
             this,
             &AutoDJProcessor::controlKeepQueue);
 
+    // Live cortina length: initialize from the persistent default and keep the
+    // config (and the envelope budget) in sync when it is nudged from the cockpit
+    // or applied from Preferences.
+    {
+        const int cortinaLength = m_pConfig->getValue(
+                ConfigKey(kPreferenceGroup, QStringLiteral("CortinaLength")), 45);
+        m_cortinaLength.set(cortinaLength);
+        m_keepQueueCortinaSeconds = cortinaLength;
+    }
+    connect(&m_cortinaLength,
+            &ControlObject::valueChanged,
+            this,
+            &AutoDJProcessor::controlCortinaLength);
+
+    connect(&m_resetQueueState,
+            &ControlObject::valueChanged,
+            this,
+            &AutoDJProcessor::controlResetQueueState);
+
     // LIVE mode is session-only (not restored from config), so it always starts
     // off. The stop guard auto-disarms a few seconds after the first disable
     // request if no confirming second request arrives.
@@ -215,6 +248,13 @@ AutoDJProcessor::AutoDJProcessor(
             &QTimer::timeout,
             this,
             &AutoDJProcessor::disarmStopGuard);
+
+    // One-shot timer that holds the Nc silent gaps before and after a cortina.
+    m_cortinaGapTimer.setSingleShot(true);
+    connect(&m_cortinaGapTimer,
+            &QTimer::timeout,
+            this,
+            &AutoDJProcessor::slotCortinaGapElapsed);
 
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
@@ -231,6 +271,8 @@ AutoDJProcessor::AutoDJProcessor(
     m_transitionMode = m_pConfig->getValue(
             ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             TransitionMode::FullIntroOutro);
+
+    loadCortinaFadeSettings();
 }
 
 void AutoDJProcessor::slotNumberOfDecksChanged(int decks) {
@@ -510,6 +552,11 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
                     ConfigKey(QStringLiteral("[Skin]"), QStringLiteral("show_4decks")), 1);
         }
 
+        // Snapshot the Cortina Fade settings for this set. They are only
+        // editable while Auto DJ is stopped, and reading them here keeps the
+        // engine behaviour independent of the UI refresh timer.
+        loadCortinaFadeSettings();
+
         // Keep Queue mode: always continue from the next unplayed track (the
         // cursor). Only keep it in bounds in case the queue shrank while Auto DJ
         // was stopped. (Clearing the queue restarts from the top; that is handled
@@ -686,6 +733,9 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         m_enabledAutoDJ.setAndConfirm(0.0);
         qDebug() << "Auto DJ disabled";
         m_eState = ADJ_DISABLED;
+        // Cancel any running cortina gap/envelope so a pending gap timer can't
+        // start a deck after Auto DJ has been turned off.
+        cancelCortinaFade();
         disconnect(&m_coCrossfader,
                 &ControlProxy::valueChanged,
                 this,
@@ -790,6 +840,13 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
     // the track was playing, but is now stopped.
     bool thisDeckPlaying = thisDeck->isPlaying();
     bool otherDeckPlaying = otherDeck->isPlaying();
+
+    // Cortina Fade mode owns the crossfader for a solo-playing cortina (fade in,
+    // hold, fade out, then hand off to the next tanda track). When it takes over,
+    // skip the normal transition handling for this deck.
+    if (maybeHandleCortinaFade(thisDeck, thisPlayPosition)) {
+        return;
+    }
 
     // To switch out of ADJ_ENABLE_P1LOADED we wait for a playposition update
     // for either deck.
@@ -1133,6 +1190,11 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // loaded track is held by the deck, so this is cheap (no database read). While
     // paused this stays frozen, so "time left" holds steady and the projected end
     // clock slips later in real time, which is the desired behaviour.
+    // In Cortina Fade mode the boundaries into and out of each cortina use the
+    // Nc gaps (counted per cortina in the sums) instead of the Auto DJ
+    // transition time, so exclude them from the Nt adjustment below.
+    int cortinaBoundaries =
+            m_cortinaFadeEnabled ? 2 * m_keepQueueUpcomingCortinas : 0;
     if (m_eState != ADJ_DISABLED) {
         DeckAttributes* pFromDeck = getFromDeck();
         if (pFromDeck) {
@@ -1141,6 +1203,10 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
             if (pTrack && pos >= 0.0) {
                 seconds += keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
                 remainingTracks += 1;
+                if (m_cortinaFadeEnabled && isCortina(pTrack)) {
+                    // Only the boundary out of the playing cortina remains.
+                    cortinaBoundaries += 1;
+                }
             }
         }
     }
@@ -1150,7 +1216,11 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // per-track cues we cannot know in advance, so the adjustment is skipped there.
     if (m_transitionMode == TransitionMode::FixedFullTrack ||
             m_transitionMode == TransitionMode::FixedSkipSilence) {
-        const int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
+        int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
+        transitions -= cortinaBoundaries;
+        if (transitions < 0) {
+            transitions = 0;
+        }
         seconds -= transitions * m_transitionTime;
     }
     if (seconds < 0.0) {
@@ -1170,9 +1240,42 @@ void AutoDJProcessor::refreshSetDurationCacheIfNeeded() {
         m_keepQueueCortinaSeconds = cortinaSeconds;
         m_keepQueueDurationDirty = true;
     }
+    // The Cortina Fade settings feed both the engine and the estimate. While a
+    // set is running they stay frozen at the toggleAutoDJ() snapshot; while
+    // stopped, pick up preference edits here so the Set Length preview follows
+    // the prefs dialog. Fade mode and gap are baked into the cached sums, so a
+    // change to them re-dirties the cache.
+    if (m_eState == ADJ_DISABLED) {
+        const bool fadeEnabled = m_cortinaFadeEnabled;
+        const int gapSeconds = m_cortinaGapSeconds;
+        loadCortinaFadeSettings();
+        if (fadeEnabled != m_cortinaFadeEnabled ||
+                gapSeconds != m_cortinaGapSeconds) {
+            m_keepQueueDurationDirty = true;
+        }
+    }
     if (m_keepQueueDurationDirty) {
         recomputeKeepQueueUpcomingDuration();
     }
+}
+
+void AutoDJProcessor::loadCortinaFadeSettings() {
+    m_cortinaFadeEnabled =
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("CortinaFadeMode")),
+                    0) == 1;
+    m_cortinaFadeInSeconds =
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("CortinaFadeIn")),
+                    5);
+    m_cortinaFadeOutSeconds =
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("CortinaFadeOut")),
+                    5);
+    m_cortinaGapSeconds =
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("CortinaGap")),
+                    2);
 }
 
 bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
@@ -1180,25 +1283,258 @@ bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
             CortinaRegistry::instance().contains(TrackId(pTrack->getId()));
 }
 
+bool AutoDJProcessor::maybeHandleCortinaFade(
+        DeckAttributes* thisDeck, double thisPlayPosition) {
+    // Cortina Fade is a Tango (Keep Queue) feature; normal Auto DJ must stay
+    // completely unaffected even if cortina marks linger from a Tango session.
+    if (!m_cortinaFadeEnabled || !keepQueueEnabled()) {
+        return false;
+    }
+
+    if (m_cortinaFadePhase == CortinaFadePhase::None) {
+        // Not active: consider taking over for a cortina playing solo while
+        // idle. In any other state (enabling, an active normal fade) the
+        // standard transition machinery is in charge and must not be
+        // second-guessed.
+        if (m_eState != ADJ_IDLE || !thisDeck->isPlaying()) {
+            return false;
+        }
+        const TrackPointer pCortina = thisDeck->getLoadedTrack();
+        if (!isCortina(pCortina)) {
+            return false;
+        }
+        DeckAttributes* pNextDeck = getOtherDeck(thisDeck);
+        if (!pNextDeck || pNextDeck->isPlaying()) {
+            return false;
+        }
+        const double duration = getEndSecond(thisDeck);
+        if (duration < kMinimumTrackDurationSec) {
+            return false;
+        }
+        m_pCortinaDeck = thisDeck;
+        m_cortinaTrackId = TrackId(pCortina->getId());
+
+        // Insert the Nc before-gap only while the cortina is still inside its
+        // silent lead-in (calculateTransition() cues it Nc ahead of the first
+        // sound, so the hard cut onto it and these first callbacks are
+        // inaudible). If it is already audible - e.g. Auto DJ was enabled mid-
+        // cortina - a pause/seek-back would be an audible stutter, so skip the
+        // gap and run the envelope from the current position instead.
+        const double firstSound = getFirstSoundSecond(thisDeck);
+        if (thisPlayPosition * duration <= firstSound + 0.1) {
+            m_cortinaFadePhase = CortinaFadePhase::BeforeGap;
+            // Order matters to keep this inaudible: stop and silence the
+            // cortina before seeking it onto its first audible sample.
+            thisDeck->stop();
+            setCrossfader(thisDeck->isLeft() ? 1.0 : -1.0);
+            thisDeck->setPlayPosition(firstSound / duration);
+            m_cortinaGapTimer.start(m_cortinaGapSeconds * 1000);
+            return true;
+        }
+        m_cortinaFadePhase = CortinaFadePhase::Envelope;
+        // Fall through to the envelope below.
+    } else {
+        // An active phase owns the cortina deck's callbacks outright, so the
+        // normal machinery can't reinterpret our own seeks and stops. The
+        // other deck's callbacks are not claimed.
+        if (thisDeck != m_pCortinaDeck) {
+            return false;
+        }
+        const TrackPointer pTrack = thisDeck->getLoadedTrack();
+        if (m_eState != ADJ_IDLE || !pTrack ||
+                TrackId(pTrack->getId()) != m_cortinaTrackId) {
+            // The world changed under us (state change, eject, manual load):
+            // relinquish control instead of driving the wrong track.
+            cancelCortinaFade();
+            return false;
+        }
+        if (m_cortinaFadePhase != CortinaFadePhase::Envelope) {
+            // Waiting out a gap with the cortina deck stopped. Swallow stray
+            // callbacks (e.g. from our own seek) so the "cueing seek" logic
+            // doesn't recalculate transitions meanwhile.
+            return true;
+        }
+    }
+
+    // Envelope: drive the crossfader as a pure function of the seconds elapsed
+    // since the cortina's first audible sample.
+    const double duration = getEndSecond(thisDeck);
+    const double firstSound = getFirstSoundSecond(thisDeck);
+    const double elapsed = thisPlayPosition * duration - firstSound;
+
+    // Envelope lengths. Clamp the on-deck budget (Cl) to the cortina's audible
+    // span, and if fade-in + fade-out still overflow it, scale them down so the
+    // hold time Y stays >= 0.
+    const double audible =
+            math_max(getLastSoundSecond(thisDeck) - firstSound, 0.0);
+    const double cl = math_min(
+            static_cast<double>(m_keepQueueCortinaSeconds), audible);
+    double x = static_cast<double>(m_cortinaFadeInSeconds);
+    double z = static_cast<double>(m_cortinaFadeOutSeconds);
+    if (x + z > cl) {
+        const double scale = (x + z > 0.0) ? cl / (x + z) : 0.0;
+        x *= scale;
+        z *= scale;
+    }
+
+    if (!thisDeck->isPlaying()) {
+        if (thisPlayPosition >= 1.0 || elapsed >= cl) {
+            // The file ended before the envelope + after-gap completed (short
+            // cortina / no silent tail). Go straight to the after-gap so the
+            // handoff to the next tanda still happens.
+            startCortinaAfterGap(thisDeck);
+            return true;
+        }
+        // Paused mid-envelope by the DJ: they are taking over.
+        cancelCortinaFade();
+        return false;
+    }
+
+    // The cortina plays at full on its own crossfader side; the opposite end is
+    // silent because the partner deck is stopped there.
+    const double cortinaSide = thisDeck->isLeft() ? -1.0 : 1.0;
+    const double silentSide = -cortinaSide;
+
+    double crossfader;
+    if (elapsed < 0.0) {
+        // Still inside the silent lead-in.
+        crossfader = silentSide;
+    } else if (elapsed < x) {
+        // Fade in.
+        crossfader = silentSide + (cortinaSide - silentSide) * (elapsed / x);
+    } else if (elapsed < cl - z) {
+        // Hold at full.
+        crossfader = cortinaSide;
+    } else if (elapsed < cl) {
+        // Fade out.
+        crossfader = cortinaSide +
+                (silentSide - cortinaSide) * ((elapsed - (cl - z)) / z);
+    } else {
+        // Fade-out complete: enter the Nc after-gap.
+        startCortinaAfterGap(thisDeck);
+        return true;
+    }
+    setCrossfader(crossfader);
+    return true;
+}
+
+void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
+    m_cortinaFadePhase = CortinaFadePhase::AfterGap;
+    // Park the crossfader on the next deck's side so the upcoming hard start
+    // comes in at full volume, and stop the (now inaudible) cortina. The gap is
+    // wall-clock, so it doesn't depend on the cortina file having a silent tail.
+    setCrossfader(pCortinaDeck->isLeft() ? 1.0 : -1.0);
+    pCortinaDeck->stop();
+    m_cortinaGapTimer.start(m_cortinaGapSeconds * 1000);
+}
+
+void AutoDJProcessor::cancelCortinaFade() {
+    m_cortinaGapTimer.stop();
+    m_cortinaFadePhase = CortinaFadePhase::None;
+    m_pCortinaDeck = nullptr;
+    m_cortinaTrackId = TrackId();
+}
+
+void AutoDJProcessor::slotCortinaGapElapsed() {
+    DeckAttributes* pCortinaDeck = m_pCortinaDeck;
+    if (!pCortinaDeck || m_eState != ADJ_IDLE) {
+        cancelCortinaFade();
+        return;
+    }
+
+    if (m_cortinaFadePhase == CortinaFadePhase::BeforeGap) {
+        // If the track on the gapped deck changed while the timer ran (eject or
+        // a manual load), blindly starting the deck would play the wrong track
+        // with the crossfader parked on its silent side. Relinquish control.
+        const TrackPointer pTrack = pCortinaDeck->getLoadedTrack();
+        if (!pTrack || TrackId(pTrack->getId()) != m_cortinaTrackId) {
+            cancelCortinaFade();
+            return;
+        }
+        // The before-gap has elapsed; resume the cortina. The position handler
+        // then ramps the crossfader in from silence.
+        m_cortinaFadePhase = CortinaFadePhase::Envelope;
+        pCortinaDeck->play();
+        return;
+    }
+
+    if (m_cortinaFadePhase == CortinaFadePhase::AfterGap) {
+        // If the DJ touched the cortina deck during the gap (restart, eject,
+        // manual load), they are taking over: don't force the handoff.
+        const TrackPointer pCortinaTrack = pCortinaDeck->getLoadedTrack();
+        if (pCortinaDeck->isPlaying() || pCortinaDeck->loading ||
+                !pCortinaTrack ||
+                TrackId(pCortinaTrack->getId()) != m_cortinaTrackId) {
+            cancelCortinaFade();
+            return;
+        }
+        DeckAttributes* pNextDeck = getOtherDeck(pCortinaDeck);
+        if (!pNextDeck) {
+            cancelCortinaFade();
+            return;
+        }
+        if (pNextDeck->loading) {
+            // The next track is still loading (e.g. Auto DJ was only just
+            // enabled): extend the gap slightly rather than stalling the set
+            // with both decks stopped.
+            m_cortinaGapTimer.start(500);
+            return;
+        }
+        const double nextDuration = getEndSecond(pNextDeck);
+        if (pNextDeck->isPlaying() || nextDuration < kMinimumTrackDurationSec) {
+            // Already started by the DJ, or nothing playable is cued: back off.
+            cancelCortinaFade();
+            return;
+        }
+        // Reset the phase before starting the next track: from here on its
+        // callbacks belong to the normal transition machinery again.
+        cancelCortinaFade();
+        // The Nc gap was the silent hold above, so cue the next track to its
+        // first audible sample (no extra pre-roll) and hard-start it; the
+        // crossfader is already parked on its side, so it comes in at full.
+        // Except when it is itself a cortina: keep its silent lead-in so its
+        // own before-gap can engage without an audible blip.
+        const TrackPointer pNextTrack = pNextDeck->getLoadedTrack();
+        double startSecond = getFirstSoundSecond(pNextDeck);
+        if (isCortina(pNextTrack)) {
+            startSecond = math_max(
+                    startSecond - static_cast<double>(m_cortinaGapSeconds), 0.0);
+        }
+        pNextDeck->setPlayPosition(startSecond / nextDuration);
+        pNextDeck->play();
+        removeLoadedTrackFromTopOfQueue(*pNextDeck);
+        // Load the next tanda track into the freed cortina deck;
+        // playerTrackLoaded() then arms the next (normal) transition.
+        loadNextTrackFromQueue(*pCortinaDeck);
+    }
+}
+
 void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
     const int rowCount = m_pAutoDJTableModel->rowCount();
     double totalSeconds = 0.0;
     double upcomingSeconds = 0.0;
+    int totalCortinas = 0;
+    int upcomingCortinas = 0;
     // One database pass feeds both caches: the whole-queue total (Set Length) and
     // the cursor-onward remainder (used by the time-left/end estimate).
     for (int row = 0; row < rowCount; ++row) {
         TrackPointer pTrack = m_pAutoDJTableModel->getTrack(
                 m_pAutoDJTableModel->index(row, 0));
         const double seconds = keepQueueTrackPlaySeconds(pTrack);
+        const bool cortina = isCortina(pTrack);
         totalSeconds += seconds;
+        totalCortinas += cortina ? 1 : 0;
         if (row >= m_keepQueueRow) {
             upcomingSeconds += seconds;
+            upcomingCortinas += cortina ? 1 : 0;
         }
     }
     m_keepQueueUpcomingSeconds = upcomingSeconds;
     m_keepQueueUpcomingTracks = rowCount - m_keepQueueRow;
     m_keepQueueTotalSeconds = totalSeconds;
     m_keepQueueTotalTracks = rowCount;
+    m_keepQueueUpcomingCortinas = upcomingCortinas;
+    m_keepQueueTotalCortinas = totalCortinas;
     m_keepQueueDurationDirty = false;
 }
 
@@ -1209,11 +1545,19 @@ mixxx::Duration AutoDJProcessor::getTotalSetDuration() {
     refreshSetDurationCacheIfNeeded();
     double seconds = m_keepQueueTotalSeconds;
     // Subtract the per-boundary gap / crossfade overlap, matching the remaining
-    // duration estimate. Only the fixed modes have a deterministic transition time.
+    // duration estimate. Only the fixed modes have a deterministic transition
+    // time. In Cortina Fade mode the boundaries around each cortina use the Nc
+    // gaps (counted per cortina in the sums) instead of Nt, so exclude them.
     if (m_transitionMode == TransitionMode::FixedFullTrack ||
             m_transitionMode == TransitionMode::FixedSkipSilence) {
-        const int transitions =
+        int transitions =
                 m_keepQueueTotalTracks > 1 ? m_keepQueueTotalTracks - 1 : 0;
+        if (m_cortinaFadeEnabled) {
+            transitions -= 2 * m_keepQueueTotalCortinas;
+            if (transitions < 0) {
+                transitions = 0;
+            }
+        }
         seconds -= transitions * m_transitionTime;
     }
     if (seconds < 0.0) {
@@ -1242,11 +1586,20 @@ double AutoDJProcessor::keepQueueTrackPlaySeconds(const TrackPointer& pTrack) co
     if (!pTrack) {
         return 0.0;
     }
-    // Cortinas are faded out manually with the crossfader, so the estimate budgets
-    // only the configured cortina length regardless of fade mode. Cap at the file
-    // length so a hand-picked cortina shorter than the budget isn't over-counted.
+    // The estimate budgets only the configured cortina length for a cortina: in
+    // Cortina Fade mode that is the on-deck envelope length; otherwise the DJ
+    // fades it out manually around that budget. Cap at the file length so a
+    // hand-picked cortina shorter than the budget isn't over-counted.
     if (isCortina(pTrack)) {
-        return std::min<double>(m_keepQueueCortinaSeconds, pTrack->getDuration());
+        double seconds = std::min<double>(
+                m_keepQueueCortinaSeconds, pTrack->getDuration());
+        if (m_cortinaFadeEnabled) {
+            // Cortina Fade inserts a silent Nc gap before and after the cortina
+            // (its boundaries are excluded from the Nt transition adjustment in
+            // the duration getters).
+            seconds += 2.0 * m_cortinaGapSeconds;
+        }
+        return seconds;
     }
     // In Skip Silence mode the engine plays only the audible range, so subtract the
     // trimmed leading/trailing silence using the analyzed N60dBSound cue. Tracks
@@ -1274,7 +1627,12 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
         const double budget = std::min<double>(
                 m_keepQueueCortinaSeconds, fullSeconds);
         const double remaining = budget - currentSeconds;
-        return remaining > 0.0 ? remaining : 0.0;
+        double seconds = remaining > 0.0 ? remaining : 0.0;
+        if (m_cortinaFadeEnabled) {
+            // The Nc after-gap is still to come (the before-gap has passed).
+            seconds += m_cortinaGapSeconds;
+        }
+        return seconds;
     }
     // In Skip Silence mode the current track fades out at its last audible sample,
     // not the end of the file, so count the remainder up to that point.
@@ -1296,6 +1654,55 @@ void AutoDJProcessor::controlKeepQueue(double value) {
     // Persist the live Tango DJ mode control to the user setting.
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
             value > 0.0);
+}
+
+void AutoDJProcessor::controlCortinaLength(double value) {
+    // Clamp to the same range as the Preferences field. The UI setters clamp
+    // before writing, so this only guards against out-of-range values from
+    // elsewhere; don't write the control back to avoid a feedback loop.
+    int seconds = static_cast<int>(std::lround(value));
+    seconds = std::clamp(seconds, 5, 600);
+    m_pConfig->setValue(
+            ConfigKey(kPreferenceGroup, QStringLiteral("CortinaLength")), seconds);
+    if (seconds != m_keepQueueCortinaSeconds) {
+        m_keepQueueCortinaSeconds = seconds;
+        // The budget feeds the cached set-length sums, so force a recompute.
+        m_keepQueueDurationDirty = true;
+    }
+}
+
+void AutoDJProcessor::controlResetQueueState(double value) {
+    if (value <= 0.0) {
+        return;
+    }
+    resetKeepQueueSet();
+    // Re-arm the momentary trigger so the next request fires even though the
+    // control value was already 1 (ControlObject only emits on a change).
+    m_resetQueueState.set(0.0);
+}
+
+void AutoDJProcessor::resetKeepQueueSet() {
+    // Guard: this only makes sense for a stopped Keep Queue (Tango) set. The menu
+    // action is already gated the same way; this is defence in depth against the
+    // control being triggered otherwise.
+    if (!keepQueueEnabled() || m_eState != ADJ_DISABLED) {
+        return;
+    }
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    for (int row = 0; row < rowCount; ++row) {
+        TrackPointer pTrack = m_pAutoDJTableModel->getTrack(
+                m_pAutoDJTableModel->index(row, 0));
+        if (pTrack) {
+            // Clear the played status (and its grey colour) but keep the user's
+            // real play counts. The model recolours the row via its tracksChanged
+            // -> dataChanged path.
+            pTrack->updatePlayedStatusKeepPlayCount(false);
+        }
+    }
+    // Restart from the top: cursor to the first track, anchor cleared.
+    m_keepQueueRow = 0;
+    m_keepQueueAnchorId = TrackId();
+    invalidateRemainingSetDuration();
 }
 
 bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
@@ -1946,6 +2353,29 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
         }
         useFixedFadeTime(pFromDeck, pToDeck, fromDeckPosition, fromDeckEndPosition, startPoint);
         }
+    }
+
+    // Automated cortina fade: a D -> cortina boundary is always a hard cut
+    // followed by an Nc-second silent gap (the cortina handler then ramps the
+    // crossfader in), independent of the intra-tanda transition time Nt. Force
+    // the hard cut and cue the cortina Nc seconds ahead of its first audible
+    // sample: the hard cut then lands inside the cortina's silent lead-in, so
+    // the callbacks until maybeHandleCortinaFade() pauses it are inaudible.
+    // (The true Nc gap itself is held wall-clock by the gap timer.)
+    //
+    // Deliberately NOT clamped to >= 0: when the cortina has less than Nc of
+    // real leading silence (a hot start, or an un-analyzed cortina whose
+    // first-sound cue defaults to 0:00), a negative start position makes the
+    // engine pre-roll synthetic silence up to 0:00 - the same mechanism a
+    // negative transition time uses. That guarantees the hard cut always lands
+    // in silence, so the cortina's onset never reaches the output at full
+    // crossfader (which is the "pop on hot-start cortinas" this avoids).
+    if (m_cortinaFadeEnabled && keepQueueEnabled() &&
+            isCortina(pToDeck->getLoadedTrack())) {
+        pFromDeck->fadeBeginPos = getLastSoundSecond(pFromDeck);
+        pFromDeck->fadeEndPos = pFromDeck->fadeBeginPos;
+        pToDeck->startPos = getFirstSoundSecond(pToDeck) -
+                static_cast<double>(m_cortinaGapSeconds);
     }
 
     // These are expected to be a fraction of the track length.
