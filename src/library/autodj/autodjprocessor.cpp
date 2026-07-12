@@ -963,6 +963,32 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
     if (thisPlayPosition >= thisDeck->fadeBeginPos && thisDeck->isFromDeck && !otherDeck->loading) {
         if (m_eState == ADJ_IDLE) {
             if (thisDeckPlaying || thisPlayPosition >= 1.0) {
+                // Cortina Fade: enter a cortina WITHOUT the standard crossfade to
+                // its side, so the crossfader doesn't flick to the cortina and back
+                // before the gentle fade-in. Keep it on the outgoing (silent) side;
+                // maybeHandleCortinaFade() runs the fade from there. Gated to
+                // cortina-fade + Tango, so normal Auto DJ is byte-for-byte unchanged.
+                if (m_cortinaFadeEnabled && keepQueueEnabled() &&
+                        thisDeck->fadeBeginPos >= thisDeck->fadeEndPos &&
+                        isCortina(otherDeck->getLoadedTrack())) {
+                    if (!otherDeckPlaying) {
+                        otherDeck->play(); // cortina is cued in its silent lead-in
+                    }
+                    // Stay on the outgoing (silent) side -> no flick.
+                    setCrossfader(thisDeck->isLeft() ? -1.0 : 1.0);
+                    // Advance the cursor past the cortina.
+                    removeLoadedTrackFromTopOfQueue(*otherDeck);
+                    thisDeck->stop();
+                    thisDeck->isFromDeck = false;
+                    thisDeck->fadeBeginPos = 1.0;
+                    thisDeck->fadeEndPos = 1.0;
+                    // Load the next tanda track into the freed deck (not playing),
+                    // so maybeHandleCortinaFade() engages on the cortina's next
+                    // callback (ADJ_IDLE + cortina solo) and runs the envelope.
+                    loadNextTrackFromQueue(*thisDeck);
+                    return; // skip the generic FADING path -> no forced snap
+                }
+
                 // Set the state as FADING.
                 m_eState = thisDeck->isLeft() ? ADJ_LEFT_FADING : ADJ_RIGHT_FADING;
                 m_transitionProgress = 0.0;
