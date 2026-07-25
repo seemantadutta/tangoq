@@ -18,6 +18,13 @@
 #define MIXXX_TRANSLATION_URL "https://explore.transifex.com/mixxx-dj-software/"
 #define MIXXX_DONATE_URL "https://mixxx.org/donate"
 
+// Support page for this fork. Kept separate from MIXXX_DONATE_URL so donations
+// intended for the Mixxx project still reach the Mixxx project. This points at a
+// landing page rather than a payment provider directly: a bare payment link
+// opening out of an app looks like something to be suspicious of, and a page we
+// control can offer several ways to help without another release to change them.
+#define TANGOMODE_SUPPORT_URL "https://tangomode.app"
+
 #define MIXXX_CONTROLLER_FORUMS_URL \
     "https://mixxx.discourse.group/c/controller-mappings/10"
 
