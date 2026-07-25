@@ -73,6 +73,46 @@ xattr -dr com.apple.quarantine /Applications/Mixxx.app
 Then open Mixxx normally. This removes the "downloaded from the internet" flag
 that triggers the block.
 
+### First launch: say "Allow" to the permission box
+
+The first time Mixxx opens, macOS asks whether it may **access data from other
+apps**. Click **Allow**.
+
+Mixxx needs this for two things:
+
+- to create the folder where it keeps your settings and music library
+- to import your existing collection from Rekordbox, Serato, Traktor or Music.app
+
+**If you click "Don't Allow"**, Mixxx shows a confusing message mentioning
+*SQLite* and a single **OK** button, and then quits. Nothing is broken and your
+download is fine — Mixxx simply wasn't allowed to create its library file.
+
+To fix it, open  → **System Settings** → **Privacy & Security** → **Files and
+Folders**, find **Mixxx** in the list, and switch it on. Then open Mixxx again.
+
+If Mixxx isn't listed there, open **Terminal** (Applications → Utilities →
+Terminal), paste this line and press Return:
+
+```sh
+tccutil reset SystemPolicyAppData org.mixxx.mixxx
+```
+
+That makes macOS ask again the next time you open Mixxx — this time choose
+**Allow**.
+
+### Already using standard Mixxx? Bring your library across
+
+This build keeps its settings separate from a standard Mixxx install, so the two
+never interfere with each other. To start with a copy of your existing crates,
+playlists, history and cue points, close both apps and run this in **Terminal**:
+
+```sh
+cp -R ~/Library/Application\ Support/Mixxx ~/Library/Application\ Support/TangoMode
+```
+
+This **copies** your library — your standard Mixxx install keeps working exactly
+as before, and anything you do in this build cannot affect it.
+
 ---
 
 ## 4. (Optional) Verify your download
