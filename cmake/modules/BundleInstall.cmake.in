@@ -3,7 +3,15 @@ set(BUNDLE_PATH "${CMAKE_INSTALL_PREFIX}/${BUNDLE_NAME}")
 set(BUNDLE_LIBS @BUNDLE_LIBS@)
 set(BUNDLE_DIRS @BUNDLE_DIRS@)
 set(APPLE_CODESIGN_IDENTITY @APPLE_CODESIGN_IDENTITY@)
-set(APPLE_CODESIGN_ENTITLEMENTS @APPLE_CODESIGN_ENTITLEMENTS@)
+# Quoted so an empty value stays defined: ad-hoc builds sign without
+# entitlements, since sandbox entitlements on an ad-hoc signature leave the app
+# sandboxed but unable to own a data container.
+set(APPLE_CODESIGN_ENTITLEMENTS "@APPLE_CODESIGN_ENTITLEMENTS@")
+if(APPLE_CODESIGN_ENTITLEMENTS)
+  set(APPLE_CODESIGN_ENTITLEMENTS_ARGS --entitlements "${APPLE_CODESIGN_ENTITLEMENTS}")
+else()
+  set(APPLE_CODESIGN_ENTITLEMENTS_ARGS)
+endif()
 
 include(BundleUtilities)
 
@@ -23,7 +31,7 @@ if(DEFINED APPLE_CODESIGN_IDENTITY AND DEFINED APPLE_CODESIGN_ENTITLEMENTS)
       message(STATUS "Ad-hoc signing bundle without hardened runtime")
       execute_process(COMMAND
           codesign --verbose=4 --deep --force
-          --entitlements "${APPLE_CODESIGN_ENTITLEMENTS}"
+          ${APPLE_CODESIGN_ENTITLEMENTS_ARGS}
           --sign "${APPLE_CODESIGN_IDENTITY}"
           "${PATH_TO_SIGN}"
           RESULT_VARIABLE CODESIGN_EXIT_CODE
@@ -32,7 +40,7 @@ if(DEFINED APPLE_CODESIGN_IDENTITY AND DEFINED APPLE_CODESIGN_ENTITLEMENTS)
       message(STATUS "Signing bundle with hardened runtime and identity ${APPLE_CODESIGN_IDENTITY}")
       execute_process(COMMAND
           codesign --verbose=4 --deep --force --options runtime
-          --entitlements "${APPLE_CODESIGN_ENTITLEMENTS}"
+          ${APPLE_CODESIGN_ENTITLEMENTS_ARGS}
           --sign "${APPLE_CODESIGN_IDENTITY}"
           "${PATH_TO_SIGN}"
           RESULT_VARIABLE CODESIGN_EXIT_CODE

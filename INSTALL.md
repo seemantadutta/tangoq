@@ -73,45 +73,48 @@ xattr -dr com.apple.quarantine /Applications/TangoMode.app
 Then open TangoMode normally. This removes the "downloaded from the internet" flag
 that triggers the block.
 
-### First launch: say "Allow" to the permission box
+### First launch
 
-The first time TangoMode opens, macOS asks whether it may **access data from other
-apps**. Click **Allow**.
+TangoMode asks you to **choose your music folder** the first time it opens. Pick
+the folder your music lives in and click **Open** — it then scans that folder and
+builds its library. You can add more folders later in **Preferences → Library**.
 
-TangoMode needs this for two things:
+macOS may also ask whether TangoMode can **access data from other apps**. That
+permission is only used to import an existing collection from Rekordbox, Serato,
+Traktor or Music.app. Declining it is fine if you don't need that; TangoMode keeps
+its own settings in its own place either way.
 
-- to create the folder where it keeps your settings and music library
-- to import your existing collection from Rekordbox, Serato, Traktor or Music.app
-
-**If you click "Don't Allow"**, TangoMode shows a confusing message mentioning
-*SQLite* and a single **OK** button, and then quits. Nothing is broken and your
-download is fine — TangoMode simply wasn't allowed to create its library file.
-
-To fix it, open  → **System Settings** → **Privacy & Security** → **Files and
-Folders**, find **TangoMode** in the list, and switch it on. Then open TangoMode again.
-
-If TangoMode isn't listed there, open **Terminal** (Applications → Utilities →
-Terminal), paste this line and press Return:
+If TangoMode ever reports that it *could not create the folder it keeps your
+settings in*, that is a permission problem rather than a damaged download. Open
+ → **System Settings** → **Privacy & Security** → **Files and Folders**, find
+**TangoMode**, and switch it on. If it isn't listed, open **Terminal**
+(Applications → Utilities → Terminal), run the line below, then open TangoMode
+again and choose **Allow**:
 
 ```sh
 tccutil reset SystemPolicyAppData io.github.seemantadutta.tangomode
 ```
 
-That makes macOS ask again the next time you open TangoMode — this time choose
-**Allow**.
-
 ### Already using standard Mixxx? Bring your library across
 
-This build keeps its settings separate from a standard Mixxx install, so the two
-never interfere with each other. To start with a copy of your existing crates,
-playlists, history and cue points, close both apps and run this in **Terminal**:
+TangoMode keeps its settings completely separate from a standard Mixxx install,
+so the two never interfere with each other — but that also means it starts with an
+empty library.
+
+To begin with a copy of your existing crates, playlists, history and cue points
+instead: quit both apps, **open TangoMode once and close it again** (so it creates
+its folder), then run this in **Terminal**:
 
 ```sh
-cp -R ~/Library/Application\ Support/Mixxx ~/Library/Application\ Support/TangoMode
+cp ~/Library/Containers/org.mixxx.mixxx/Data/Library/Application\ Support/Mixxx/mixxxdb.sqlite \
+   ~/Library/Containers/io.github.seemantadutta.tangomode/Data/Library/Application\ Support/TangoMode/
 ```
 
+Those long paths are not a mistake: macOS stores each app's settings inside its own
+private container folder.
+
 This **copies** your library — your standard Mixxx install keeps working exactly
-as before, and anything you do in this build cannot affect it.
+as before, and nothing you do in TangoMode can affect it.
 
 ---
 

@@ -6,6 +6,7 @@
 #include <QtDebug>
 #include <QtGlobal>
 
+#include "config.h"
 #include "util/mac.h"
 
 #ifdef __APPLE__
@@ -442,10 +443,11 @@ QString Sandbox::migrateOldSettings() {
     // can be moved there. This is not necessary when running in a sandbox because macOS
     // automatically creates it.
     QString sandboxedParentPath = homePath +
-            QLatin1String(
-                    "/Library/Containers/org.mixxx.mixxx/Data/Library/"
-                    "Application Support");
-    QString sandboxedPath = sandboxedParentPath + QLatin1String("/Mixxx");
+            QLatin1String("/Library/Containers/") +
+            QLatin1String(MACOS_SETTINGS_CONTAINER_ID) +
+            QLatin1String("/Data/Library/Application Support");
+    QString sandboxedPath = sandboxedParentPath +
+            QLatin1String("/") + QLatin1String(MACOS_SETTINGS_DIR_NAME);
     QDir sandboxedDir(sandboxedPath);
 
     QString legacySettingsPath = homePath + QLatin1String("/Library/Application Support/Mixxx");

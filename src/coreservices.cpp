@@ -597,6 +597,19 @@ void CoreServices::initialize(QApplication* pApp) {
         // resolves to) and a user hitting 'cancel'. If we get a blank return
         // but the user didn't hit cancel, we need to know this and let the
         // user take some course of action -- bkgood
+        // macOS draws the native directory chooser without a title bar and
+        // ignores the caption below, so on a first run the user is faced with a
+        // bare file browser and no indication of what it wants. Explain first,
+        // the same way Sandbox::migrateOldSettings() does before its picker.
+        const QString appName = VersionStore::applicationName();
+        QMessageBox::information(nullptr,
+                tr("Choose your music folder"),
+                tr("%1 needs to know where you keep your music.\n\n"
+                   "After you click OK, choose the folder that contains your "
+                   "music files. %1 will scan it and add those tracks to its "
+                   "library.\n\n"
+                   "You can add more folders later in Preferences > Library.")
+                        .arg(appName));
         QString fd = QFileDialog::getExistingDirectory(nullptr,
                 tr("Choose music library directory"),
                 QStandardPaths::writableLocation(
