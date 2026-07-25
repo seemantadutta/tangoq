@@ -24,15 +24,15 @@
 
 namespace {
 
-// TangoMode targets tango DJs, for whom the stock club layout -- four decks,
-// samplers, effect racks, spinnies -- is mostly noise. Upstream's defaults are
-// applied by the skin when a key is absent, so a fresh install lands on the full
-// layout and every new user has to pare it back by hand through the menus.
-// Writing these on first run instead means the app opens simplified, while
-// leaving every one of them adjustable exactly as before: they are ordinary
-// persisted skin controls, so anything the user changes later wins and is never
+// Defaults for a brand new install. TangoMode targets tango DJs, for whom the
+// stock club layout -- four decks, samplers, effect racks, spinnies -- is mostly
+// noise. Upstream's defaults are applied when a key is absent, so a fresh install
+// lands on the full layout and every new user has to pare it back by hand through
+// the menus. Writing these on first run instead means the app opens ready to use,
+// while leaving every one of them adjustable exactly as before: they are ordinary
+// persisted settings, so anything the user changes later wins and is never
 // reapplied. Only a genuinely fresh config reaches this.
-void applySimplifiedLayoutDefaults(const UserSettingsPointer& config) {
+void applyFirstRunDefaults(const UserSettingsPointer& config) {
     static constexpr std::pair<const char*, const char*> kSkinDefaults[] = {
             // Hidden: club-oriented features a tango DJ does not use.
             {"show_4decks", "0"},
@@ -76,6 +76,13 @@ void applySimplifiedLayoutDefaults(const UserSettingsPointer& config) {
     for (const auto& [key, value] : kSkinDefaults) {
         config->set(ConfigKey("[Skin]", key), ConfigValue(QString::fromLatin1(value)));
     }
+
+    // Tandas are separated by cortinas, not beatmatched into each other, so the
+    // useful default is to trim the silence between tracks rather than crossfade
+    // over an outro. "3" is TransitionMode::FixedSkipSilence (see the enum in
+    // autodjprocessor.h, which is 0-indexed); -3 overlaps by three seconds.
+    config->set(ConfigKey("[Auto DJ]", "TransitionMode"), ConfigValue("3"));
+    config->set(ConfigKey("[Auto DJ]", "Transition"), ConfigValue("-3"));
 }
 
 } // namespace
@@ -356,7 +363,7 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
             qDebug() << "No version number in configuration file. Setting to"
                      << VersionStore::version();
             config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
-            applySimplifiedLayoutDefaults(config);
+            applyFirstRunDefaults(config);
             m_bFirstRun = true;
             return config;
 #ifdef __APPLE__
