@@ -13,3 +13,5 @@
 * Tanda suggestion window - needs more work and needs a well tagged library. Maybe add a system to tag tracks as popular/unpopular during a live gig and then build the data set over time which can then be used by AI/ML algorithms to generate tanda suggestions based on the expected dancer outcomes. The data set building can happen over several months to years.
 * Add a separate 'ANNOUNCEMENT' tag for a pseudotrack that does nothing but stop the autoDJ to allow for organizers to make announcements. This way I can set it up right after the cortina, and next tanda won't play. But it will stop at that point. And I should be able to hit 'continue' or some control to carry on with the next tanda. This way I don't have to manually insert 5min silence tracks when the organizer wants me to stop the DJ flow and continue after the announcements.
 * Double clicking on a track during LIVE mode should not replace tracks on any deck
+* Set the cortina tag in the deck area too, not just in the auto DJ list
+* configurable tango mode toolbar so that I can choose what I want to see, like milonga under/over times etc.
