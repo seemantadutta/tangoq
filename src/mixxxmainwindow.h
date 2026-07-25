@@ -100,9 +100,13 @@ class MixxxMainWindow : public QMainWindow {
     /// Event filter to block certain events (eg. tooltips if tooltips are disabled)
     bool eventFilter(QObject *obj, QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent* event) override;
 
   private:
     void initializeWindow();
+    /// Centre the window on the screen it is on. Only meaningful once the skin
+    /// has sized the window, so it is called after the skin is loaded.
+    void centreOnScreen();
     void checkDirectRendering();
 
     /// Load skin to a QWidget that we set as the central widget.
@@ -143,6 +147,11 @@ class MixxxMainWindow : public QMainWindow {
     const bool m_supportsGlobalMenuBar;
 #endif
     bool m_inRebootMixxxView;
+    /// Whether saved window geometry was restored at startup. False on a first
+    /// run, which is when the window gets centred instead.
+    bool m_geometryRestored;
+    /// Guards centreOnScreen() so it runs only on the first show.
+    bool m_geometryCentred;
 
     DlgDeveloperTools* m_pDeveloperToolsDlg;
 

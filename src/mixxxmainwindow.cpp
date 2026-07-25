@@ -6,6 +6,9 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QOpenGLContext>
+#include <QScreen>
+#include <QStyle>
+#include <QTimer>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -105,6 +108,8 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
 #endif
           m_inRebootMixxxView(false),
+          m_geometryRestored(false),
+          m_geometryCentred(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
           m_toolTipsCfg(mixxx::preferences::Tooltips::On) {
@@ -541,6 +546,33 @@ MixxxMainWindow::~MixxxMainWindow() {
     delete m_pVisualsManager;
 }
 
+void MixxxMainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+    if (m_geometryRestored || m_geometryCentred) {
+        return;
+    }
+    m_geometryCentred = true;
+    // Deferred deliberately. Changing the window geometry synchronously during
+    // startup -- either while the skin is loading or from inside this handler --
+    // forces Mixxx's OpenGL widget containers to be shown before their native
+    // windows exist, and Qt dereferences a null QWindow (crash in
+    // QCocoaWindow::setVisible via WGLWidget::showEvent). Posting to the event
+    // loop lets the window finish being shown first.
+    QTimer::singleShot(0, this, &MixxxMainWindow::centreOnScreen);
+}
+
+void MixxxMainWindow::centreOnScreen() {
+    const QScreen* pScreen = window()->screen();
+    VERIFY_OR_DEBUG_ASSERT(pScreen) {
+        return;
+    }
+    // availableGeometry() excludes the menu bar and Dock, so the window ends up
+    // visually centred rather than centred on the raw display and overlapping them.
+    // Only the position is changed; the size the skin chose is preserved.
+    const QRect available = pScreen->availableGeometry();
+    move(available.center() - QPoint(width() / 2, height() / 2));
+}
+
 void MixxxMainWindow::initializeWindow() {
     // be sure createMenuBar() is called first
     DEBUG_ASSERT(m_pMenuBar);
@@ -560,7 +592,12 @@ void MixxxMainWindow::initializeWindow() {
     // start if we did shut down while in fullscreen mode and with
     // [Config],StartInFullscreen = 1
     // (slotViewFullScreen(true) in  initialize() is a no-op then)
-    restoreGeometry(QByteArray::fromBase64(
+    // On a first run there is no saved geometry and restoreGeometry() does
+    // nothing, leaving the window wherever the window manager put it -- typically
+    // offset towards a corner. Remember that here; the window cannot be centred
+    // until the skin has been loaded and given it its real size, so centreOnScreen()
+    // does it later from initialize().
+    m_geometryRestored = restoreGeometry(QByteArray::fromBase64(
             m_pCoreServices->getSettings()
                     ->getValueString(ConfigKey("[MainWindow]", "geometry"))
                     .toUtf8()));
