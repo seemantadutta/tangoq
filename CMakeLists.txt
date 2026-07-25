@@ -3964,15 +3964,19 @@ file(RELATIVE_PATH MIXXX_INSTALL_DOCDIR_RELATIVE_TO_DATADIR "${CMAKE_INSTALL_PRE
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/src/config.h" @ONLY)
 
 # Packaging
-set(CPACK_PACKAGE_NAME "Mixxx")
-set(CPACK_PACKAGE_VENDOR "Mixxx Project")
-set(CPACK_PACKAGE_CONTACT "RJ Skerry-Ryan <rryan@mixxx.org>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Digital DJ Application")
+# TangoMode fork: this block is the externally visible branding -- it names the
+# installer, the Windows install directory and Start menu entry, and is who
+# users are told to contact. It must not point at the upstream Mixxx project,
+# which neither builds nor supports these packages.
+set(CPACK_PACKAGE_NAME "TangoMode")
+set(CPACK_PACKAGE_VENDOR "TangoMode")
+set(CPACK_PACKAGE_CONTACT "TangoMode <https://github.com/seemantadutta/mixxx/issues>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Digital DJ Application for tango")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "Mixxx")
-set(CPACK_PACKAGE_EXECUTABLES "mixxx;Mixxx")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoMode")
+set(CPACK_PACKAGE_EXECUTABLES "mixxx;TangoMode")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.mixxx.org/")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)

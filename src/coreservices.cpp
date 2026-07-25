@@ -1,9 +1,12 @@
 #include "coreservices.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QSqlError>
 #include <QStandardPaths>
 #include <QtGlobal>
 
@@ -745,14 +748,40 @@ bool CoreServices::initializeDatabase() {
     kLogger.info() << "Connecting to database";
     QSqlDatabase dbConnection = mixxx::DbConnectionPooled(m_pDbConnectionPool);
     if (!dbConnection.isOpen()) {
-        QMessageBox::critical(nullptr,
-                tr("Cannot open database"),
-                tr("Unable to establish a database connection.\n"
-                   "Mixxx requires QT with SQLite support. Please read "
-                   "the Qt SQL driver documentation for information on how "
-                   "to build it.\n\n"
-                   "Click OK to exit."),
-                QMessageBox::Ok);
+        // Report why the connection actually failed instead of always blaming
+        // the Qt build. The common cause on macOS is that the settings folder
+        // could not be created because the user declined the "access data from
+        // other apps" permission prompt, which has nothing to do with SQLite.
+        const QString appName = VersionStore::applicationName();
+        const QString settingsPath = m_cmdlineArgs.getSettingsPath();
+        QString message;
+        if (!QSqlDatabase::isDriverAvailable(QStringLiteral("QSQLITE"))) {
+            // A genuinely broken build: Qt has no SQLite driver.
+            message = tr("This build of %1 has no SQLite support, so it cannot "
+                         "open its music library.")
+                              .arg(appName);
+        } else if (!QDir(settingsPath).exists()) {
+            message = tr("%1 could not create the folder it keeps your settings "
+                         "and music library in:\n\n%2\n\n"
+                         "This usually means the operating system refused "
+                         "permission. Your installation is not damaged.")
+                              .arg(appName, settingsPath);
+#ifdef Q_OS_MACOS
+            message.append(
+                    tr("\n\nOpen System Settings > Privacy & Security > Files "
+                       "and Folders, switch on %1, then start it again. macOS "
+                       "asks for this the first time %1 runs; if it was "
+                       "declined, allowing it here restores access.")
+                            .arg(appName));
+#endif
+        } else {
+            // Something else: surface the driver's own message so the failure
+            // can be diagnosed from the dialog rather than a terminal.
+            message = tr("%1 could not open its music library.\n\n%2")
+                              .arg(appName, dbConnection.lastError().text());
+        }
+        message.append(tr("\n\nClick OK to exit."));
+        QMessageBox::critical(nullptr, tr("Cannot open database"), message, QMessageBox::Ok);
         return false;
     }
 
