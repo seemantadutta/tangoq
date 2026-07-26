@@ -179,6 +179,18 @@ void LibraryScanner::run() {
         kLogger.debug() << "Event loop starting";
         exec();
         kLogger.debug() << "Event loop stopped";
+
+        // The DAOs are members and outlive this scope, but the connection they
+        // were handed does not: the pooler below returns it as soon as the scope
+        // ends. QSqlDatabase is implicitly shared, so those leftover copies keep
+        // the connection alive and removing it warns that it is still in use.
+        // Drop them here, while the connection is still valid to let go of.
+        m_libraryHashDao.disconnectDatabase();
+        m_cueDao.disconnectDatabase();
+        m_trackDao.disconnectDatabase();
+        m_playlistDao.disconnectDatabase();
+        m_analysisDao.disconnectDatabase();
+        m_directoryDao.disconnectDatabase();
     }
     kLogger.debug() << "Exiting thread";
 }
