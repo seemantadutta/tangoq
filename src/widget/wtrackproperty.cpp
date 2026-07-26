@@ -6,6 +6,8 @@
 #include <QStyleOption>
 
 #include "control/controlobject.h"
+#include "control/controlproxy.h"
+#include "library/autodj/cortinaregistry.h"
 #include "moc_wtrackproperty.cpp"
 #include "skin/legacy/skincontext.h"
 #include "track/track.h"
@@ -32,6 +34,7 @@ WTrackProperty::WTrackProperty(
           m_propertyIsWritable(false),
           m_pSelectedClickTimer(nullptr),
           m_bSelected(false),
+          m_bCortina(false),
           m_pEditor(nullptr) {
     setAcceptDrops(true);
 }
@@ -55,6 +58,24 @@ void WTrackProperty::setup(const QDomNode& node, const SkinContext& context) {
         return;
     }
     m_displayProperty = property;
+    // Tango mode marks cortinas in the Auto DJ list; carry the same mark onto the
+    // deck so it is obvious which deck is holding the cortina without looking
+    // away from the decks. Only the title carries it, and only that property
+    // needs to watch for changes: marks are session state that can be set or
+    // cleared while a track sits loaded, and leaving Tango mode must drop it.
+    if (m_displayProperty == QLatin1String("title") ||
+            m_displayProperty == QLatin1String("titleInfo")) {
+        connect(&CortinaRegistry::instance(),
+                &CortinaRegistry::cortinaMarksChanged,
+                this,
+                &WTrackProperty::updateLabel);
+        m_pKeepQueue = make_parented<ControlProxy>(
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")),
+                this);
+        m_pKeepQueue->connectValueChanged(this, [this](double) {
+            updateLabel();
+        });
+    }
     // Handle 'titleInfo' property: displays the title or, if both title & artist
     // are empty, filename. Though, this property is not writeable, so we map
     // it to 'title' for the editor.
@@ -100,11 +121,37 @@ void WTrackProperty::slotTrackChanged(TrackId trackId) {
 }
 
 void WTrackProperty::updateLabel() {
+    const bool cortina = showsCortinaMark();
+    if (cortina != m_bCortina) {
+        m_bCortina = cortina;
+        // Re-run the skin's selectors so WTrackProperty[cortina="true"] takes
+        // effect; Qt only re-evaluates property selectors when re-polished.
+        style()->unpolish(this);
+        style()->polish(this);
+        emit cortinaStateChanged(cortina);
+    }
     if (m_pCurrentTrack) {
-        setText(getPropertyStringFromTrack(m_displayProperty));
+        const QString value = getPropertyStringFromTrack(m_displayProperty);
+        if (cortina) {
+            // Shorter than the Auto DJ list's "!!!CORTINA!!!": a deck's title
+            // field is far narrower than a library column, and the label elides,
+            // so a long marker would crowd out the track name it qualifies.
+            setText(QStringLiteral("[CORTINA] %1").arg(value));
+        } else {
+            setText(value);
+        }
         return;
     }
     setText("");
+}
+
+bool WTrackProperty::showsCortinaMark() const {
+    // m_pKeepQueue is only created for the title properties, so its presence
+    // doubles as the check that this widget is one that carries the mark.
+    if (!m_pCurrentTrack || !m_pKeepQueue || !m_pKeepQueue->toBool()) {
+        return false;
+    }
+    return CortinaRegistry::instance().contains(m_pCurrentTrack->getId());
 }
 
 const QString WTrackProperty::getPropertyStringFromTrack(QString& property) const {

@@ -355,6 +355,12 @@ WTrackProperty[selected="true"],
 /*    border: 1px solid #888;*/
   }
 
+/* Tango mode: a cortina loaded on a deck. Same blue the Auto DJ list uses for
+   cortina rows, so the deck and the queue read as one thing. */
+WTrackProperty[cortina="true"] {
+  color: #3388ff;
+}
+
 /* Disabled for now since the hover effect is stuck as soon as the
   track menu is opened.
 #TitleText[highlight="1"]:hover, #TitleTextSmall[highlight="1"]:hover,

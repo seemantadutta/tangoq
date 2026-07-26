@@ -113,9 +113,10 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.
     m_pAutoDJTableModel = m_pAutoDJProcessor->getTableModel();
-    // Show the Tango cortina styling (blue + "!!!CORTINA!!!" prefix) for tagged
-    // tracks in the Auto DJ list only.
-    m_pAutoDJTableModel->setShowCortinaMarks(true);
+    // The Tango cortina styling (blue + "!!!CORTINA!!!" prefix) belongs to the
+    // Auto DJ list only, and only while Tango mode is on - refreshTangoModeUi()
+    // keeps it in step from here on, so outside Tango the list is stock Mixxx.
+    m_pAutoDJTableModel->setShowCortinaMarks(false);
     m_pTrackTableView->loadTrackModel(m_pAutoDJTableModel);
 
     // Do not set this because it disables auto-scrolling
@@ -496,6 +497,14 @@ void DlgAutoDJ::refreshTangoModeUi() {
     // the fork's Tango UI.
     pushButtonKeepQueue->setChecked(tango);
     pushButtonKeepQueue->setVisible(tango);
+    // Cortina marks follow Tango mode, matching the deck's mark. This also scopes
+    // the "mark as cortina" action, which WTrackMenu derives from the same flag:
+    // tagging only means anything with Cortina Fade, which is Tango-only. The
+    // marks themselves live in CortinaRegistry and are untouched - leaving Tango
+    // hides them, and they are all still there on return.
+    if (m_pAutoDJTableModel) {
+        m_pAutoDJTableModel->setShowCortinaMarks(tango);
+    }
     // The set-time readout, the target end-time controls and the LIVE indicator
     // are Tango-only.
     labelSetEndTime->setVisible(tango);

@@ -2289,6 +2289,13 @@ WTrackProperty[selected="true"] {
   border: 1px solid #5E4507;
 }
 
+/* Tango mode: a cortina loaded on a deck. Same blue the Auto DJ list uses for
+   cortina rows, so the deck and the queue read as one thing. Placed after the
+   selected rule above so the mark survives the transient 'selected' state. */
+WTrackProperty[cortina="true"] {
+  color: #3388ff;
+}
+
 /* Entire BPM cell */
 /* Lock icon at the left */
 #LibraryBPMButton::indicator:checked {

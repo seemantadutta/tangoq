@@ -9,6 +9,7 @@
 #include "widget/trackdroptarget.h"
 #include "widget/wlabel.h"
 
+class ControlProxy;
 class ControlPushButton;
 class Library;
 class WTrackMenu;
@@ -49,9 +50,17 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     // if no second click is registered within the specified interval.
     // Usage in css: WTrackProperty[selected="true"/"false"] { /* styles */ }
     Q_PROPERTY(bool selected READ isSelected NOTIFY selectedStateChanged);
+    // Set while a cortina-tagged track is loaded and Tango mode is on, so skins
+    // can colour the title the way the Auto DJ list does.
+    // Usage in css: WTrackProperty[cortina="true"] { /* styles */ }
+    Q_PROPERTY(bool cortina READ isCortina NOTIFY cortinaStateChanged);
 
     bool isSelected() const {
         return m_bSelected;
+    }
+
+    bool isCortina() const {
+        return m_bCortina;
     }
 
     void setup(const QDomNode& node, const SkinContext& context) override;
@@ -61,6 +70,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     void cloneDeck(const QString& sourceGroup, const QString& targetGroup) override;
     void setAndConfirmTrackMenuControl(bool visible);
     void selectedStateChanged(bool state);
+    void cortinaStateChanged(bool state);
     void saveCurrentViewState();
     void restoreCurrentViewState();
 
@@ -85,6 +95,9 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 
     void updateLabel();
+    /// True when the loaded track should be shown as a cortina: a title-ish
+    /// property, Tango mode on, and the track tagged in the cortina registry.
+    bool showsCortinaMark() const;
     const QString getPropertyStringFromTrack(QString& property) const;
     void restyleAndRepaint();
 
@@ -100,7 +113,12 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     bool m_propertyIsWritable;
     parented_ptr<QTimer> m_pSelectedClickTimer;
     bool m_bSelected;
+    bool m_bCortina;
     parented_ptr<WTrackPropertyEditor> m_pEditor;
 
     parented_ptr<WTrackMenu> m_pTrackMenu;
+
+    /// Only created for title-ish properties, to refresh the cortina mark when
+    /// Tango mode is toggled.
+    parented_ptr<ControlProxy> m_pKeepQueue;
 };

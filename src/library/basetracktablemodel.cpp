@@ -394,6 +394,14 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     } else {
         disconnect(&CortinaRegistry::instance(), nullptr, this, nullptr);
     }
+    // The flag itself decides the title prefix and row colour, so the rows on
+    // screen are stale either way round - repaint them, not just when the set of
+    // tagged tracks changes.
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::ForegroundRole, Qt::DisplayRole});
+    }
 }
 
 QVariant BaseTrackTableModel::data(
