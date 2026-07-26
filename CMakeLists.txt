@@ -1842,6 +1842,15 @@ endif()
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
 target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 
+# TangoMode fork: ship the Windows executable under the product name. Only the
+# final binary is renamed -- the CMake target, the libraries and the bundled
+# DLLs keep their upstream names, so this stays a one-line difference from
+# upstream. macOS does the same further down via MACOS_BUNDLE_NAME, which is why
+# the app bundle already contains a TangoMode binary rather than a mixxx one.
+if(WIN32)
+  set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangomode")
+endif()
+
 #
 # Installation and Packaging
 #
@@ -3980,13 +3989,15 @@ set(CPACK_PACKAGE_CONTACT "TangoMode <https://github.com/seemantadutta/mixxx/iss
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Digital DJ Application for tango")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoMode")
-set(CPACK_PACKAGE_EXECUTABLES "mixxx;TangoMode")
+# Must match the OUTPUT_NAME set on the mixxx target above: this names the
+# executable the Start menu and desktop shortcuts point at.
+set(CPACK_PACKAGE_EXECUTABLES "tangomode;TangoMode")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
-set(CPACK_CREATE_DESKTOP_LINKS "mixxx")
+set(CPACK_CREATE_DESKTOP_LINKS "tangomode")
 set(CPACK_MIXXX_VERSION "${MIXXX_VERSION}")
 # Save GIT values just in case they have been set manual via cmake
 set(CPACK_GIT_DESCRIBE "${GIT_DESCRIBE}")
