@@ -872,7 +872,7 @@ void MixxxMainWindow::slotTangoModeChanged(double value) {
         m_pLogoDim = new QGraphicsOpacityEffect(pLogo);
         pLogo->setGraphicsEffect(m_pLogoDim);
     }
-    m_pLogoDim->setOpacity(tangoOn ? 1.0 : 0.35);
+    m_pLogoDim->setOpacity(tangoOn ? 1.0 : 0.20);
 }
 
 void MixxxMainWindow::createMenuBar() {
