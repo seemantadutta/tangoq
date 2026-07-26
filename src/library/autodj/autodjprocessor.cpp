@@ -231,6 +231,14 @@ AutoDJProcessor::AutoDJProcessor(
             &ControlObject::valueChanged,
             this,
             &AutoDJProcessor::controlKeepQueue);
+    // Toggle on the rising edge so a keyboard shortcut or controller button
+    // flips Tango mode, and vet every request centrally: the preferences
+    // checkbox disables itself while Auto DJ runs, but nothing stopped the other
+    // routes from switching mode mid-set. Connected after the initial set above,
+    // which must go through unconditionally to restore the persisted setting.
+    m_keepQueue.setButtonMode(ControlPushButton::TOGGLE);
+    m_keepQueue.connectValueChangeRequest(this,
+            &AutoDJProcessor::controlKeepQueueChangeRequest);
 
     // Live cortina length: initialize from the persistent default and keep the
     // config (and the envelope budget) in sync when it is nudged from the cockpit
@@ -1778,6 +1786,20 @@ void AutoDJProcessor::controlKeepQueue(double value) {
     // Persist the live Tango DJ mode control to the user setting.
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
             value > 0.0);
+}
+
+void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
+    // Tango mode switches the Auto DJ queue between two incompatible behaviours
+    // (cursor-based versus consume-from-the-top), so it may only change while
+    // Auto DJ is stopped - the same rule the preferences checkbox enforces by
+    // disabling itself. Refuse otherwise by confirming the current value, which
+    // also snaps any toggle that requested the change back to reality.
+    if (m_eState != ADJ_DISABLED) {
+        qDebug() << "Tango mode can only be changed while Auto DJ is stopped";
+        m_keepQueue.setAndConfirm(m_keepQueue.get());
+        return;
+    }
+    m_keepQueue.setAndConfirm(value > 0.0 ? 1.0 : 0.0);
 }
 
 void AutoDJProcessor::controlCortinaLength(double value) {

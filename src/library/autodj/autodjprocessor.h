@@ -262,6 +262,10 @@ class AutoDJProcessor : public QObject {
     void controlSkipNext(double value);
     void controlAddRandomTrack(double value);
     void controlKeepQueue(double value);
+    /// Gate for every route into Tango mode - the preferences checkbox, the
+    /// keyboard shortcut and any controller mapping - so none of them can switch
+    /// it while Auto DJ is running.
+    void controlKeepQueueChangeRequest(double value);
     // Persists a live cortina-length change (from the cockpit nudge buttons or
     // the prefs Apply) to config and refreshes the envelope budget + estimate.
     void controlCortinaLength(double value);
@@ -476,7 +480,9 @@ class AutoDJProcessor : public QObject {
     ControlPushButton m_enabledAutoDJ;
     // Mirrors [Auto DJ],KeepQueue (Tango DJ mode) as a live control so the prefs
     // dialog and the Auto DJ toolbar stay in sync when it changes.
-    ControlObject m_keepQueue;
+    // A toggle rather than a plain control so a keyboard shortcut or controller
+    // button flips it on the rising edge, the way [AutoDJ],enabled works.
+    ControlPushButton m_keepQueue;
 
     // Live cortina-length budget (seconds). The single source of truth shared by
     // the Preferences field (stop-only) and the cockpit nudge buttons (live). On

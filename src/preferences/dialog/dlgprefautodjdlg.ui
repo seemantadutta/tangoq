@@ -27,10 +27,10 @@
        <item>
         <widget class="QCheckBox" name="TangoModeCheckBox">
          <property name="toolTip">
-          <string>Can only be changed while Auto DJ is stopped.</string>
+          <string>Can only be changed while Auto DJ is stopped, whether from here, the keyboard shortcut or a controller.</string>
          </property>
          <property name="text">
-          <string>Enable Tango DJ mode</string>
+          <string>Enable Tango DJ mode (Ctrl+Alt+Shift+T)</string>
          </property>
         </widget>
        </item>
