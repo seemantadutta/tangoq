@@ -2602,10 +2602,11 @@ QPushButton#pushButtonRepeatPlaylist:!checked {
 QPushButton#pushButtonKeepQueue:!checked {
   image: url(skins:LateNight/palemoon/buttons/btn__autodj_keep_queue_off.svg) no-repeat center center;
   }
+  /* No checked-state highlight: the button is only shown at all while Tango mode
+     is on, so the seal's presence is the indicator and a filled background just
+     boxes in a round emblem. */
   QPushButton#pushButtonKeepQueue:checked {
     image: url(skins:LateNight/palemoon/buttons/btn__autodj_keep_queue_on.svg) no-repeat center center;
-    background-color: #666;
-    color: #000;
   }
 /* AutoDJ button icons */
 
