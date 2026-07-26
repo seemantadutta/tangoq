@@ -1164,3 +1164,21 @@ QString BaseTrackTableModel::getFieldString(
         const QModelIndex& index, ColumnCache::Column column) const {
     return getFieldVariant(index, column).toString();
 }
+
+double BaseTrackTableModel::durationSecondsForRow(int row) const {
+    const int column = fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION);
+    if (column < 0) {
+        return 0.0;
+    }
+    const QVariant value = rawValue(index(row, column));
+    if (value.isNull()) {
+        return 0.0;
+    }
+    if (value.canConvert<mixxx::Duration>()) {
+        const auto duration = value.value<mixxx::Duration>();
+        return duration >= mixxx::Duration::empty() ? duration.toDoubleSeconds() : 0.0;
+    }
+    bool ok = false;
+    const double seconds = value.toDouble(&ok);
+    return (ok && seconds > 0.0) ? seconds : 0.0;
+}

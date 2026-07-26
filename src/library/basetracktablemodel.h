@@ -139,6 +139,15 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     static constexpr bool kApplyPlayedTrackColorDefault = true;
     static void setApplyPlayedTrackColor(bool apply);
 
+    /// Duration of a row in seconds, straight from the database column.
+    ///
+    /// data() cannot be used for this: for the duration column it returns a
+    /// display string such as "3:22", so toDouble() on it silently yields 0.
+    /// Reading it here avoids both that trap and constructing a Track, which
+    /// would open the file and parse its tags.
+    /// Returns 0.0 when the row has no usable duration.
+    double durationSecondsForRow(int row) const;
+
   protected:
     // Build a map from the column names to their indices
     // used by fieldIndex().

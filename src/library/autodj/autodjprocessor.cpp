@@ -5,11 +5,13 @@
 
 #include "engine/channels/enginedeck.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/columncache.h"
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "moc_autodjprocessor.cpp"
 #include "track/cue.h"
 #include "track/cueinfo.h"
+#include "track/globaltrackcache.h"
 #include "track/track.h"
 #include "util/math.h"
 
@@ -192,6 +194,15 @@ AutoDJProcessor::AutoDJProcessor(
             &AutoDJProcessor::invalidateRemainingSetDuration);
     connect(m_pAutoDJTableModel.get(),
             &QAbstractItemModel::layoutChanged,
+            this,
+            &AutoDJProcessor::invalidateRemainingSetDuration);
+
+    // Marking a track as a cortina changes its budgeted play time from the full
+    // duration to the cortina length, so the cached totals go stale. The registry
+    // is separate from the queue, so none of the model signals above fire for it
+    // and the Set Length would otherwise keep showing the pre-marking figure.
+    connect(&CortinaRegistry::instance(),
+            &CortinaRegistry::cortinaMarksChanged,
             this,
             &AutoDJProcessor::invalidateRemainingSetDuration);
 
@@ -1543,11 +1554,48 @@ void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
     int upcomingCortinas = 0;
     // One database pass feeds both caches: the whole-queue total (Set Length) and
     // the cursor-onward remainder (used by the time-left/end estimate).
+    //
+    // Deliberately does not call getTrack() here. That constructs a full Track,
+    // which imports metadata from the file -- an fopen plus a TagLib parse per
+    // row, on the GUI thread. A queue of any size then blocks the UI for as long
+    // as it takes to read every file (a full-library queue freezes Mixxx for
+    // minutes). Everything this loop needs is already to hand: the duration comes
+    // from the database column the model is backed by, and a cortina is
+    // identified by TrackId alone.
+    //
+    // This mirrors keepQueueTrackPlaySeconds() without the Track: keep the two in
+    // sync, since they must agree on what a queued track costs.
     for (int row = 0; row < rowCount; ++row) {
-        TrackPointer pTrack = m_pAutoDJTableModel->getTrack(
-                m_pAutoDJTableModel->index(row, 0));
-        const double seconds = keepQueueTrackPlaySeconds(pTrack);
-        const bool cortina = isCortina(pTrack);
+        const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+        const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
+        double seconds = m_pAutoDJTableModel->durationSecondsForRow(row);
+        const bool cortina = trackId.isValid() &&
+                CortinaRegistry::instance().contains(trackId);
+
+        if (cortina) {
+            seconds = std::min<double>(m_keepQueueCortinaSeconds, seconds);
+            if (m_cortinaFadeEnabled) {
+                // Cortina Fade inserts a silent Nc gap before and after the
+                // cortina, so the queue costs both gaps on top of the budget.
+                seconds += 2.0 * m_cortinaGapSeconds;
+            }
+        } else if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+            // The audible-range refinement needs the analysed N60dBSound cue,
+            // which only exists on a loaded Track. Consult one only if it is
+            // already in memory -- loading it here is exactly the cost this loop
+            // must avoid, and an unanalysed track falls back to the full duration
+            // anyway, which is what the database column already gives us.
+            const TrackPointer pCached =
+                    GlobalTrackCacheLocker().lookupTrackById(trackId);
+            if (pCached) {
+                const double audible = keepQueueAudibleSeconds(pCached);
+                if (audible > 0.0) {
+                    seconds = audible;
+                }
+            }
+        }
+
+
         totalSeconds += seconds;
         totalCortinas += cortina ? 1 : 0;
         if (row >= m_keepQueueRow) {
