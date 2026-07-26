@@ -155,7 +155,8 @@ AutoDJProcessor::AutoDJProcessor(
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
-          m_stopGuardArmed(false) {
+          m_stopGuardArmed(false),
+          m_bStopWhenLastTrackEnds(false) {
     m_pAutoDJTableModel = make_parented<PlaylistTableModel>(
             this, pTrackCollectionManager, "mixxx.db.model.autodj");
     m_pAutoDJTableModel->selectPlaylist(iAutoDJPlaylistId);
@@ -512,6 +513,9 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         // Any other request (e.g. re-enable) cancels a pending arm.
         disarmStopGuard();
     }
+
+    // Any deliberate toggle supersedes a pending end-of-queue stop.
+    m_bStopWhenLastTrackEnds = false;
 
     if (enable) { // Enable Auto DJ
         DeckAttributes* pLeftDeck = getLeftDeck();
@@ -1129,7 +1133,29 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
 
     // We ran out of tracks in the queue.
     if (!nextTrack) {
-        // Disable AutoDJ.
+        if (anyDeckPlaying()) {
+            // The last track is still playing: this call is only looking for a
+            // successor to cue up. Stopping here would report the set as over
+            // while the floor is still dancing, so stay enabled and let
+            // playerPlayChanged() stop us once that track actually ends.
+            m_bStopWhenLastTrackEnds = true;
+            // Neutralise any pending transition first. The deck we are about to
+            // empty must not be faded into, and with no track on it
+            // calculateTransition() would be handed a zero-duration deck.
+            for (const auto& pDeck : m_decks) {
+                VERIFY_OR_DEBUG_ASSERT(pDeck) {
+                    continue;
+                }
+                pDeck->fadeBeginPos = 1.0;
+                pDeck->fadeEndPos = 1.0;
+                pDeck->isFromDeck = false;
+            }
+            // Eject track (nextTrack is null) as "End of auto DJ warning"
+            emitLoadTrackToPlayer(nextTrack, deck.group, false);
+            return false;
+        }
+
+        // Nothing is playing, so the set really is over: disable AutoDJ.
         toggleAutoDJ(false);
 
         // And eject track (nextTrack is null) as "End of auto DJ warning"
@@ -1193,6 +1219,15 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
 
     maybeFillRandomTracks();
     return true;
+}
+
+bool AutoDJProcessor::anyDeckPlaying() const {
+    for (const auto& pDeck : m_decks) {
+        if (pDeck && pDeck->isPlaying()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool AutoDJProcessor::keepQueueEnabled() const {
@@ -1937,6 +1972,22 @@ void AutoDJProcessor::maybeFillRandomTracks() {
 void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) {
     if constexpr (sDebug) {
         qDebug() << this << "playerPlayChanged" << thisDeck->group << playing;
+    }
+
+    // The queue ran dry earlier and we stayed enabled to let the last track
+    // finish. Once nothing is playing any more the set really is over. Checked
+    // ahead of the state test below so a deferred stop can never be stranded.
+    // Exception: a cortina's before-gap stops its deck on purpose and resumes it
+    // when the gap elapses, so that pause is not the end of the set. Stopping
+    // here would cancel the fade and strand the cortina in its silent lead-in.
+    // The after-gap is not excluded: with nothing left to hand off to, ending
+    // there is right and drops the now-pointless gap.
+    if (!playing && m_bStopWhenLastTrackEnds &&
+            m_cortinaFadePhase != CortinaFadePhase::BeforeGap &&
+            !anyDeckPlaying()) {
+        m_bStopWhenLastTrackEnds = false;
+        toggleAutoDJ(false);
+        return;
     }
 
     if (m_eState != ADJ_IDLE) {

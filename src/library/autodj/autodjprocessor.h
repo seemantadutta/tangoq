@@ -329,6 +329,9 @@ class AutoDJProcessor : public QObject {
     // Keep Queue mode. Lets a fully-played set be replayed.
     void resetKeepQueueSet();
 
+    // True if any Auto DJ deck is currently playing.
+    bool anyDeckPlaying() const;
+
     // Keep Queue mode helpers.
     bool keepQueueEnabled() const;
     // True while LIVE mode (Tango performance lock) is engaged.
@@ -487,6 +490,13 @@ class AutoDJProcessor : public QObject {
     // short confirmation window; a second request within it actually stops.
     bool m_stopGuardArmed;
     QTimer m_stopGuardTimer;
+
+    // Set when the queue runs dry while the last track is still playing. Auto DJ
+    // used to stop the moment that track *started*, because that is when it looks
+    // for a successor to cue up - which reported the set as over while the floor
+    // was still dancing, and satisfied "Auto DJ is off" guards too early. Instead
+    // stay enabled and stop from playerPlayChanged() once the track really ends.
+    bool m_bStopWhenLastTrackEnds;
 
     DISALLOW_COPY_AND_ASSIGN(AutoDJProcessor);
 };
