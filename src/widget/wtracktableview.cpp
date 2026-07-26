@@ -426,6 +426,21 @@ void WTrackTableView::slotMouseDoubleClicked(const QModelIndex& index) {
     if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::LoadToDeck &&
             pTrackModel->hasCapabilities(
                     TrackModel::Capability::LoadToDeck)) {
+        // LIVE mode (Tango performance lock): browsing the library mid-set is
+        // normal, and a stray double-click there would replace a deck's track -
+        // the kind of mistake there is no undo for in front of a floor. Decks
+        // are still loadable deliberately, via the track menu or a controller.
+        // Only this action is suppressed: the Auto DJ ones below stay available,
+        // so tracks can still be queued during a set. LIVE is only meaningful
+        // inside Tango mode, so require both.
+        const bool liveMode =
+                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                        QStringLiteral("live_mode"))) > 0.0 &&
+                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                        QStringLiteral("keep_queue"))) > 0.0;
+        if (liveMode) {
+            return;
+        }
         TrackPointer pTrack = pTrackModel->getTrack(index);
         if (pTrack) {
             emit loadTrack(pTrack);
