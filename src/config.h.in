@@ -2,3 +2,10 @@
 
 #cmakedefine MIXXX_SETTINGS_PATH "@MIXXX_SETTINGS_PATH@"
 #cmakedefine MIXXX_INSTALL_DOCDIR_RELATIVE_TO_DATADIR "@MIXXX_INSTALL_DOCDIR_RELATIVE_TO_DATADIR@"
+
+// macOS keeps settings under a fixed sandbox container path so that signed and
+// unsigned builds of the same app share one directory (see Sandbox::migrateOldSettings).
+// These name that location. A fork must set them to its own identity, otherwise it
+// silently shares an upstream install's library database.
+#cmakedefine MACOS_SETTINGS_CONTAINER_ID "@MACOS_SETTINGS_CONTAINER_ID@"
+#cmakedefine MACOS_SETTINGS_DIR_NAME "@MACOS_SETTINGS_DIR_NAME@"

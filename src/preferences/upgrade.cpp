@@ -22,6 +22,71 @@
 #include "waveform/vsyncthread.h"
 #include "waveform/widgets/waveformwidgettype.h"
 
+namespace {
+
+// Defaults for a brand new install. TangoMode targets tango DJs, for whom the
+// stock club layout -- four decks, samplers, effect racks, spinnies -- is mostly
+// noise. Upstream's defaults are applied when a key is absent, so a fresh install
+// lands on the full layout and every new user has to pare it back by hand through
+// the menus. Writing these on first run instead means the app opens ready to use,
+// while leaving every one of them adjustable exactly as before: they are ordinary
+// persisted settings, so anything the user changes later wins and is never
+// reapplied. Only a genuinely fresh config reaches this.
+void applyFirstRunDefaults(const UserSettingsPointer& config) {
+    static constexpr std::pair<const char*, const char*> kSkinDefaults[] = {
+            // Hidden: club-oriented features a tango DJ does not use.
+            {"show_4decks", "0"},
+            {"show_4effectunits", "0"},
+            {"show_effectrack", "0"},
+            {"show_samplers", "0"},
+            {"show_sampler_fx", "0"},
+            {"show_microphones", "0"},
+            {"show_vinylcontrol", "0"},
+            {"show_spinnies", "0"},
+            {"show_superknobs", "0"},
+            {"show_coverart", "0"},
+            {"show_library_coverart", "0"},
+            {"select_big_spinny_or_cover", "0"},
+            {"show_hotcues", "0"},
+            {"show_intro_outro_cues", "0"},
+            {"show_loop_controls", "0"},
+            {"show_beatjump_controls", "0"},
+            {"show_key_controls", "0"},
+            {"show_rate_controls", "0"},
+            {"show_eq_kill_buttons", "0"},
+            {"show_main_head_mixer", "0"},
+            {"show_maximized_library", "0"},
+            {"timing_shift_buttons", "0"},
+            // Kept: what is actually needed to cue and mix a tanda.
+            {"show_mixer", "1"},
+            {"show_xfader", "1"},
+            {"show_eq_knobs", "1"},
+            {"show_preview_decks", "1"},
+            {"show_beatgrid_controls", "1"},
+            {"show_rate_control_buttons", "1"},
+            {"show_8_hotcues", "1"},
+            // Compact variants of the controls that remain.
+            {"show_loop_controls_compact", "1"},
+            {"show_beatjump_controls_compact", "1"},
+            {"show_key_controls_compact", "1"},
+            {"show_rate_controls_compact", "1"},
+            {"show_sync_button_compact", "1"},
+            {"show_vumeters_compact", "1"},
+    };
+    for (const auto& [key, value] : kSkinDefaults) {
+        config->set(ConfigKey("[Skin]", key), ConfigValue(QString::fromLatin1(value)));
+    }
+
+    // Tandas are separated by cortinas, not beatmatched into each other, so the
+    // useful default is to trim the silence between tracks rather than crossfade
+    // over an outro. "3" is TransitionMode::FixedSkipSilence (see the enum in
+    // autodjprocessor.h, which is 0-indexed); -3 overlaps by three seconds.
+    config->set(ConfigKey("[Auto DJ]", "TransitionMode"), ConfigValue("3"));
+    config->set(ConfigKey("[Auto DJ]", "Transition"), ConfigValue("-3"));
+}
+
+} // namespace
+
 Upgrade::Upgrade()
         : m_bFirstRun(false),
           m_bRescanLibrary(false) {
@@ -298,6 +363,7 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
             qDebug() << "No version number in configuration file. Setting to"
                      << VersionStore::version();
             config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
+            applyFirstRunDefaults(config);
             m_bFirstRun = true;
             return config;
 #ifdef __APPLE__

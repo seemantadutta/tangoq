@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QPointer>
 #include <QString>
 #include <memory>
 
@@ -10,6 +11,8 @@
 #include "util/parented_ptr.h"
 
 class ControlObject;
+class ControlProxy;
+class QGraphicsOpacityEffect;
 class DlgDeveloperTools;
 class DlgPreferences;
 class DlgKeywheel;
@@ -72,6 +75,8 @@ class MixxxMainWindow : public QMainWindow {
     void slotDeveloperToolsClosed();
 
     void slotUpdateWindowTitle(TrackPointer pTrack);
+    /// Reflect Tango DJ mode in the title bar and toolbar logo.
+    void slotTangoModeChanged(double value);
 
     /// warn the user when inputs are not configured.
     void slotNoMicrophoneInputConfigured();
@@ -100,9 +105,13 @@ class MixxxMainWindow : public QMainWindow {
     /// Event filter to block certain events (eg. tooltips if tooltips are disabled)
     bool eventFilter(QObject *obj, QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent* event) override;
 
   private:
     void initializeWindow();
+    /// Centre the window on the screen it is on. Only meaningful once the skin
+    /// has sized the window, so it is called after the skin is loaded.
+    void centreOnScreen();
     void checkDirectRendering();
 
     /// Load skin to a QWidget that we set as the central widget.
@@ -143,6 +152,17 @@ class MixxxMainWindow : public QMainWindow {
     const bool m_supportsGlobalMenuBar;
 #endif
     bool m_inRebootMixxxView;
+    /// Whether saved window geometry was restored at startup. False on a first
+    /// run, which is when the window gets centred instead.
+    bool m_geometryRestored;
+    /// Guards centreOnScreen() so it runs only on the first show.
+    bool m_geometryCentred;
+    /// Tango DJ mode state, shown in the window title and by dimming the logo.
+    ControlProxy* m_pTangoModeControl;
+    /// The track the title currently shows, so the title can be rebuilt when
+    /// only the mode changed.
+    TrackPointer m_pTitleTrack;
+    QPointer<QGraphicsOpacityEffect> m_pLogoDim;
 
     DlgDeveloperTools* m_pDeveloperToolsDlg;
 

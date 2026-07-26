@@ -1,6 +1,6 @@
-# Installing Mixxx — Tango DJ Mode build
+# Installing TangoMode — Tango DJ mode for Mixxx
 
-This is a community build of Mixxx with **Tango DJ mode** (see
+**TangoMode** is a community build of Mixxx with **Tango DJ mode** (see
 [`RELEASE_NOTES.md`](RELEASE_NOTES.md)), based on **Mixxx 2.5.6**.
 
 > **Heads up — these installers are not code-signed.** This is a free,
@@ -18,9 +18,9 @@ and download the file for your system:
 
 | Your computer | Download this file |
 |---|---|
-| **Windows** (10 or 11) | `mixxx-*-x64.msi` |
-| **Mac — Apple Silicon** (M1/M2/M3/M4) | `mixxx-*-macosarm.dmg` |
-| **Mac — Intel** | `mixxx-*-macosintel.dmg` |
+| **Windows** (10 or 11) | `tangomode-*.msi` |
+| **Mac — Apple Silicon** (M1/M2/M3/M4) | `tangomode-*-arm64.dmg` |
+| **Mac — Intel** | `tangomode-*-x86_64.dmg` |
 
 **Not sure which Mac you have?** Click the  (Apple) menu in the top-left →
 **About This Mac**. If it says **Chip: Apple M…**, you have Apple Silicon. If it
@@ -34,7 +34,7 @@ says **Processor: Intel**, you have an Intel Mac.
 2. You'll likely see a blue **"Windows protected your PC"** box.
    - Click **More info**.
    - Click **Run anyway**.
-3. Follow the installer prompts. Mixxx then appears in your Start menu.
+3. Follow the installer prompts. TangoMode then appears in your Start menu.
 
 That blue box appears because the installer isn't signed — it is **not** a sign
 that anything is wrong.
@@ -44,34 +44,77 @@ that anything is wrong.
 ## 3. Install on Mac
 
 1. Double-click the downloaded **`.dmg`**.
-2. Drag the **Mixxx** icon onto the **Applications** folder.
-3. Open **Applications** and try to launch **Mixxx**. macOS will block it the
-   first time with a message like *"Mixxx can't be opened because Apple cannot
+2. Drag the **TangoMode** icon onto the **Applications** folder.
+3. Open **Applications** and try to launch **TangoMode**. macOS will block it the
+   first time with a message like *"TangoMode can't be opened because Apple cannot
    check it for malicious software."* Use the steps for your macOS version:
 
 ### macOS Sequoia (15) and newer
-1. Try to open Mixxx (it gets blocked — that's fine, click **Done**).
+1. Try to open TangoMode (it gets blocked — that's fine, click **Done**).
 2. Open  (Apple menu) → **System Settings** → **Privacy & Security**.
-3. Scroll down to the **Security** section. You'll see a line about *"Mixxx was
+3. Scroll down to the **Security** section. You'll see a line about *"TangoMode was
    blocked…"* — click **Open Anyway**.
 4. Confirm with your password / Touch ID, then click **Open Anyway** again.
 
 ### macOS Sonoma (14) and earlier
-1. In **Applications**, **right-click** (or Control-click) **Mixxx** → **Open**.
+1. In **Applications**, **right-click** (or Control-click) **TangoMode** → **Open**.
 2. In the dialog, click **Open**.
 
-You only need to do this **once**; afterward Mixxx opens normally.
+You only need to do this **once**; afterward TangoMode opens normally.
 
 ### If it still won't open (reliable fallback)
 Open **Terminal** (Applications → Utilities → Terminal), paste this line, and
 press Return:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/Mixxx.app
+xattr -dr com.apple.quarantine /Applications/TangoMode.app
 ```
 
-Then open Mixxx normally. This removes the "downloaded from the internet" flag
+Then open TangoMode normally. This removes the "downloaded from the internet" flag
 that triggers the block.
+
+### First launch
+
+TangoMode asks you to **choose your music folder** the first time it opens. Pick
+the folder your music lives in and click **Open** — it then scans that folder and
+builds its library. You can add more folders later in **Preferences → Library**.
+
+macOS may also ask whether TangoMode can **access data from other apps**. That
+permission is only used to import an existing collection from Rekordbox, Serato,
+Traktor or Music.app. Declining it is fine if you don't need that; TangoMode keeps
+its own settings in its own place either way.
+
+If TangoMode ever reports that it *could not create the folder it keeps your
+settings in*, that is a permission problem rather than a damaged download. Open
+ → **System Settings** → **Privacy & Security** → **Files and Folders**, find
+**TangoMode**, and switch it on. If it isn't listed, open **Terminal**
+(Applications → Utilities → Terminal), run the line below, then open TangoMode
+again and choose **Allow**:
+
+```sh
+tccutil reset SystemPolicyAppData io.github.seemantadutta.tangomode
+```
+
+### Already using standard Mixxx? Bring your library across
+
+TangoMode keeps its settings completely separate from a standard Mixxx install,
+so the two never interfere with each other — but that also means it starts with an
+empty library.
+
+To begin with a copy of your existing crates, playlists, history and cue points
+instead: quit both apps, **open TangoMode once and close it again** (so it creates
+its folder), then run this in **Terminal**:
+
+```sh
+cp ~/Library/Containers/org.mixxx.mixxx/Data/Library/Application\ Support/Mixxx/mixxxdb.sqlite \
+   ~/Library/Containers/io.github.seemantadutta.tangomode/Data/Library/Application\ Support/TangoMode/
+```
+
+Those long paths are not a mistake: macOS stores each app's settings inside its own
+private container folder.
+
+This **copies** your library — your standard Mixxx install keeps working exactly
+as before, and nothing you do in TangoMode can affect it.
 
 ---
 
@@ -82,12 +125,12 @@ compare its **SHA-256 checksum** to the values published on the Releases page.
 
 **Windows** (PowerShell):
 ```powershell
-Get-FileHash .\mixxx-*-x64.msi -Algorithm SHA256
+Get-FileHash .\tangomode-*.msi -Algorithm SHA256
 ```
 
 **Mac** (Terminal):
 ```sh
-shasum -a 256 ~/Downloads/mixxx-*.dmg
+shasum -a 256 ~/Downloads/tangomode-*.dmg
 ```
 
 The printed value should match the checksum listed for that file in the release
@@ -96,9 +139,9 @@ install steps above.)
 
 <!-- Maintainer: paste the actual checksums here when cutting the release, e.g.
 SHA-256 checksums:
-  mixxx-<ver>-x64.msi          <hash>
-  mixxx-<ver>-macosintel.dmg   <hash>
-  mixxx-<ver>-macosarm.dmg     <hash>
+  tangomode-<ver>.msi           <hash>
+  tangomode-<ver>-x86_64.dmg    <hash>
+  tangomode-<ver>-arm64.dmg     <hash>
 -->
 
 ---
