@@ -203,7 +203,7 @@ are **grey**; upcoming rows below are normal.
 ### D2 — Cortina rows blue with prefix
 1. Tag a queued track as a cortina (Section E).
 
-**Expected:** The row shows a blue **`!!!CORTINA!!!`** title prefix. A playing
+**Expected:** The row shows a blue **`[--CORTINA--]`** title prefix. A playing
 cortina still reads as playing (red wins over blue).
 
 **Result:**
@@ -225,7 +225,7 @@ track tables are unaffected.
 2. Choose **Set as Cortina**; right-click again and choose **Set as Track**.
 
 **Expected:** The action label flips between "Set as Cortina" and "Set as Track".
-Tagging adds the blue `!!!CORTINA!!!` prefix; untagging removes it. Set-length
+Tagging adds the blue `[--CORTINA--]` prefix; untagging removes it. Set-length
 estimate updates immediately (Section H).
 
 **Result:**
@@ -628,7 +628,7 @@ from the Tracks browser.
 1. Start a set with a tagged cortina.
 
 **Expected:** The panel shows the same now-playing red, played grey, cursor, and
-blue `!!!CORTINA!!!` styling as the docked Auto DJ view.
+blue `[--CORTINA--]` styling as the docked Auto DJ view.
 
 **Result:**
 

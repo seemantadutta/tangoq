@@ -7,7 +7,7 @@
 
 /// Session-only registry of tracks the DJ has tagged as "cortinas" for the
 /// Auto DJ (Tango) queue. A cortina is a short non-tango track played between
-/// tandas; tagged tracks render with a "!!!CORTINA!!!" title prefix and blue
+/// tandas; tagged tracks render with a "[--CORTINA--]" title prefix and blue
 /// text in the Auto DJ list. The marks are intentionally NOT persisted: they
 /// live for the current Mixxx session only and are cleared on restart.
 class CortinaRegistry : public QObject {

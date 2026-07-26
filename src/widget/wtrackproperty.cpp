@@ -133,7 +133,7 @@ void WTrackProperty::updateLabel() {
     if (m_pCurrentTrack) {
         const QString value = getPropertyStringFromTrack(m_displayProperty);
         if (cortina) {
-            // Shorter than the Auto DJ list's "!!!CORTINA!!!": a deck's title
+            // Shorter than the Auto DJ list's "[--CORTINA--]": a deck's title
             // field is far narrower than a library column, and the label elides,
             // so a long marker would crowd out the track name it qualifies.
             setText(QStringLiteral("[CORTINA] %1").arg(value));

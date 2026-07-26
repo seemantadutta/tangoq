@@ -76,7 +76,7 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // the Auto DJ view in Tango DJ mode; pass an invalid TrackId to clear.
     void setNowPlayingTrack(TrackId trackId);
 
-    // Enables the Tango cortina styling (blue text + "!!!CORTINA!!!" title
+    // Enables the Tango cortina styling (blue text + "[--CORTINA--]" title
     // prefix) for tracks tagged in the CortinaRegistry. Only the Auto DJ model
     // turns this on, so other track tables are unaffected.
     void setShowCortinaMarks(bool enable);
@@ -283,6 +283,11 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
             const QModelIndex& index,
             ColumnCache::Column siblingField) const;
 
+    /// Track ids that occur on more than one row, so every occurrence can be
+    /// marked. Cortinas are excluded: repeating them is the point of a cortina.
+    const QSet<TrackId>& duplicateTrackIds() const;
+    void invalidateDuplicateTrackIds();
+
     // Track models may reference tracks by an external id
     // TODO: TrackId should only be used for tracks from
     // the internal database.
@@ -315,8 +320,15 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     TrackId m_previewDeckTrackId;
     TrackId m_nowPlayingTrackId;
     // When true, render CortinaRegistry-tagged tracks with blue text and a
-    // "!!!CORTINA!!!" title prefix (Auto DJ Tango mode only).
+    // "[--CORTINA--]" title prefix, and repeated tracks amber with a
+    // "[--DUPLICATE--]" prefix (Auto DJ Tango mode only).
     bool m_showCortinaMarks = false;
+
+    // Ids appearing on more than one row, excluding cortinas. Scanning every row
+    // per cell would be quadratic, so it is computed once per queue edit and
+    // cached; invalidateDuplicateTrackIds() marks it stale.
+    mutable bool m_duplicateTrackIdsDirty = true;
+    mutable QSet<TrackId> m_duplicateTrackIds;
 
     mutable QModelIndex m_toolTipIndex;
 

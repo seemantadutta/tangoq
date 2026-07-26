@@ -2839,7 +2839,7 @@ void WTrackMenu::slotAddToAutoDJTop() {
 void WTrackMenu::slotAddToAutoDJCortina() {
     // Add to the bottom of the queue like any other track, then tag the selected
     // tracks as cortinas (session-only) so the Auto DJ list shows the blue
-    // "!!!CORTINA!!!" styling.
+    // "[--CORTINA--]" styling.
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
     const TrackIdList trackIds = getTrackIds();
     for (const auto& trackId : trackIds) {

@@ -113,7 +113,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.
     m_pAutoDJTableModel = m_pAutoDJProcessor->getTableModel();
-    // The Tango cortina styling (blue + "!!!CORTINA!!!" prefix) belongs to the
+    // The Tango cortina styling (blue + "[--CORTINA--]" prefix) belongs to the
     // Auto DJ list only, and only while Tango mode is on - refreshTangoModeUi()
     // keeps it in step from here on, so outside Tango the list is stock Mixxx.
     m_pAutoDJTableModel->setShowCortinaMarks(false);

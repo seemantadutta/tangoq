@@ -373,6 +373,40 @@ void BaseTrackTableModel::setNowPlayingTrack(TrackId trackId) {
     }
 }
 
+void BaseTrackTableModel::invalidateDuplicateTrackIds() {
+    m_duplicateTrackIdsDirty = true;
+}
+
+const QSet<TrackId>& BaseTrackTableModel::duplicateTrackIds() const {
+    if (!m_duplicateTrackIdsDirty) {
+        return m_duplicateTrackIds;
+    }
+    m_duplicateTrackIds.clear();
+    QSet<TrackId> seen;
+    const int rows = rowCount();
+    for (int row = 0; row < rows; ++row) {
+        const TrackId trackId(
+                rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        if (!trackId.isValid()) {
+            continue;
+        }
+        // A cortina between every tanda is the whole point, so repeats of one
+        // are never duplicates.
+        if (CortinaRegistry::instance().contains(trackId)) {
+            continue;
+        }
+        // Record every occurrence of a repeated id, not just the later ones, so
+        // both rows of a pair are marked and the repeat is obvious from either.
+        if (seen.contains(trackId)) {
+            m_duplicateTrackIds.insert(trackId);
+        } else {
+            seen.insert(trackId);
+        }
+    }
+    m_duplicateTrackIdsDirty = false;
+    return m_duplicateTrackIds;
+}
+
 void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     if (m_showCortinaMarks == enable) {
         return;
@@ -394,6 +428,27 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     } else {
         disconnect(&CortinaRegistry::instance(), nullptr, this, nullptr);
     }
+    if (enable) {
+        // Any queue edit can create or resolve a duplicate, and tagging a track
+        // as a cortina takes it out of the reckoning, so recompute after both.
+        connect(this,
+                &QAbstractItemModel::rowsInserted,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(this,
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(this,
+                &QAbstractItemModel::modelReset,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(&CortinaRegistry::instance(),
+                &CortinaRegistry::cortinaMarksChanged,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+    }
+    invalidateDuplicateTrackIds();
     // The flag itself decides the title prefix and row colour, so the rows on
     // screen are stale either way round - repaint them, not just when the set of
     // tagged tracks changes.
@@ -434,14 +489,18 @@ QVariant BaseTrackTableModel::data(
                 return QVariant::fromValue(QColor(0xee, 0x44, 0x44));
             }
         }
-        // Cortina tracks: blue text (Auto DJ Tango mode). The red now-playing
-        // colour above wins, so a cortina that is currently playing still reads
-        // as playing.
+        // Auto DJ Tango mode: cortinas blue, tracks queued more than once amber.
+        // Order is deliberate - the red now-playing colour above wins over both,
+        // and blue wins over amber, so a repeated cortina still reads as a
+        // cortina rather than as a mistake.
         if (m_showCortinaMarks) {
-            const auto rowId = rawSiblingValue(
-                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
-            if (CortinaRegistry::instance().contains(TrackId(rowId))) {
+            const TrackId trackId(rawSiblingValue(
+                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+            if (CortinaRegistry::instance().contains(trackId)) {
                 return QVariant::fromValue(QColor(0x33, 0x88, 0xff));
+            }
+            if (duplicateTrackIds().contains(trackId)) {
+                return QVariant::fromValue(QColor(0xff, 0xaa, 0x33));
             }
         }
         // Custom text color for missing tracks
@@ -494,16 +553,22 @@ QVariant BaseTrackTableModel::data(
         return QVariant();
     }
 
-    // Prefix cortina-tagged tracks' title with "!!!CORTINA!!!" in the Auto DJ
-    // list (display only; the stored title is untouched).
+    // Tag cortinas and repeated tracks in the Auto DJ list title (display only;
+    // the stored title is untouched). A cortina is never also a duplicate, so
+    // the two tags cannot collide.
     if (role == Qt::DisplayRole && m_showCortinaMarks &&
             mapColumn(index.column()) == ColumnCache::COLUMN_LIBRARYTABLE_TITLE) {
-        const auto rowId = rawSiblingValue(
-                index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
-        if (CortinaRegistry::instance().contains(TrackId(rowId))) {
+        const TrackId trackId(rawSiblingValue(
+                index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        if (CortinaRegistry::instance().contains(trackId)) {
             const QString title =
                     roleValue(index, rawValue(index), role).toString();
-            return QStringLiteral("!!!CORTINA!!! %1").arg(title);
+            return QStringLiteral("[--CORTINA--] %1").arg(title);
+        }
+        if (duplicateTrackIds().contains(trackId)) {
+            const QString title =
+                    roleValue(index, rawValue(index), role).toString();
+            return QStringLiteral("[--DUPLICATE--] %1").arg(title);
         }
     }
 
