@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 44" width="170" height="44" role="img" aria-label="TangoMode">
+  <text x="85" y="31" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="26" letter-spacing="0.3">
+    <tspan fill="#333a48" font-weight="300">Tango</tspan><tspan fill="#3f6fd8" font-weight="600">Mode</tspan>
+  </text>
+</svg>

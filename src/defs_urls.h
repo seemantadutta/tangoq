@@ -11,6 +11,11 @@
 // Icons used for the main window and dialogs
 #define MIXXX_ICON_PATH ":/images/icons/scalable/apps/mixxx.svg"
 #define MIXXX_LOGO_PATH ":/images/mixxx_logo.svg"
+// Variant with a dark "Tango" wordmark for light dialog backgrounds. The default
+// logo above uses a near-white "Tango" tuned for the dark toolbar, which washes
+// out on a light-themed About dialog. DlgAbout picks between them by background
+// brightness.
+#define MIXXX_LOGO_DARK_PATH ":/images/mixxx_logo_dark.svg"
 
 #define MIXXX_WEBSITE_URL       "https://www.mixxx.org"
 #define MIXXX_WEBSITE_SHORT_URL "www.mixxx.org"
