@@ -727,10 +727,18 @@ void WTrackTableView::dragEnterEvent(QDragEnterEvent * event) {
         if (pTrackModel->hasCapabilities(TrackModel::Capability::Reorder)) {
             event->acceptProposedAction();
         }
-    } else if (DragAndDropHelper::dragEnterAccept(*event->mimeData(),
-                       "library",
-                       true,
-                       true)) {
+    } else if (pTrackModel->hasCapabilities(TrackModel::Capability::ReceiveDrops) &&
+            DragAndDropHelper::dragEnterAccept(*event->mimeData(),
+                    // Deliberately not "library": every track table starts its
+                    // drags with that identifier, and dragEnterAccept() rejects
+                    // anything carrying its own identifier. That guard is meant
+                    // to stop a view being dropped onto itself, which the
+                    // event->source() == this branch above already handles - so
+                    // here it only blocked dragging between two track tables,
+                    // e.g. from the library onto the Auto DJ queue panel.
+                    QString(),
+                    true,
+                    true)) {
         event->acceptProposedAction();
     }
 }
