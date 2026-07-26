@@ -497,8 +497,11 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
     // LIVE mode accidental-stop guard (Tango mode only): while a set is running,
     // the first disable request only arms a short confirmation window; a second
     // request within it actually stops. Covers the button, Shift+F12 and MIDI.
-    if (!enable && liveModeEnabled() && keepQueueEnabled() &&
-            m_eState != ADJ_DISABLED) {
+    // The automatic end-of-set stop is exempt: the queue really has run out, so
+    // there is no accident to guard against, and holding it behind a
+    // confirmation the DJ never gives would leave Auto DJ on after the set.
+    if (!enable && !m_bStopWhenLastTrackEnds && liveModeEnabled() &&
+            keepQueueEnabled() && m_eState != ADJ_DISABLED) {
         if (!m_stopGuardArmed) {
             m_stopGuardArmed = true;
             m_stopGuardTimer.start();
@@ -514,7 +517,9 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         disarmStopGuard();
     }
 
-    // Any deliberate toggle supersedes a pending end-of-queue stop.
+    // Past the guard the toggle is going through, so the pending end-of-queue
+    // stop has either just been carried out or been superseded by a deliberate
+    // one. Either way it is spent.
     m_bStopWhenLastTrackEnds = false;
 
     if (enable) { // Enable Auto DJ
@@ -1985,7 +1990,9 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
     if (!playing && m_bStopWhenLastTrackEnds &&
             m_cortinaFadePhase != CortinaFadePhase::BeforeGap &&
             !anyDeckPlaying()) {
-        m_bStopWhenLastTrackEnds = false;
+        // Left set deliberately: toggleAutoDJ() reads it to tell this automatic
+        // stop from a manual one (so the LIVE stop-guard stays out of the way)
+        // and clears it itself.
         toggleAutoDJ(false);
         return;
     }

@@ -395,6 +395,64 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
 }
 
+TEST_F(AutoDJProcessorTest, EndOfQueue_StopsEvenInLiveMode) {
+    // LIVE mode holds a manual stop behind a confirmation so a stray button
+    // press can't kill a running set. The end-of-set stop is not a stray press:
+    // the queue has genuinely run out. Arming the guard here would leave Auto DJ
+    // on after the set, because the DJ has no reason to confirm anything.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    ControlObject::set(ConfigKey("[AutoDJ]", "live_mode"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack();
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    deck2.slotLoadTrack(pTrack, false);
+    const double kSamplesPerSecond = kChannelCount * pTrack->getSampleRate();
+    deck1.outroStartPos.set(60 * kSamplesPerSecond);
+    deck1.outroEndPos.set(70 * kSamplesPerSecond);
+    deck2.introStartPos.set(10 * kSamplesPerSecond);
+    deck2.introEndPos.set(40 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_LEFT_FADING));
+    deck1.playposition.set(0.6);
+    deck1.playposition.set(0.7);
+    deck1.play.set(0.0);
+
+    pAutoDJTableModel->removeTrack(pAutoDJTableModel->index(0, 0));
+    ASSERT_EQ(0, pAutoDJTableModel->rowCount());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck2.playposition.set(0.4);
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    // The last track ends. Auto DJ must actually stop rather than arm the guard
+    // and sit there waiting for a confirmation.
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    deck2.playposition.set(1.0);
+    deck2.play.set(0.0);
+    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "live_mode"), 0.0);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_LastCortinaKeepsFading) {
     // A set ending *on a cortina* is where the end-of-queue handling and Cortina
     // Fade meet. The cortina is only audible because maybeHandleCortinaFade()
