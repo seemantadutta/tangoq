@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QPointer>
 #include <QString>
 #include <memory>
 
@@ -10,6 +11,8 @@
 #include "util/parented_ptr.h"
 
 class ControlObject;
+class ControlProxy;
+class QGraphicsOpacityEffect;
 class DlgDeveloperTools;
 class DlgPreferences;
 class DlgKeywheel;
@@ -72,6 +75,8 @@ class MixxxMainWindow : public QMainWindow {
     void slotDeveloperToolsClosed();
 
     void slotUpdateWindowTitle(TrackPointer pTrack);
+    /// Reflect Tango DJ mode in the title bar and toolbar logo.
+    void slotTangoModeChanged(double value);
 
     /// warn the user when inputs are not configured.
     void slotNoMicrophoneInputConfigured();
@@ -152,6 +157,12 @@ class MixxxMainWindow : public QMainWindow {
     bool m_geometryRestored;
     /// Guards centreOnScreen() so it runs only on the first show.
     bool m_geometryCentred;
+    /// Tango DJ mode state, shown in the window title and by dimming the logo.
+    ControlProxy* m_pTangoModeControl;
+    /// The track the title currently shows, so the title can be rebuilt when
+    /// only the mode changed.
+    TrackPointer m_pTitleTrack;
+    QPointer<QGraphicsOpacityEffect> m_pLogoDim;
 
     DlgDeveloperTools* m_pDeveloperToolsDlg;
 

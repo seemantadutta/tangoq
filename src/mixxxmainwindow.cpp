@@ -4,6 +4,7 @@
 #include <QCloseEvent>
 #include <QDebug>
 #include <QDockWidget>
+#include <QGraphicsOpacityEffect>
 #include <QFileDialog>
 #include <QOpenGLContext>
 #include <QScreen>
@@ -37,6 +38,7 @@
 #include "broadcast/broadcastmanager.h"
 #endif
 #include "control/controlindicatortimer.h"
+#include "control/controlproxy.h"
 #include "library/library.h"
 #include "library/library_prefs.h"
 #ifdef __ENGINEPRIME__
@@ -110,6 +112,7 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_inRebootMixxxView(false),
           m_geometryRestored(false),
           m_geometryCentred(false),
+          m_pTangoModeControl(nullptr),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
           m_toolTipsCfg(mixxx::preferences::Tooltips::On) {
@@ -340,6 +343,20 @@ void MixxxMainWindow::initialize() {
     } else {
         m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
     }
+
+    // Tango DJ mode drives the title suffix and dims the toolbar logo. Set up
+    // after the skin so the logo widget exists, and re-applied on every skin load
+    // because a reload recreates it.
+    m_pTangoModeControl = new ControlProxy(
+            ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")),
+            this);
+    m_pTangoModeControl->connectValueChanged(
+            this, &MixxxMainWindow::slotTangoModeChanged);
+    connect(this, &MixxxMainWindow::skinLoaded, this, [this]() {
+        m_pLogoDim.clear();
+        slotTangoModeChanged(m_pTangoModeControl->get());
+    });
+    slotTangoModeChanged(m_pTangoModeControl->get());
 
     // Check direct rendering and warn user if they don't have it
     if (!CmdlineArgs::Instance().getSafeMode()) {
@@ -810,8 +827,18 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
 }
 
 void MixxxMainWindow::slotUpdateWindowTitle(TrackPointer pTrack) {
+    m_pTitleTrack = pTrack;
     QString appTitle = VersionStore::applicationName();
     QString filePath;
+
+    // The app is TangoMode whether or not Tango DJ mode is engaged -- the name
+    // says what the software is, this suffix says how it is behaving. Deliberately
+    // not swapping in upstream's name and logo when the mode is off: this build is
+    // still this fork, and claiming otherwise would be both untrue and a misuse of
+    // their branding.
+    if (m_pTangoModeControl && !m_pTangoModeControl->toBool()) {
+        appTitle = tr("%1 — Off").arg(appTitle);
+    }
 
     // If we have a track, use getInfo() to format a summary string and prepend
     // it to the title.
@@ -828,6 +855,24 @@ void MixxxMainWindow::slotUpdateWindowTitle(TrackPointer pTrack) {
     // Display a draggable proxy icon for the track in the title bar on
     // platforms that support it, e.g. macOS
     setWindowFilePath(filePath);
+}
+
+void MixxxMainWindow::slotTangoModeChanged(double value) {
+    const bool tangoOn = value > 0.0;
+    slotUpdateWindowTitle(m_pTitleTrack);
+
+    // The skin names the toolbar logo widget, so it can be dimmed without the
+    // skin having to cooperate. Found each time rather than cached because a skin
+    // reload destroys and recreates it.
+    QWidget* pLogo = findChild<QWidget*>(QStringLiteral("ToolbarLogo"));
+    if (!pLogo) {
+        return;
+    }
+    if (!m_pLogoDim) {
+        m_pLogoDim = new QGraphicsOpacityEffect(pLogo);
+        pLogo->setGraphicsEffect(m_pLogoDim);
+    }
+    m_pLogoDim->setOpacity(tangoOn ? 1.0 : 0.35);
 }
 
 void MixxxMainWindow::createMenuBar() {
