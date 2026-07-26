@@ -54,6 +54,10 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     // can colour the title the way the Auto DJ list does.
     // Usage in css: WTrackProperty[cortina="true"] { /* styles */ }
     Q_PROPERTY(bool cortina READ isCortina NOTIFY cortinaStateChanged);
+    // Set while this deck holds the track the set pauses after, so skins can
+    // shout about it. Missing this one costs silence in front of a floor.
+    // Usage in css: WTrackProperty[pauseAfter="true"] { /* styles */ }
+    Q_PROPERTY(bool pauseAfter READ isPauseAfter NOTIFY pauseAfterStateChanged);
 
     bool isSelected() const {
         return m_bSelected;
@@ -61,6 +65,10 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
 
     bool isCortina() const {
         return m_bCortina;
+    }
+
+    bool isPauseAfter() const {
+        return m_bPauseAfter;
     }
 
     void setup(const QDomNode& node, const SkinContext& context) override;
@@ -71,6 +79,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     void setAndConfirmTrackMenuControl(bool visible);
     void selectedStateChanged(bool state);
     void cortinaStateChanged(bool state);
+    void pauseAfterStateChanged(bool state);
     void saveCurrentViewState();
     void restoreCurrentViewState();
 
@@ -98,6 +107,8 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     /// True when the loaded track should be shown as a cortina: a title-ish
     /// property, Tango mode on, and the track tagged in the cortina registry.
     bool showsCortinaMark() const;
+    /// True when this deck holds the track the set pauses after.
+    bool showsPauseAfterMark() const;
     const QString getPropertyStringFromTrack(QString& property) const;
     void restyleAndRepaint();
 
@@ -114,6 +125,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     parented_ptr<QTimer> m_pSelectedClickTimer;
     bool m_bSelected;
     bool m_bCortina;
+    bool m_bPauseAfter;
     parented_ptr<WTrackPropertyEditor> m_pEditor;
 
     parented_ptr<WTrackMenu> m_pTrackMenu;
@@ -121,4 +133,8 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     /// Only created for title-ish properties, to refresh the cortina mark when
     /// Tango mode is toggled.
     parented_ptr<ControlProxy> m_pKeepQueue;
+    /// Which deck holds a pending announcement pause. Positional marks live in
+    /// the queue, so the processor has to tell the deck; comparing this against
+    /// our own group is what makes the warning specific to the right deck.
+    parented_ptr<ControlProxy> m_pPauseAfterDeck;
 };

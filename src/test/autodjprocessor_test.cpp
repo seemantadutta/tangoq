@@ -331,6 +331,62 @@ TEST_F(AutoDJProcessorTest, FullIntroOutro_LongerIntro) {
     EXPECT_DOUBLE_EQ(1.0, mixer.crossfader.get());
 }
 
+TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
+    // A row marked "pause after" hands the floor over for an announcement. The
+    // stop has to pre-empt the transition: waiting for the track to end would be
+    // too late, because the next tanda is already playing by then.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack(testId);
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    deck2.slotLoadTrack(pTrack, false);
+    const double kSamplesPerSecond = kChannelCount * pTrack->getSampleRate();
+    deck1.outroStartPos.set(60 * kSamplesPerSecond);
+    deck1.outroEndPos.set(70 * kSamplesPerSecond);
+    deck2.introStartPos.set(10 * kSamplesPerSecond);
+    deck2.introEndPos.set(40 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    // Mark the row the playing track sits on. The cursor points at the next
+    // track, so the playing one is just behind it.
+    pAutoDJTableModel->togglePauseAfterRow(0);
+    ASSERT_TRUE(pAutoDJTableModel->isPauseAfterRow(0));
+
+    // Reaching the transition point must not start deck 2 or enter a fade.
+    deck1.playposition.set(0.6);
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+    EXPECT_FALSE(deck2.play.toBool());
+    // The next track stays cued, unlike the end-of-queue case which ejects it,
+    // so continuing after the announcement is immediate.
+    EXPECT_TRUE(deck2.getLoadedTrack() != nullptr);
+    // One-shot: consumed as soon as it is claimed.
+    EXPECT_FALSE(pAutoDJTableModel->isPauseAfterRow(0));
+
+    // The marked track plays out, and only then does Auto DJ stop.
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    deck1.playposition.set(1.0);
+    deck1.play.set(0.0);
+    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     // When the queue runs dry, Auto DJ looks for a successor at the moment the
     // last track *starts*. Stopping there would report the set as over while the

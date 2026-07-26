@@ -5,6 +5,7 @@
 
 #include "engine/channels/enginedeck.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/basetracktablemodel.h"
 #include "library/columncache.h"
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
@@ -152,11 +153,13 @@ AutoDJProcessor::AutoDJProcessor(
           m_fadeNow(ConfigKey(kControlGroup, QStringLiteral("fade_now"))),
           m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
           m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))),
+          m_pauseAfterDeck(ConfigKey(kControlGroup, QStringLiteral("pause_after_deck"))),
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_stopGuardArmed(false),
-          m_bStopWhenLastTrackEnds(false) {
+          m_bStopWhenLastTrackEnds(false),
+          m_bPauseAfterPending(false) {
     m_pAutoDJTableModel = make_parented<PlaylistTableModel>(
             this, pTrackCollectionManager, "mixxx.db.model.autodj");
     m_pAutoDJTableModel->selectPlaylist(iAutoDJPlaylistId);
@@ -165,6 +168,12 @@ AutoDJProcessor::AutoDJProcessor(
     // In Keep Queue mode the cursor must stay anchored to the playing track when
     // the user edits the queue. The model rebuilds itself on every edit (emitting
     // row insert/remove), so re-anchor the cursor after each rebuild.
+    // A mark can be set or cleared while its track is already on a deck, so the
+    // deck's warning has to follow it.
+    connect(m_pAutoDJTableModel.get(),
+            &BaseTrackTableModel::pauseAfterRowsChanged,
+            this,
+            &AutoDJProcessor::updatePauseAfterDeckControl);
     connect(m_pAutoDJTableModel.get(),
             &QAbstractItemModel::rowsInserted,
             this,
@@ -508,7 +517,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
     // The automatic end-of-set stop is exempt: the queue really has run out, so
     // there is no accident to guard against, and holding it behind a
     // confirmation the DJ never gives would leave Auto DJ on after the set.
-    if (!enable && !m_bStopWhenLastTrackEnds && liveModeEnabled() &&
+    if (!enable && !automaticStopPending() && liveModeEnabled() &&
             keepQueueEnabled() && m_eState != ADJ_DISABLED) {
         if (!m_stopGuardArmed) {
             m_stopGuardArmed = true;
@@ -529,6 +538,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
     // stop has either just been carried out or been superseded by a deliberate
     // one. Either way it is spent.
     m_bStopWhenLastTrackEnds = false;
+    m_bPauseAfterPending = false;
 
     if (enable) { // Enable Auto DJ
         DeckAttributes* pLeftDeck = getLeftDeck();
@@ -1017,6 +1027,14 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
                     return; // skip the generic FADING path -> no forced snap
                 }
 
+                // The DJ marked this row as a pause point: hand the floor over
+                // rather than starting the next tanda. Checked here, at the
+                // moment the transition would begin, because stopping once the
+                // track has ended is too late - the next one is already audible.
+                if (maybeHoldForAnnouncement(thisDeck)) {
+                    return;
+                }
+
                 // Set the state as FADING.
                 m_eState = thisDeck->isLeft() ? ADJ_LEFT_FADING : ADJ_RIGHT_FADING;
                 m_transitionProgress = 0.0;
@@ -1238,6 +1256,64 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
 
     maybeFillRandomTracks();
     return true;
+}
+
+int AutoDJProcessor::keepQueueRowForDeck(DeckAttributes* pDeck) {
+    if (!pDeck || !keepQueueEnabled()) {
+        return -1;
+    }
+    // The cursor points at the next track, so the playing one sits just before
+    // it. Passing that as the guess resolves a repeated cortina to the copy
+    // actually on this deck rather than to some other row holding the same file.
+    return keepQueueRowForTrack(pDeck->getLoadedTrack(), m_keepQueueRow - 1);
+}
+
+bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
+    if (m_bPauseAfterPending) {
+        // Already claimed: keep refusing the transition for the rest of the
+        // track, which would otherwise re-trigger as the position advances.
+        return true;
+    }
+    if (!keepQueueEnabled() || !pDeck) {
+        return false;
+    }
+    const int row = keepQueueRowForDeck(pDeck);
+    if (row < 0 || !m_pAutoDJTableModel->isPauseAfterRow(row)) {
+        return false;
+    }
+    // One-shot: consume it now, so resuming after the announcement plays on
+    // instead of stopping again at the same place.
+    m_pAutoDJTableModel->clearPauseAfterRow(row);
+    m_bPauseAfterPending = true;
+    // Let the track finish rather than cutting it: playerPlayChanged() stops
+    // Auto DJ once it ends. Neutralise its fade so the transition machinery does
+    // not start the next tanda behind our back. The idle deck deliberately keeps
+    // its cued track, unlike the end-of-queue path, so resuming is immediate.
+    pDeck->fadeBeginPos = 1.0;
+    pDeck->fadeEndPos = 1.0;
+    updatePauseAfterDeckControl();
+    return true;
+}
+
+void AutoDJProcessor::updatePauseAfterDeckControl() {
+    double deckIndex = 0.0;
+    if (keepQueueEnabled() && m_eState != ADJ_DISABLED) {
+        for (const auto& pDeck : m_decks) {
+            if (!pDeck || !pDeck->getLoadedTrack()) {
+                continue;
+            }
+            const int row = keepQueueRowForDeck(pDeck.get());
+            if (row >= 0 &&
+                    (m_pAutoDJTableModel->isPauseAfterRow(row) ||
+                            (m_bPauseAfterPending && pDeck->isPlaying()))) {
+                deckIndex = pDeck->index + 1;
+                break;
+            }
+        }
+    }
+    if (m_pauseAfterDeck.get() != deckIndex) {
+        m_pauseAfterDeck.set(deckIndex);
+    }
 }
 
 bool AutoDJProcessor::anyDeckPlaying() const {
@@ -1581,6 +1657,21 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             cancelCortinaFade();
             return;
         }
+        // A cortina marked as a pause point keeps its whole envelope - the
+        // before-gap, fade-in, hold and fade-out have all run by the time we get
+        // here - and only then does the set stop. Nothing is playing at this
+        // point, so stop directly rather than waiting for a deck to end.
+        const int cortinaRow = keepQueueRowForDeck(pCortinaDeck);
+        if (cortinaRow >= 0 && m_pAutoDJTableModel->isPauseAfterRow(cortinaRow)) {
+            m_pAutoDJTableModel->clearPauseAfterRow(cortinaRow);
+            cancelCortinaFade();
+            // Marks this as an automatic stop, so the LIVE guard lets it through
+            // instead of waiting for a confirmation that will never come.
+            m_bPauseAfterPending = true;
+            toggleAutoDJ(false);
+            return;
+        }
+
         // Reset the phase before starting the next track: from here on its
         // callbacks belong to the normal transition machinery again.
         cancelCortinaFade();
@@ -2031,7 +2122,7 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
     // here would cancel the fade and strand the cortina in its silent lead-in.
     // The after-gap is not excluded: with nothing left to hand off to, ending
     // there is right and drops the now-pointless gap.
-    if (!playing && m_bStopWhenLastTrackEnds &&
+    if (!playing && automaticStopPending() &&
             m_cortinaFadePhase != CortinaFadePhase::BeforeGap &&
             !anyDeckPlaying()) {
         // Left set deliberately: toggleAutoDJ() reads it to tell this automatic
@@ -2657,6 +2748,7 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
             return;
         }
         pDeck->startPos = kKeepPosition;
+        updatePauseAfterDeckControl();
         calculateTransition(fromDeck, pDeck, true);
         if (pDeck->startPos != kKeepPosition) {
             // Note: this seek will trigger the playerPositionChanged slot

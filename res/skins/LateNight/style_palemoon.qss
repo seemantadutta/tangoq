@@ -361,6 +361,14 @@ WTrackProperty[cortina="true"] {
   color: #3388ff;
 }
 
+/* Tango mode: this deck holds the track the set pauses after for an
+   announcement. Red rather than the cortina blue below it in priority: not
+   noticing this one means the music stops unexpectedly in front of a floor.
+   Placed after the cortina rule so it wins on a cortina that is also a pause. */
+WTrackProperty[pauseAfter="true"] {
+  color: #ee4444;
+}
+
 /* Disabled for now since the hover effect is stuck as soon as the
   track menu is opened.
 #TitleText[highlight="1"]:hover, #TitleTextSmall[highlight="1"]:hover,

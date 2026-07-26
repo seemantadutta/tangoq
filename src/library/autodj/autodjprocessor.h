@@ -341,6 +341,27 @@ class AutoDJProcessor : public QObject {
     // True if any Auto DJ deck is currently playing.
     bool anyDeckPlaying() const;
 
+    /// True while Auto DJ is stopping itself rather than being stopped by the
+    /// DJ - the end of the queue, or a marked announcement pause. Such a stop
+    /// must not be held behind the LIVE confirmation guard, which exists to
+    /// catch stray presses.
+    bool automaticStopPending() const {
+        return m_bStopWhenLastTrackEnds || m_bPauseAfterPending;
+    }
+
+    /// Claims the transition when the playing deck sits on a "pause after" row:
+    /// consumes the mark, arms the stop and leaves the track to play out.
+    /// Returns true if the caller should abandon the transition.
+    bool maybeHoldForAnnouncement(DeckAttributes* pDeck);
+
+    /// Publishes which deck holds a pending pause so its title can warn. Rows
+    /// are positional, so a deck cannot work this out from its own track.
+    void updatePauseAfterDeckControl();
+
+    /// Row of the track loaded on pDeck, or -1. Uses the cursor as the guess so
+    /// a repeated cortina resolves to the occurrence actually playing.
+    int keepQueueRowForDeck(DeckAttributes* pDeck);
+
     // Keep Queue mode helpers.
     bool keepQueueEnabled() const;
     // True while LIVE mode (Tango performance lock) is engaged.
@@ -483,6 +504,10 @@ class AutoDJProcessor : public QObject {
     // A toggle rather than a plain control so a keyboard shortcut or controller
     // button flips it on the rising edge, the way [AutoDJ],enabled works.
     ControlPushButton m_keepQueue;
+    // Index (1-based) of the deck holding a track marked "pause after", 0 for
+    // none. Read by the deck's title widget, which cannot resolve a positional
+    // mark by itself.
+    ControlObject m_pauseAfterDeck;
 
     // Live cortina-length budget (seconds). The single source of truth shared by
     // the Preferences field (stop-only) and the cockpit nudge buttons (live). On
@@ -508,6 +533,13 @@ class AutoDJProcessor : public QObject {
     // was still dancing, and satisfied "Auto DJ is off" guards too early. Instead
     // stay enabled and stop from playerPlayChanged() once the track really ends.
     bool m_bStopWhenLastTrackEnds;
+
+    // Set when the track now playing sits on a row the DJ marked "pause after",
+    // so the set stops for an announcement instead of starting the next tanda.
+    // Kept apart from m_bStopWhenLastTrackEnds because that one is cleared
+    // whenever a track is loaded from the queue, which would drop the pause if
+    // the queue were edited while the marked track was still playing.
+    bool m_bPauseAfterPending;
 
     DISALLOW_COPY_AND_ASSIGN(AutoDJProcessor);
 };
