@@ -1,8 +1,11 @@
 #include "dialog/dlgabout.h"
 
 #include <QDebug>
+#include <QEvent>
 #include <QFile>
 #include <QLocale>
+#include <QMouseEvent>
+#include <QUrl>
 
 #include "defs_urls.h"
 #include "moc_dlgabout.cpp"
@@ -18,6 +21,12 @@ DlgAbout::DlgAbout()
 
     mixxx_icon->load(QString(MIXXX_ICON_PATH));
     mixxx_logo->load(QString(MIXXX_LOGO_PATH));
+
+    // Let the wordmark act as a link to the project's own site, the way an About
+    // box logo usually does.
+    mixxx_logo->setCursor(Qt::PointingHandCursor);
+    mixxx_logo->setToolTip(TANGOMODE_SUPPORT_URL);
+    mixxx_logo->installEventFilter(this);
 
     version_label->setText(VersionStore::applicationName() +
             QStringLiteral(" ") + VersionStore::version());
@@ -519,4 +528,18 @@ DlgAbout::DlgAbout()
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &DlgAbout::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, this, &DlgAbout::reject);
+}
+
+bool DlgAbout::eventFilter(QObject* pObject, QEvent* pEvent) {
+    // Release rather than press, so dragging off the logo cancels the click the
+    // way a button would.
+    if (pObject == mixxx_logo && pEvent->type() == QEvent::MouseButtonRelease) {
+        const auto* pMouseEvent = static_cast<QMouseEvent*>(pEvent);
+        if (pMouseEvent->button() == Qt::LeftButton &&
+                mixxx_logo->rect().contains(pMouseEvent->pos())) {
+            mixxx::DesktopHelper::openUrl(QUrl(TANGOMODE_SUPPORT_URL));
+            return true;
+        }
+    }
+    return QDialog::eventFilter(pObject, pEvent);
 }

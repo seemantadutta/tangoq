@@ -23,6 +23,9 @@
 // landing page rather than a payment provider directly: a bare payment link
 // opening out of an app looks like something to be suspicious of, and a page we
 // control can offer several ways to help without another release to change them.
+// TODO: point "Support TangoMode" at a dedicated support/donate page once
+// tangomode.app has one, rather than the site root. Both the button and the
+// About dialog wordmark currently use this same URL.
 #define TANGOMODE_SUPPORT_URL "https://tangomode.app"
 
 #define MIXXX_CONTROLLER_FORUMS_URL \
