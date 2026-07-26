@@ -1365,6 +1365,22 @@ void PlaylistDAO::addTracksToAutoDJQueue(const QList<TrackId>& trackIds, AutoDJS
         return;
     }
 
+    // Tango (Keep Queue) mode: the queue is a set the DJ arranged in advance and
+    // the cursor tracks their position in it, so only appending is meaningful.
+    // TOP inserts near the front, which in Tango is the already-played region -
+    // the track would sit in the set history and never play. REPLACE deletes the
+    // set outright, losing hours of preparation to one stray press mid-milonga.
+    // Refused here rather than only in the track menu, because that left the
+    // controller mappings and the playlist/external-library sidebars able to do
+    // both, and every route into the Auto DJ queue passes through here.
+    if (loc != AutoDJSendLoc::BOTTOM && m_pAutoDJProcessor &&
+            m_pAutoDJProcessor->isQueueOrderLocked()) {
+        qDebug() << "Auto DJ queue: refusing"
+                 << (loc == AutoDJSendLoc::TOP ? "TOP" : "REPLACE")
+                 << "in Tango mode; only appending is allowed";
+        return;
+    }
+
     // If the first track is already loaded to the player,
     // alter the playlist only below the first track
     int position =

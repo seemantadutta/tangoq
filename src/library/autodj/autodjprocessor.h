@@ -218,6 +218,11 @@ class AutoDJProcessor : public QObject {
 
     bool nextTrackLoaded();
 
+    /// True while Tango (Keep Queue) mode owns the Auto DJ queue: the list is a
+    /// pre-arranged set and the cursor tracks the DJ's position in it. Callers
+    /// that would reorder or clear the queue must refuse while this holds.
+    bool isQueueOrderLocked() const;
+
     void setTransitionTime(int seconds);
 
     void setTransitionMode(TransitionMode newMode);

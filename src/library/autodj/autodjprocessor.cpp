@@ -1245,6 +1245,10 @@ bool AutoDJProcessor::keepQueueEnabled() const {
     return m_keepQueue.toBool();
 }
 
+bool AutoDJProcessor::isQueueOrderLocked() const {
+    return keepQueueEnabled();
+}
+
 bool AutoDJProcessor::liveModeEnabled() const {
     return m_liveMode.toBool();
 }
