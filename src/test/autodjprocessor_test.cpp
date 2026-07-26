@@ -395,6 +395,67 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
 }
 
+TEST_F(AutoDJProcessorTest, EndOfQueue_ResumesWhenTracksAreAppended) {
+    // Tandas are built during a running set, so the queue legitimately runs dry
+    // while a track is still playing and is refilled moments later. Staying
+    // enabled lets the idle deck be reloaded, and the pending end-of-set stop
+    // must be dropped - otherwise it fires the next time both decks are stopped
+    // together, ending the set with tracks still queued.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack();
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    deck2.slotLoadTrack(pTrack, false);
+    const double kSamplesPerSecond = kChannelCount * pTrack->getSampleRate();
+    deck1.outroStartPos.set(60 * kSamplesPerSecond);
+    deck1.outroEndPos.set(70 * kSamplesPerSecond);
+    deck2.introStartPos.set(10 * kSamplesPerSecond);
+    deck2.introEndPos.set(40 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_LEFT_FADING));
+    deck1.playposition.set(0.6);
+    deck1.playposition.set(0.7);
+    deck1.play.set(0.0);
+
+    // The queue runs dry while deck 2 plays on.
+    pAutoDJTableModel->removeTrack(pAutoDJTableModel->index(0, 0));
+    ASSERT_EQ(0, pAutoDJTableModel->rowCount());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck2.playposition.set(0.4);
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    // The DJ appends the next tanda. Because Auto DJ is still enabled, the idle
+    // deck is reloaded from the queue rather than the set being over.
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    pAutoDJTableModel->appendTrack(testId);
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    // Both decks stopped at once must no longer end the set: there is something
+    // queued again, so the earlier end-of-set stop is spent.
+    deck2.play.set(0.0);
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StopsEvenInLiveMode) {
     // LIVE mode holds a manual stop behind a confirmation so a stray button
     // press can't kill a running set. The end-of-set stop is not a stray press:

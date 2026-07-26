@@ -1168,6 +1168,12 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
         return false;
     }
 
+    // There is something to play again, so a pending end-of-set stop no longer
+    // applies. This matters when tandas are built during a running set: the queue
+    // legitimately runs dry for a while, and reanchorKeepQueueCursor() reloads the
+    // idle deck as soon as tracks are appended. Leaving the flag set would arm a
+    // stop that fires the next time both decks happen to be stopped together.
+    m_bStopWhenLastTrackEnds = false;
     emitLoadTrackToPlayer(nextTrack, deck.group, play);
     return true;
 }
@@ -1939,6 +1945,18 @@ void AutoDJProcessor::maybeReloadIdleDeckForKeepQueue() {
         return;
     }
     DeckAttributes* pFromDeck = getFromDeck();
+    if (!pFromDeck) {
+        // Running out of queue neutralises the pending transition, which leaves
+        // no deck flagged as the "from" deck. The playing deck still is one in
+        // every sense that matters here, so fall back to it - this is the path
+        // that picks a set back up when the next tanda is appended mid-set.
+        for (const auto& pDeck : m_decks) {
+            if (pDeck && pDeck->isPlaying()) {
+                pFromDeck = pDeck.get();
+                break;
+            }
+        }
+    }
     if (!pFromDeck) {
         return;
     }
