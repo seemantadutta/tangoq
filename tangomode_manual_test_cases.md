@@ -515,15 +515,16 @@ is always cleared (no lingering suppression).
 
 ---
 
-## L. Reset AutoDJ Queue State
+## L. Eject decks and reset AutoDJ queue state
 
 ### L1 — Restart a played-out set from the top (MUST PASS)
 1. Tango on. Play a set to the end (all rows grey). Stop Auto DJ.
-2. Right-click in the Auto DJ queue → **Reset AutoDJ Queue State** → confirm.
+2. Right-click in the Auto DJ queue → **Eject decks and reset AutoDJ queue state**
+   → confirm.
 
-**Expected:** All rows return to normal colour (marked unplayed) and the cursor
-resets to the top, so re-enabling Auto DJ plays from the first track. Your library
-play counts are **not** changed.
+**Expected:** Any tracks still loaded on the decks are ejected, all rows return to
+normal colour (marked unplayed) and the cursor resets to the top, so re-enabling
+Auto DJ plays from the first track. Your library play counts are **not** changed.
 
 **Result:**
 

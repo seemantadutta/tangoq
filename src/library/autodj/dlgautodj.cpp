@@ -491,8 +491,11 @@ void DlgAutoDJ::slotRepeatPlaylistChanged(bool checked) {
 
 void DlgAutoDJ::refreshTangoModeUi() {
     const bool tango = m_pKeepQueueControl->toBool();
-    // Update the read-only toolbar indicator.
+    // Update the read-only toolbar indicator. It is hidden outside Tango mode
+    // rather than shown in an "off" state, so plain Mixxx carries no trace of
+    // the fork's Tango UI.
     pushButtonKeepQueue->setChecked(tango);
+    pushButtonKeepQueue->setVisible(tango);
     // The set-time readout, the target end-time controls and the LIVE indicator
     // are Tango-only.
     labelSetEndTime->setVisible(tango);

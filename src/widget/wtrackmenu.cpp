@@ -348,7 +348,7 @@ void WTrackMenu::createActions() {
     // unconditionally, hidden, and reveal it only there (and only while Auto DJ is
     // stopped and not LIVE) in updateMenus().
     m_pResetAutoDJQueueStateAct = make_parented<QAction>(
-            tr("Reset AutoDJ Queue State"), this);
+            tr("Eject decks and reset AutoDJ queue state"), this);
     m_pResetAutoDJQueueStateAct->setVisible(false);
     connect(m_pResetAutoDJQueueStateAct,
             &QAction::triggered,
@@ -667,8 +667,9 @@ void WTrackMenu::setupActions() {
     // Shown only in Tango mode (updateMenus), including in the Auto DJ queue list.
     addAction(m_pCortinaToggleAct);
 
-    // Reset AutoDJ Queue State: Auto DJ queue list only, revealed in updateMenus()
-    // with its own leading separator so it reads as a distinct, deliberate action.
+    // Eject decks and reset AutoDJ queue state: Auto DJ queue list only, revealed
+    // in updateMenus() with its own leading separator so it reads as a distinct,
+    // deliberate action.
     m_pResetAutoDJQueueStateSeparator = addSeparator();
     m_pResetAutoDJQueueStateSeparator->setVisible(false);
     addAction(m_pResetAutoDJQueueStateAct);
@@ -1039,8 +1040,9 @@ void WTrackMenu::updateMenus() {
         }
     }
 
-    // Reset AutoDJ Queue State: Auto DJ queue list, Tango mode, and only while Auto
-    // DJ is stopped and not in LIVE mode - so it can never wipe a running set.
+    // Eject decks and reset AutoDJ queue state: Auto DJ queue list, Tango mode, and
+    // only while Auto DJ is stopped and not in LIVE mode - so it can never wipe a
+    // running set or eject a deck out from under one.
     {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
@@ -2856,16 +2858,30 @@ void WTrackMenu::slotToggleCortina() {
 
 void WTrackMenu::slotResetAutoDJQueueState() {
     // Deliberate, confirmed action: restart the Tango set from the top. Marks
-    // every queued track unplayed (reverting the grey "played" colour) and resets
-    // the play cursor to the first track, so a fully-played set can be replayed.
+    // every queued track unplayed (reverting the grey "played" colour), resets
+    // the play cursor to the first track and clears the decks, so a fully-played
+    // set can be replayed from a genuinely clean slate.
     const auto answer = QMessageBox::question(this,
-            tr("Reset AutoDJ Queue State"),
-            tr("Mark all tracks in the Auto DJ queue as unplayed and restart the "
-               "set from the top?\n\nThis does not change your play counts."),
+            tr("Eject decks and reset AutoDJ queue state"),
+            tr("Eject the tracks loaded on the decks, mark all tracks in the "
+               "Auto DJ queue as unplayed and restart the set from the "
+               "top?\n\nThis does not change your play counts."),
             QMessageBox::Yes | QMessageBox::Cancel,
             QMessageBox::Cancel);
     if (answer != QMessageBox::Yes) {
         return;
+    }
+    // Clear the decks first so nothing is left cued from the previous run. This
+    // action is only offered while Auto DJ is stopped and outside LIVE mode, so
+    // no deck can be ejected out from under a running set. Stop before eject to
+    // match how the library handles ejecting a loaded deck.
+    const int numDecks = PlayerInfo::instance().numDecks();
+    for (int deck = 0; deck < numDecks; ++deck) {
+        // PlayerManager::groupForDeck is 0-indexed.
+        const QString group = PlayerManager::groupForDeck(deck);
+        ControlObject::set(ConfigKey(group, QStringLiteral("stop")), 1.0);
+        ControlObject::set(ConfigKey(group, QStringLiteral("eject")), 1.0);
+        ControlObject::set(ConfigKey(group, QStringLiteral("eject")), 0.0);
     }
     // The AutoDJProcessor owns the play cursor and the queue model, so route the
     // reset through its control (it clears the played flags and the cursor).

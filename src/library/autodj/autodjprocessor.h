@@ -260,8 +260,9 @@ class AutoDJProcessor : public QObject {
     // Persists a live cortina-length change (from the cockpit nudge buttons or
     // the prefs Apply) to config and refreshes the envelope budget + estimate.
     void controlCortinaLength(double value);
-    // Triggered from the Auto DJ queue right-click "Reset AutoDJ Queue State"
-    // action to restart the Tango set from the top (see resetKeepQueueSet).
+    // Triggered from the Auto DJ queue right-click "Eject decks and reset AutoDJ
+    // queue state" action to restart the Tango set from the top (see
+    // resetKeepQueueSet). The deck eject is done by the menu action itself.
     void controlResetQueueState(double value);
     // Cancels the LIVE-mode stop-guard arm (timeout or a non-confirming action).
     void disarmStopGuard();
@@ -475,8 +476,8 @@ class AutoDJProcessor : public QObject {
     // budget + set-length estimate immediately. Clamped to [5, 600] s.
     ControlObject m_cortinaLength;
 
-    // Momentary trigger from the Auto DJ queue "Reset AutoDJ Queue State" menu
-    // action. Re-armed to 0 after each handled trigger.
+    // Momentary trigger from the Auto DJ queue "Eject decks and reset AutoDJ
+    // queue state" menu action. Re-armed to 0 after each handled trigger.
     ControlPushButton m_resetQueueState;
 
     // LIVE mode (Tango performance lock). Session-only, not persisted: defaults
