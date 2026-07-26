@@ -138,6 +138,9 @@ class WTrackTableView : public WLibraryTableView {
 
   protected:
     QString getModelStateKey() const override;
+    /// Draws the Auto DJ "pause after" rule beneath marked rows, after the table
+    /// has painted itself.
+    void paintEvent(QPaintEvent* pEvent) override;
 
   private:
     void addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc);

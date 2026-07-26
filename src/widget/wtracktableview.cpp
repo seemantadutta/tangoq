@@ -2,6 +2,7 @@
 
 #include <QDrag>
 #include <QModelIndex>
+#include <QPainter>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QUrl>
@@ -712,6 +713,41 @@ void WTrackTableView::mouseMoveEvent(QMouseEvent* pEvent) {
             locations.append(pTrackModel->getTrackLocation(index));
         }
         DragAndDropHelper::dragTrackLocations(locations, this, "library");
+    }
+}
+
+void WTrackTableView::paintEvent(QPaintEvent* pEvent) {
+    WLibraryTableView::paintEvent(pEvent);
+
+    // A pause is a boundary between blocks of the set, so draw it as one. The
+    // row's tag names it; this rule is what survives scanning a long queue.
+    auto* pTableModel = qobject_cast<BaseTrackTableModel*>(model());
+    if (!pTableModel || !pTableModel->showCortinaMarks()) {
+        return;
+    }
+    // Only the rows on screen: the queue can be long and this runs on repaint.
+    const int firstRow = rowAt(0);
+    if (firstRow < 0) {
+        return;
+    }
+    int lastRow = rowAt(viewport()->height() - 1);
+    if (lastRow < 0) {
+        lastRow = pTableModel->rowCount() - 1;
+    }
+    QPainter painter(viewport());
+    QPen pen(palette().color(QPalette::WindowText));
+    pen.setWidth(2);
+    painter.setPen(pen);
+    for (int row = firstRow; row <= lastRow; ++row) {
+        if (!pTableModel->isPauseAfterRow(row)) {
+            continue;
+        }
+        const QRect rect = visualRect(pTableModel->index(row, 0));
+        if (!rect.isValid()) {
+            continue;
+        }
+        const int y = rect.bottom();
+        painter.drawLine(0, y, viewport()->width(), y);
     }
 }
 

@@ -407,6 +407,92 @@ const QSet<TrackId>& BaseTrackTableModel::duplicateTrackIds() const {
     return m_duplicateTrackIds;
 }
 
+bool BaseTrackTableModel::isPauseAfterRow(int row) const {
+    return m_pauseAfterRows.contains(row);
+}
+
+void BaseTrackTableModel::togglePauseAfterRow(int row) {
+    if (m_pauseAfterRows.remove(row) == 0) {
+        const TrackId trackId(
+                rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        m_pauseAfterRows.insert(row, trackId);
+    }
+    emit pauseAfterRowsChanged();
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
+void BaseTrackTableModel::clearPauseAfterRow(int row) {
+    if (m_pauseAfterRows.remove(row) == 0) {
+        return;
+    }
+    emit pauseAfterRowsChanged();
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
+void BaseTrackTableModel::reanchorPauseAfterRows() {
+    if (m_pauseAfterRows.isEmpty()) {
+        return;
+    }
+    const int rows = rowCount();
+    // The model goes momentarily empty in the middle of every rebuild: a
+    // transient clear followed by a full insert. Re-anchoring against nothing
+    // would find no occurrence of any marked track and conclude they had all
+    // been deleted, so every edit would silently drop the marks. Wait for the
+    // insert pass, which re-anchors properly. AutoDJProcessor::
+    // reanchorKeepQueueCursor() sidesteps the same trap.
+    if (rows == 0) {
+        return;
+    }
+    QHash<int, TrackId> reanchored;
+    for (auto it = m_pauseAfterRows.constBegin();
+            it != m_pauseAfterRows.constEnd();
+            ++it) {
+        const int oldRow = it.key();
+        const TrackId trackId = it.value();
+        if (!trackId.isValid()) {
+            // Nothing to anchor to; keep the row if it still exists.
+            if (oldRow < rows) {
+                reanchored.insert(oldRow, trackId);
+            }
+            continue;
+        }
+        const QVector<int> candidates = getTrackRows(trackId);
+        if (candidates.isEmpty()) {
+            // The marked track was removed from the queue, so the pause it
+            // described no longer has a place to happen. Drop it rather than
+            // stopping the set at some unrelated row.
+            continue;
+        }
+        int bestRow = candidates.first();
+        for (int candidate : candidates) {
+            if (qAbs(candidate - oldRow) < qAbs(bestRow - oldRow)) {
+                bestRow = candidate;
+            }
+        }
+        reanchored.insert(bestRow, trackId);
+    }
+    if (reanchored == m_pauseAfterRows) {
+        return;
+    }
+    m_pauseAfterRows = reanchored;
+    emit pauseAfterRowsChanged();
+    // The tag moved to a different row, and rows that did not otherwise change
+    // are not repainted on their own.
+    if (rows > 0) {
+        emit dataChanged(index(0, 0),
+                index(rows - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
 void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     if (m_showCortinaMarks == enable) {
         return;
@@ -447,6 +533,27 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
                 &CortinaRegistry::cortinaMarksChanged,
                 this,
                 &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        // Rows renumber on every queue edit, so the marks have to follow their
+        // tracks or they would come to describe unrelated rows.
+        connect(this,
+                &QAbstractItemModel::rowsInserted,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+        connect(this,
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+        connect(this,
+                &QAbstractItemModel::modelReset,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+    } else {
+        // Leaving Tango mode drops the marks: they are a Tango concept, and a
+        // stale one would fire the next time Tango came back on.
+        if (!m_pauseAfterRows.isEmpty()) {
+            m_pauseAfterRows.clear();
+            emit pauseAfterRowsChanged();
+        }
     }
     invalidateDuplicateTrackIds();
     // The flag itself decides the title prefix and row colour, so the rows on
@@ -553,22 +660,28 @@ QVariant BaseTrackTableModel::data(
         return QVariant();
     }
 
-    // Tag cortinas and repeated tracks in the Auto DJ list title (display only;
-    // the stored title is untouched). A cortina is never also a duplicate, so
-    // the two tags cannot collide.
+    // Tag the Auto DJ list title (display only; the stored title is untouched).
+    // The tags compose because a cortina can also be the point the set pauses
+    // at, and a colour could not say which of the two it meant. A cortina is
+    // never also a duplicate, so only the pause tag ever joins another.
     if (role == Qt::DisplayRole && m_showCortinaMarks &&
             mapColumn(index.column()) == ColumnCache::COLUMN_LIBRARYTABLE_TITLE) {
         const TrackId trackId(rawSiblingValue(
                 index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        QStringList marks;
         if (CortinaRegistry::instance().contains(trackId)) {
-            const QString title =
-                    roleValue(index, rawValue(index), role).toString();
-            return QStringLiteral("[--CORTINA--] %1").arg(title);
+            marks << QStringLiteral("CORTINA");
+        } else if (duplicateTrackIds().contains(trackId)) {
+            marks << QStringLiteral("DUPLICATE");
         }
-        if (duplicateTrackIds().contains(trackId)) {
+        if (isPauseAfterRow(index.row())) {
+            marks << QStringLiteral("PAUSE AFTER");
+        }
+        if (!marks.isEmpty()) {
             const QString title =
                     roleValue(index, rawValue(index), role).toString();
-            return QStringLiteral("[--DUPLICATE--] %1").arg(title);
+            return QStringLiteral("[-- %1 --] %2")
+                    .arg(marks.join(QStringLiteral(" -- ")), title);
         }
     }
 

@@ -343,6 +343,16 @@ void WTrackMenu::createActions() {
     m_pCortinaToggleAct->setVisible(false);
     connect(m_pCortinaToggleAct, &QAction::triggered, this, &WTrackMenu::slotToggleCortina);
 
+    // Stop the set after this track so the organiser can make an announcement,
+    // then continue by re-enabling Auto DJ. Shown on the Auto DJ queue list in
+    // Tango mode only, like the cortina toggle above.
+    m_pPauseAfterToggleAct = make_parented<QAction>(tr("Pause after this track"), this);
+    m_pPauseAfterToggleAct->setVisible(false);
+    connect(m_pPauseAfterToggleAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotTogglePauseAfter);
+
     // Reset the Tango set state (mark all unplayed + restart from the top). Like
     // the cortina toggle it lives on the Auto DJ queue list, so create it
     // unconditionally, hidden, and reveal it only there (and only while Auto DJ is
@@ -735,6 +745,16 @@ void WTrackMenu::setupActions() {
         addMenu(m_pColorMenu);
     }
 
+    // Pause after this track sits down here, in a group of its own between the
+    // colour and metadata sections, deliberately far from "Set as Cortina". That
+    // is used constantly while building a set, and a stray click on a neighbour
+    // would plant a pause the DJ never asked for and would not discover until the
+    // music stopped in front of a floor. Distance is the protection: a separator
+    // alone was not, because the actions between them are usually hidden.
+    m_pPauseAfterSeparator = addSeparator();
+    m_pPauseAfterSeparator->setVisible(false);
+    addAction(m_pPauseAfterToggleAct);
+
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
         m_pMetadataMenu->addAction(m_pImportMetadataFromMusicBrainzAct);
@@ -1037,6 +1057,28 @@ void WTrackMenu::updateMenus() {
             }
             m_pCortinaToggleAct->setText(
                     allCortina ? tr("Set as Track") : tr("Set as Cortina"));
+        }
+    }
+
+    // Pause after this track: same scoping as the cortina toggle, but a mark is
+    // positional rather than per-track, so it applies to exactly one row. Hide it
+    // for a multi-row selection instead of guessing which row was meant.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(m_pTrackModel);
+        const bool singleRow = m_trackIndexList.size() == 1;
+        const bool show = tangoMode && isCortinaList() && pTableModel && singleRow;
+        m_pPauseAfterToggleAct->setVisible(show);
+        if (m_pPauseAfterSeparator) {
+            m_pPauseAfterSeparator->setVisible(show);
+        }
+        if (show) {
+            m_pPauseAfterToggleAct->setText(
+                    pTableModel->isPauseAfterRow(m_trackIndexList.first().row())
+                            ? tr("Don't pause after this track")
+                            : tr("Pause after this track"));
         }
     }
 
@@ -2834,6 +2876,17 @@ void WTrackMenu::slotAddToAutoDJBottom() {
 
 void WTrackMenu::slotAddToAutoDJTop() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::TOP);
+}
+
+void WTrackMenu::slotTogglePauseAfter() {
+    // The mark belongs to a row, not a track: the same cortina sits on many rows
+    // and only one of them is where the set should stop. updateMenus() only
+    // offers this for a single row, so there is exactly one to act on.
+    auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(m_pTrackModel);
+    if (!pTableModel || m_trackIndexList.size() != 1) {
+        return;
+    }
+    pTableModel->togglePauseAfterRow(m_trackIndexList.first().row());
 }
 
 void WTrackMenu::slotAddToAutoDJCortina() {

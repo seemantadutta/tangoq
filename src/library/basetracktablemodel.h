@@ -86,6 +86,20 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
         return m_showCortinaMarks;
     }
 
+    /// Auto DJ stops after the track on this row, so the DJ can hand over for an
+    /// announcement, then continue by re-enabling Auto DJ. Marks are positional:
+    /// the same cortina sits on many rows and only one of them is the pause.
+    void togglePauseAfterRow(int row);
+    bool isPauseAfterRow(int row) const;
+    /// Drops the mark once it has fired, or when the track is skipped past.
+    void clearPauseAfterRow(int row);
+
+  signals:
+    /// The set of pause-after rows changed: repaint, and re-read it.
+    void pauseAfterRowsChanged();
+
+  public:
+
     // Calculate the number of columns from all valid
     // column headers.
     // Reimplement in derived classes if a more efficient
@@ -288,6 +302,11 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     const QSet<TrackId>& duplicateTrackIds() const;
     void invalidateDuplicateTrackIds();
 
+    /// Follow the marks when rows shift under them. A queue edit renumbers rows,
+    /// so each mark is re-resolved to the occurrence of its remembered track
+    /// nearest its old row - the same disambiguation the Tango cursor uses.
+    void reanchorPauseAfterRows();
+
     // Track models may reference tracks by an external id
     // TODO: TrackId should only be used for tracks from
     // the internal database.
@@ -329,6 +348,11 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // cached; invalidateDuplicateTrackIds() marks it stale.
     mutable bool m_duplicateTrackIdsDirty = true;
     mutable QSet<TrackId> m_duplicateTrackIds;
+
+    // Rows Auto DJ pauses after, each remembering the track that was on it so the
+    // mark can follow that track when the queue is edited (see
+    // reanchorPauseAfterRows).
+    QHash<int, TrackId> m_pauseAfterRows;
 
     mutable QModelIndex m_toolTipIndex;
 
