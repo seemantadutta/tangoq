@@ -1053,8 +1053,22 @@ void WTrackMenu::updateMenus() {
         const bool liveMode = ControlObject::get(ConfigKey(
                                       QStringLiteral("[AutoDJ]"),
                                       QStringLiteral("live_mode"))) > 0.0;
+        // Auto DJ being off does not by itself mean the decks are idle: it stops
+        // as the last track starts, and a deck can always be started by hand. The
+        // action stops decks before ejecting them, so require silence as well
+        // rather than risk cutting a track that is still playing out.
+        bool anyDeckPlaying = false;
+        const int numDecks = PlayerInfo::instance().numDecks();
+        for (int deck = 0; deck < numDecks; ++deck) {
+            // PlayerManager::groupForDeck is 0-indexed.
+            if (ControlObject::get(ConfigKey(PlayerManager::groupForDeck(deck),
+                        QStringLiteral("play"))) > 0.0) {
+                anyDeckPlaying = true;
+                break;
+            }
+        }
         const bool show = tangoMode && isCortinaList() &&
-                !autoDJRunning && !liveMode;
+                !autoDJRunning && !liveMode && !anyDeckPlaying;
         m_pResetAutoDJQueueStateAct->setVisible(show);
         if (m_pResetAutoDJQueueStateSeparator) {
             m_pResetAutoDJQueueStateSeparator->setVisible(show);
@@ -2879,6 +2893,13 @@ void WTrackMenu::slotResetAutoDJQueueState() {
     for (int deck = 0; deck < numDecks; ++deck) {
         // PlayerManager::groupForDeck is 0-indexed.
         const QString group = PlayerManager::groupForDeck(deck);
+        // Only decks that actually hold a track: the eject control doubles as
+        // un-eject, so pressing it on an empty deck reloads the track that was
+        // ejected last (and a quick repeat restores the one before that), which
+        // would put tracks back on the decks we are trying to clear.
+        if (!PlayerInfo::instance().getTrackInfo(group)) {
+            continue;
+        }
         ControlObject::set(ConfigKey(group, QStringLiteral("stop")), 1.0);
         ControlObject::set(ConfigKey(group, QStringLiteral("eject")), 1.0);
         ControlObject::set(ConfigKey(group, QStringLiteral("eject")), 0.0);
