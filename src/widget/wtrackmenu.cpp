@@ -2,6 +2,7 @@
 
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QActionGroup>
 #include <QInputDialog>
 #include <QList>
 #include <QListWidget>
@@ -363,6 +364,33 @@ void WTrackMenu::createActions() {
             &QAction::triggered,
             this,
             &WTrackMenu::slotSetDisplayName);
+
+    // What job a track does in the night. Milonga is the default and behaves
+    // like stock Mixxx; the others change how the set counts time, starts the
+    // track and transitions out of it. Cortina deliberately is not one of these:
+    // it is used constantly and belongs one click away, not behind a submenu
+    // where a slip could type a track Intro instead.
+    m_pTrackTypeMenu = make_parented<QMenu>(this);
+    m_pTrackTypeMenu->setTitle(tr("Set Track Type"));
+    const QList<QPair<TangoTrackType, QString>> trackTypes = {
+            {TangoTrackType::Milonga, tr("Milonga Track")},
+            {TangoTrackType::Intro, tr("Intro Track")},
+            {TangoTrackType::Outro, tr("Outro Track")},
+            {TangoTrackType::Performance, tr("Performance Track")},
+    };
+    auto* pTrackTypeGroup = new QActionGroup(this);
+    pTrackTypeGroup->setExclusive(true);
+    for (const auto& entry : trackTypes) {
+        auto* pAct = new QAction(entry.second, this);
+        pAct->setCheckable(true);
+        pTrackTypeGroup->addAction(pAct);
+        const TangoTrackType type = entry.first;
+        connect(pAct, &QAction::triggered, this, [this, type]() {
+            slotSetTrackType(type);
+        });
+        m_pTrackTypeMenu->addAction(pAct);
+        m_trackTypeActs.insert(static_cast<int>(type), pAct);
+    }
 
     // Reset the Tango set state (mark all unplayed + restart from the top). Like
     // the cortina toggle it lives on the Auto DJ queue list, so create it
@@ -766,6 +794,8 @@ void WTrackMenu::setupActions() {
     m_pPauseAfterSeparator->setVisible(false);
     addAction(m_pPauseAfterToggleAct);
     addAction(m_pDisplayNameAct);
+    m_pTrackTypeMenuAction = addMenu(m_pTrackTypeMenu);
+    m_pTrackTypeMenuAction->setVisible(false);
 
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
@@ -1086,6 +1116,32 @@ void WTrackMenu::updateMenus() {
         m_pDisplayNameAct->setVisible(show);
         if (m_pPauseAfterSeparator) {
             m_pPauseAfterSeparator->setVisible(show);
+        }
+        if (m_pTrackTypeMenuAction) {
+            // Types are per track, so unlike the pause mark this works for a
+            // multi-row selection.
+            const bool showTypes = tangoMode && isCortinaList();
+            m_pTrackTypeMenuAction->setVisible(showTypes);
+            if (showTypes) {
+                const TrackIdList trackIds = getTrackIds();
+                // Tick the shared type, or nothing when the selection is mixed.
+                bool uniform = !trackIds.isEmpty();
+                const TangoTrackType first = uniform
+                        ? TrackTypeRegistry::instance().type(trackIds.first())
+                        : TangoTrackType::Milonga;
+                for (const auto& trackId : trackIds) {
+                    if (TrackTypeRegistry::instance().type(trackId) != first) {
+                        uniform = false;
+                        break;
+                    }
+                }
+                for (auto it = m_trackTypeActs.constBegin();
+                        it != m_trackTypeActs.constEnd();
+                        ++it) {
+                    it.value()->setChecked(
+                            uniform && it.key() == static_cast<int>(first));
+                }
+            }
         }
         if (show) {
             m_pDisplayNameAct->setText(
@@ -2909,6 +2965,21 @@ void WTrackMenu::slotTogglePauseAfter() {
     pTableModel->togglePauseAfterRow(m_trackIndexList.first().row());
 }
 
+void WTrackMenu::slotSetTrackType(TangoTrackType type) {
+    // Applies to the whole selection: a type belongs to a track, not a row, so
+    // typing a block of intro tracks in one go is the common case.
+    const TrackIdList trackIds = getTrackIds();
+    for (const auto& trackId : trackIds) {
+        TrackTypeRegistry::instance().setType(trackId, type);
+        if (type != TangoTrackType::Milonga) {
+            // A cortina separates tandas, so it only means anything during the
+            // milonga. Leaving the mark on an intro or outro track would run the
+            // Cortina Fade envelope over the sound check or the goodbyes.
+            CortinaRegistry::instance().unmark(trackId);
+        }
+    }
+}
+
 void WTrackMenu::slotSetDisplayName() {
     const TrackIdList trackIds = getTrackIds();
     if (trackIds.size() != 1) {
@@ -2961,6 +3032,9 @@ void WTrackMenu::slotToggleCortina() {
             CortinaRegistry::instance().unmark(trackId);
         } else {
             CortinaRegistry::instance().mark(trackId);
+            // Cortinas belong to milonga time; marking one puts the track back
+            // there rather than leaving a contradictory intro/outro cortina.
+            TrackTypeRegistry::instance().setType(trackId, TangoTrackType::Milonga);
         }
     }
 }

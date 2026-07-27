@@ -7,6 +7,7 @@
 
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/tracklabelregistry.h"
+#include "library/autodj/tracktyperegistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
 #include "library/starrating.h"
@@ -502,6 +503,16 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     if (enable) {
         // Repaint the whole table (text color + title prefix) whenever the set of
         // tagged tracks changes.
+        connect(&TrackTypeRegistry::instance(),
+                &TrackTypeRegistry::trackTypesChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::DisplayRole});
+                    }
+                });
         connect(&TrackLabelRegistry::instance(),
                 &TrackLabelRegistry::trackLabelsChanged,
                 this,
@@ -684,6 +695,11 @@ QVariant BaseTrackTableModel::data(
             marks << QStringLiteral("CORTINA");
         } else if (duplicateTrackIds().contains(trackId)) {
             marks << QStringLiteral("DUPLICATE");
+        }
+        const QString typeTag = TrackTypeRegistry::tagFor(
+                TrackTypeRegistry::instance().type(trackId));
+        if (!typeTag.isEmpty()) {
+            marks << typeTag;
         }
         if (isPauseAfterRow(index.row())) {
             marks << QStringLiteral("PAUSE AFTER");
