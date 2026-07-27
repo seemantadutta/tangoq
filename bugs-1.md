@@ -16,11 +16,6 @@
 * Added mechanism for pause after arbitrary track (cortinas included), plus a session display name for any track. Between them these cover announcements, performance tracks and intro/outro blocks: a performance is a track you rename and mark, an intro block is one you put a mark after. A red separator line in the list shows where the set will stop. The four track types (milonga/intro/outro/performance) were tried first and removed - they asked you to declare the shape of the set up front, and the set is actually built on the fly during the milonga.
 ----
 
-# Medium effort
-* Add a intro-outro list, where tracks can be enqueued to serve as intro music/outtro music and also sound check at the venue. But the transition from intro to main set and from main set to outtro set will be manually done. After intro set ends, main set should not start automatically. And after main set ends, outtro set should not start automatically either.
-* Add a separate 'ANNOUNCEMENT' tag for a pseudotrack that does nothing but stop the autoDJ to allow for organizers to make announcements. This way I can set it up right after the cortina, and next tanda won't play. But it will stop at that point. And I should be able to hit 'continue' or some control to carry on with the next tanda. This way I don't have to manually insert 5min silence tracks when the organizer wants me to stop the DJ flow and continue after the announcements.
-* Add a separate list, which will contain tracks to be used during a performance. In performance mode, each track should stop after playing, so that audience can applaud, clap etc. And the DJ has to manually start each track, not a back to back play, which happens in a normal autoDJ list
-
 # Low priority today
 * Implement 'inline' preview on cue end point, which can work by clicking a single button next to the track, in the track listing or even in the autoDJ list. - this is low priority, mixxx already supports this
 * When re-launching mixxx, it loses the cortina designation of all tracks that were added as cortinas. Can we implement a system where it can be restored, but I also don't want to permanently tag a track as a cortina. Mistakenly tagging a normal track as a cortina will then apply a fade by mistake. Unless we lock the fading controls in the 'tracks' between two cortinas.
