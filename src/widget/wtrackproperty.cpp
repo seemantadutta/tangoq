@@ -8,7 +8,6 @@
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "library/autodj/cortinaregistry.h"
-#include "library/autodj/tracktyperegistry.h"
 #include "mixer/playermanager.h"
 #include "moc_wtrackproperty.cpp"
 #include "skin/legacy/skincontext.h"
@@ -70,10 +69,6 @@ void WTrackProperty::setup(const QDomNode& node, const SkinContext& context) {
             m_displayProperty == QLatin1String("titleInfo")) {
         connect(&CortinaRegistry::instance(),
                 &CortinaRegistry::cortinaMarksChanged,
-                this,
-                &WTrackProperty::updateLabel);
-        connect(&TrackTypeRegistry::instance(),
-                &TrackTypeRegistry::trackTypesChanged,
                 this,
                 &WTrackProperty::updateLabel);
         m_pKeepQueue = make_parented<ControlProxy>(
@@ -156,15 +151,6 @@ void WTrackProperty::updateLabel() {
         QStringList marks;
         if (cortina) {
             marks << QStringLiteral("CORTINA");
-        }
-        // The type needs no help from the processor: unlike the positional pause
-        // mark, it belongs to the track, so this deck can resolve its own.
-        if (m_pKeepQueue && m_pKeepQueue->toBool()) {
-            const QString typeTag = TrackTypeRegistry::tagFor(
-                    TrackTypeRegistry::instance().type(m_pCurrentTrack->getId()));
-            if (!typeTag.isEmpty()) {
-                marks << typeTag;
-            }
         }
         if (pauseAfter) {
             marks << QStringLiteral("PAUSE AFTER");

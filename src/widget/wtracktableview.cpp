@@ -735,7 +735,13 @@ void WTrackTableView::paintEvent(QPaintEvent* pEvent) {
         lastRow = pTableModel->rowCount() - 1;
     }
     QPainter painter(viewport());
-    QPen pen(palette().color(QPalette::WindowText));
+    // Explicit colour, not palette(): skins style this view through QSS, and a
+    // QSS `color:` rule does not populate the QPalette - so WindowText is still
+    // the default near-black and the line was invisible on a dark skin. The
+    // model hard-codes its mark colours for the same reason. This is the muted
+    // red already used for the deck's PAUSE AFTER warning, so the whole "a stop
+    // is coming" idea reads in one colour.
+    QPen pen(QColor(0xb6, 0x54, 0x54));
     pen.setWidth(2);
     painter.setPen(pen);
     for (int row = firstRow; row <= lastRow; ++row) {

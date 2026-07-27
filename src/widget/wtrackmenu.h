@@ -7,7 +7,6 @@
 
 #include "analyzer/analyzertrack.h"
 #include "control/pollingcontrolproxy.h"
-#include "library/autodj/tracktyperegistry.h"
 #include "library/coverart.h"
 #include "library/dao/playlistdao.h"
 #include "library/trackprocessing.h"
@@ -178,7 +177,6 @@ class WTrackMenu : public QMenu {
     void slotToggleCortina();
     void slotTogglePauseAfter();
     void slotSetDisplayName();
-    void slotSetTrackType(TangoTrackType type);
     void slotResetAutoDJQueueState();
 
     // Cover
@@ -306,11 +304,6 @@ class WTrackMenu : public QMenu {
     parented_ptr<QAction> m_pCortinaToggleAct;
     parented_ptr<QAction> m_pPauseAfterToggleAct;
     parented_ptr<QAction> m_pDisplayNameAct;
-    parented_ptr<QMenu> m_pTrackTypeMenu;
-    // One checkable action per type, so the current type is visible at a glance
-    // and switching is a single click.
-    QHash<int, QAction*> m_trackTypeActs;
-    QAction* m_pTrackTypeMenuAction{};
     // Tango DJ mode only: greyed, non-clickable info line above the Auto DJ /
     // cortina actions showing the total duration of the selected tracks, plus its
     // trailing separator (owned by the menu).
