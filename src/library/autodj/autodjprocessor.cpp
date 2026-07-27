@@ -615,11 +615,17 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             m_keepQueueRow = m_pAutoDJTableModel->rowCount();
         }
 
+        // Whether the deck that ends up playing took its track off the queue -
+        // i.e. the cursor moved past it here. It decides how an exhausted queue
+        // is read below: "the last queued track is now playing" and "you have
+        // nothing queued" look identical afterwards but want opposite answers.
+        bool playingFromQueue = false;
+
         // Never load the same track if it is already playing
         if (leftDeckPlaying) {
-            removeLoadedTrackFromTopOfQueue(*pLeftDeck);
+            playingFromQueue = removeLoadedTrackFromTopOfQueue(*pLeftDeck);
         } else if (rightDeckPlaying) {
-            removeLoadedTrackFromTopOfQueue(*pRightDeck);
+            playingFromQueue = removeLoadedTrackFromTopOfQueue(*pRightDeck);
         } else {
             // If the first track is already cued at a position in the first
             // 2/3 in on of the Auto DJ decks, start it.
@@ -630,15 +636,21 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
                     removeLoadedTrackFromTopOfQueue(*pLeftDeck)) {
                 pLeftDeck->play();
                 leftDeckPlaying = true;
+                playingFromQueue = true;
             } else if (pRightDeck->playPosition() < 0.66 &&
                     removeLoadedTrackFromTopOfQueue(*pRightDeck)) {
                 pRightDeck->play();
                 rightDeckPlaying = true;
+                playingFromQueue = true;
             }
         }
 
         TrackPointer nextTrack = getNextTrackFromQueue();
-        if (!nextTrack) {
+        if (!nextTrack && !playingFromQueue) {
+            // Nothing left to play and nothing of ours playing, so there is
+            // genuinely nothing to do. A deck the DJ started by hand does not
+            // count: refusing there is what tells them the queue is empty, and
+            // going ahead would eject the other deck under them.
             qDebug() << "Queue is empty now, disable Auto DJ";
             m_enabledAutoDJ.setAndConfirm(0.0);
             emitAutoDJStateChanged(m_eState);
@@ -767,12 +779,20 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             // until the playing deck crosses posThreshold to start fading.
             m_eState = ADJ_IDLE;
             DeckAttributes* pIdleDeck = leftDeckPlaying ? pRightDeck : pLeftDeck;
-            // In Tango/keep-queue mode the next track stays in the queue and the
-            // idle deck keeps its loaded track when Auto DJ is disabled, so a plain
-            // toggle off/on would reload the same track onto the idle deck and
-            // re-render its (otherwise static) waveform - the flicker the DJ sees on
-            // the non-playing deck. Skip the load when it is already cued there.
-            if (!keepQueueEnabled() || nextTrack != pIdleDeck->getLoadedTrack()) {
+            if (!nextTrack) {
+                // Resumed onto the last track in the queue: there is nothing to
+                // cue up behind it. Stay enabled and stop once it ends, exactly
+                // as the mid-set dry-queue path does - Auto DJ switching itself
+                // off the instant the track starts is the bug this replaces.
+                armStopWhenLastTrackEnds();
+                // Eject (nextTrack is null) as "End of auto DJ warning".
+                emitLoadTrackToPlayer(nextTrack, pIdleDeck->group, false);
+            } else if (!keepQueueEnabled() || nextTrack != pIdleDeck->getLoadedTrack()) {
+                // In Tango/keep-queue mode the next track stays in the queue and the
+                // idle deck keeps its loaded track when Auto DJ is disabled, so a plain
+                // toggle off/on would reload the same track onto the idle deck and
+                // re-render its (otherwise static) waveform - the flicker the DJ sees on
+                // the non-playing deck. Skip the load when it is already cued there.
                 emitLoadTrackToPlayer(nextTrack, pIdleDeck->group, false);
             }
             // Move the crossfader away from the idle deck.
@@ -1181,18 +1201,7 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
             // successor to cue up. Stopping here would report the set as over
             // while the floor is still dancing, so stay enabled and let
             // playerPlayChanged() stop us once that track actually ends.
-            m_bStopWhenLastTrackEnds = true;
-            // Neutralise any pending transition first. The deck we are about to
-            // empty must not be faded into, and with no track on it
-            // calculateTransition() would be handed a zero-duration deck.
-            for (const auto& pDeck : m_decks) {
-                VERIFY_OR_DEBUG_ASSERT(pDeck) {
-                    continue;
-                }
-                pDeck->fadeBeginPos = 1.0;
-                pDeck->fadeEndPos = 1.0;
-                pDeck->isFromDeck = false;
-            }
+            armStopWhenLastTrackEnds();
             // Eject track (nextTrack is null) as "End of auto DJ warning"
             emitLoadTrackToPlayer(nextTrack, deck.group, false);
             return false;
@@ -1287,6 +1296,21 @@ TangoTrackType AutoDJProcessor::keepQueueTypeForRow(int row) {
     const TrackId trackId =
             m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(row, 0));
     return TrackTypeRegistry::instance().type(trackId);
+}
+
+void AutoDJProcessor::armStopWhenLastTrackEnds() {
+    m_bStopWhenLastTrackEnds = true;
+    // Neutralise any pending transition. The deck left without a track must not
+    // be faded into, and with nothing on it calculateTransition() would be
+    // handed a zero-duration deck.
+    for (const auto& pDeck : m_decks) {
+        VERIFY_OR_DEBUG_ASSERT(pDeck) {
+            continue;
+        }
+        pDeck->fadeBeginPos = 1.0;
+        pDeck->fadeEndPos = 1.0;
+        pDeck->isFromDeck = false;
+    }
 }
 
 bool AutoDJProcessor::shouldStopAfterRow(int row, bool* pConsumeMark) {

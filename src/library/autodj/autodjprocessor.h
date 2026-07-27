@@ -357,6 +357,11 @@ class AutoDJProcessor : public QObject {
         return m_bStopWhenLastTrackEnds || m_bPauseAfterPending;
     }
 
+    /// Stays enabled with nothing left to hand over to: arms the stop that
+    /// playerPlayChanged() carries out once the playing track ends, and
+    /// neutralises every pending transition so nothing starts behind our back.
+    void armStopWhenLastTrackEnds();
+
     /// Whether the set should stop after the track on this row, and why: an
     /// explicit one-shot mark, a performance, or a change of track type. Shared
     /// by both places a transition is claimed so they cannot diverge.

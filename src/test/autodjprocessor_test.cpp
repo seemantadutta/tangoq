@@ -650,6 +650,73 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_ResumesWhenTracksAreAppended) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
+TEST_F(AutoDJProcessorTest, EndOfQueue_ResumingOntoTheLastTrackStaysEnabled) {
+    // Resuming after an announcement pause routinely starts the very last track
+    // in the queue: the DJ appends one track, the type boundary stops the set,
+    // and pressing Auto DJ again picks that track up. The enable path used to
+    // start it and then refuse with "queue is empty", because it looked for a
+    // successor after the cursor had already moved past it. Auto DJ went dark
+    // while the track played, and the crossfader was left on the other deck
+    // because the bail-out happened before it was moved.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+
+    // The state a pause leaves behind: the crossfader still favours the deck
+    // that just finished, and the only queued track is cued on the other one.
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack(testId);
+    pTrack->setDuration(100);
+    deck2.slotLoadTrack(pTrack, false);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    // The idle deck is ejected as the "end of Auto DJ" warning, exactly as the
+    // mid-set dry-queue path does.
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+    // Enabled and audible, rather than switched off the moment it started.
+    EXPECT_TRUE(ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0);
+    EXPECT_TRUE(deck2.play.toBool());
+    // And heard: the crossfader follows the deck that actually plays.
+    EXPECT_DOUBLE_EQ(1.0, mixer.crossfader.get());
+
+    // The set ends when that track ends, not before.
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    deck2.playposition.set(1.0);
+    deck2.play.set(0.0);
+    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, EndOfQueue_EnablingWithAnEmptyQueueStillRefuses) {
+    // The counterpart to the test above: a deck the DJ started by hand does not
+    // make an empty queue playable. Refusing is what tells them there is nothing
+    // queued, and going ahead would eject the other deck under them.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+
+    TrackPointer pTrack = newTestTrack();
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    ASSERT_EQ(0, pProcessor->getTableModel()->rowCount());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    EXPECT_EQ(AutoDJProcessor::ADJ_QUEUE_EMPTY, pProcessor->toggleAutoDJ(true));
+    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StopsEvenInLiveMode) {
     // LIVE mode holds a manual stop behind a confirmation so a stray button
     // press can't kill a running set. The end-of-set stop is not a stray press:
