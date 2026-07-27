@@ -153,6 +153,22 @@ certificate,"* **not** *"this app is dangerous."* The full source code is public
 in this repository, and the installers are built automatically by GitHub from
 that code. If you're ever unsure, you can build it yourself from source.
 
+### What this is, and what it isn't
+
+TangoMode is an **unofficial community build** — a modified version of
+[Mixxx](https://mixxx.org) with features added for Argentine tango DJing. It is
+**not** produced or endorsed by the Mixxx project, and problems with it should be
+reported here rather than to them.
+
+Mixxx is free software under the **GPL**, which is what makes this build legal to
+share: the modified source is public, and the licence and copyright notices are
+kept intact. The GPL covers the *code* — it does not grant rights to the Mixxx
+name or logo, which is why this build is named and presented as its own thing and
+links back to the original.
+
+If you want official, signed builds with vendor support, get Mixxx from
+[mixxx.org](https://mixxx.org).
+
 ---
 
 ## 6. Getting help / reporting problems

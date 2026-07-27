@@ -19,6 +19,9 @@
 # Low priority today
 * Implement 'inline' preview on cue end point, which can work by clicking a single button next to the track, in the track listing or even in the autoDJ list. - this is low priority, mixxx already supports this
 * When re-launching mixxx, it loses the cortina designation of all tracks that were added as cortinas. Can we implement a system where it can be restored, but I also don't want to permanently tag a track as a cortina. Mistakenly tagging a normal track as a cortina will then apply a fade by mistake. Unless we lock the fading controls in the 'tracks' between two cortinas.
+  * Same applies to pause marks and display names - all three are session-only and cleared on every launch. Shelved deliberately: a clean slate each time is the right default for a DJ, so if this is built it should be a Preferences checkbox to *retain* them, leaving clean-slate as the default.
+  * Design if it is picked up: the queue itself already persists (the Auto DJ list is a real database playlist), so this is only annotations on top of something that already returns - a JSON sidecar in the settings directory is enough, roughly a day's work. The one hazard is **load ordering**: pause marks are positional, so they must load *after* the Auto DJ model has rows, while the track-id-keyed ones (cortinas, display names) can load any time. Scope them by clearing saved state in the existing "Eject decks and reset AutoDJ queue state" action, so marks live with the queue rather than branding a track forever.
+* Export the currently playing track to an external display (OBS or any screen software). Leans on the existing now-playing tracking; the main decision is mechanism - a now-playing text/JSON file that other software reads is simpler and more flexible than a built-in second window.
 
 
 ----
@@ -27,4 +30,4 @@
 
 * Detect tracks with big gaps or audio cut outs
 * configurable tango mode toolbar so that I can choose what I want to see, like milonga under/over times etc.
-* Tanda suggestion window - needs more work and needs a well tagged library. Maybe add a system to tag tracks as popular/unpopular during a live gig and then build the data set over time which can then be used by AI/ML algorithms to generate tanda suggestions based on the expected dancer outcomes. The data set building can happen over several months to years.
+* Tanda suggestion window - needs more work and needs a well tagged library. Maybe add a system to tag tracks as popular/unpopular during a live gig and then build the data set over time which can then be used by AI/ML algorithms to generate tanda suggestions based on the expected dancer outcomes. The data set building can happen over several months to years. (Design notes live in the untracked `tanda-insights.md` - framing, the candidate insights, and the finding that the underlying data does not exist yet.)

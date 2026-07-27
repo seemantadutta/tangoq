@@ -15,6 +15,24 @@ behind the single **Tango DJ Mode** switch; with it off, Auto DJ is stock Mixxx.
 > the **dockable Auto DJ Queue panel** in full (gating, toggle, shared-model sync,
 > float/dock, persistence, styling, edge cases, shutdown).
 
+### Known weak spots
+Worth re-reading before any change to Auto DJ transitions or the cortina fade:
+
+- **The cortina hand-off has no automated coverage.** Its gaps run on real
+  timers, so the fake decks in the unit tests cannot walk the envelope, and when
+  Auto DJ stops a deck itself `ControlProxy` does not notify the sender. G1, G2
+  and P2 are the only things guarding it.
+- **Object lifetime at shutdown.** `PlayerManager` is destroyed before the
+  `Library` that owns `AutoDJProcessor`. R5 is the check.
+- **Nothing visual is unit-tested.** The tests assert processor state, so a green
+  suite says nothing about what a widget renders. Both widget bugs this project
+  has had — a deck warning invisible while Auto DJ was stopped, and a separator
+  line that was never drawn at all — passed every test. Two traps for anyone
+  editing `WTrackTableView::paintEvent()`: take row geometry from
+  `rowViewportPosition()`/`rowHeight()` rather than from a cell, since column 0 is
+  hidden and its rect is empty; and never take a colour from `palette()`, because
+  QSS skins do not populate it.
+
 ---
 
 ## How to use this document
@@ -23,7 +41,20 @@ any audible click, wrong colour, control that should be locked but isn't, or a
 crash). Cases marked **(MUST PASS)** are the release-blocking core.
 
 Release must-pass set: **A1, A2, B1, B3, C1, D1, E1, F3, G1, G2, K1, K5, L1, M2,
-M6, M16, M28, R1, R2**.
+M6, M16, M28, O1, P1, P2, R1, R2**.
+
+### Twenty-minute smoke test
+The full plan is long. When there is only time for a sanity check — a new build
+the afternoon of a gig — run these five and nothing else. If any fails, stop and
+fix it before looking at anything else.
+
+| # | Check | Expect |
+|---|-------|--------|
+| S1 | Launch with Tango **off** | Plain Mixxx. No couple indicator, no LIVE indicator, no Set Length readout |
+| S2 | Toggle Tango on, from Preferences and from the keyboard | Both work. Windows/Linux `Ctrl+Alt+Shift+T`, macOS `⌘⌥⇧T`; the Preferences label shows the right one for the platform |
+| S3 | Run a short queue: tanda → cortina → tanda | Transitions and the cortina envelope behave; nothing stops unexpectedly |
+| S4 | Mark a track "pause after" and play into it | Tag, red separator line, set stops after it, mark consumed |
+| S5 | Quit with Tango on and tracks on both decks | Clean exit — see R5 |
 
 ## Preconditions
 - A build that includes all Tango changes (base commit `3ebac449e7` … HEAD).
@@ -821,6 +852,159 @@ aligned with their neighbours (no widget sitting high/low, no native-style box).
 
 ---
 
+## O. Duplicate detection
+
+### O1 — Repeated track flagged (MUST PASS)
+1. Tango on. Queue the same track twice, some rows apart.
+
+**Expected:** Both rows show `[-- DUPLICATE --]` in amber.
+
+**Result:**
+
+### O2 — Cortinas are excluded
+1. Queue the same cortina between several tandas, as in a real set.
+
+**Expected:** **No** duplicate tag on any of them. Repeating a cortina is normal
+and must never be flagged — this is the whole reason the check has an exception.
+
+**Result:**
+
+### O3 — Tag clears
+1. Remove one of the two copies from O1.
+
+**Expected:** The remaining row loses the tag.
+
+**Result:**
+
+### O4 — Tango-only
+1. Turn Tango off with duplicates in the queue.
+
+**Expected:** No amber, no tag.
+
+**Result:**
+
+---
+
+## P. Pause marks and display names
+
+The two mechanisms that replaced the short-lived track types. A performance is a
+track you rename and mark; an intro block is one you put a mark after.
+
+### P1 — Mark a normal track (MUST PASS)
+1. Right-click a queued row → **Pause after this track**.
+2. Play into it.
+
+**Expected:** Title shows `[-- PAUSE AFTER --]`; a **red separator line** is drawn
+under the row; the track plays out in full; the set stops. Pressing Auto DJ
+continues into the next track. The mark is **consumed** — tag and line both gone,
+and a later pass over that row does not stop again.
+
+**Result:**
+
+### P2 — Mark a cortina (MUST PASS)
+1. Mark a cortina row, Cortina Fade on, and play into it.
+
+**Expected:** The cortina plays its **whole envelope** — before-gap, fade-in,
+hold, fade-out — and only then does the set stop.
+
+*Why it is must-pass:* the cortina hands over through its own gap timer rather
+than the fade trigger, so it is a second place the stop decision is made. The two
+diverged once and a cortina played straight through. The gap runs on a real timer,
+so no unit test can reach this.
+
+**Result:**
+
+### P3 — The separator line
+1. Mark two tracks well apart in a long queue.
+2. Scroll both off the top and back. Resize the window.
+
+**Expected:** A red line under **each** marked row, under that row and not a
+neighbour, surviving both scroll and resize.
+
+*Why:* this line was never drawn at all until it was fixed — it asked for the
+geometry of a hidden column — and the failure was silent, because the row still
+read `[-- PAUSE AFTER --]`. The paint loop only walks rows currently on screen,
+which is why scrolling matters.
+
+**Result:**
+
+### P4 — Display name
+1. Right-click a row → **Set display name...**, enter e.g. `[PERF] Tango de Roxanne`.
+
+**Expected:** The Title column shows the name; **artist and album stay real**. The
+menu item then reads "Change display name...". Clearing the box restores the real
+title.
+
+**Result:**
+
+### P5 — Marks follow their track
+1. Mark a row, then reorder the queue and edit rows above it.
+
+**Expected:** The mark stays on its track rather than its old row index. Removing
+the track takes the mark and the line with it.
+
+**Result:**
+
+### P6 — Scope
+1. Select several rows; then turn Tango off.
+
+**Expected:** With a multi-row selection both menu items are hidden — each applies
+to exactly one row. With Tango off there are no tags, no line and no stops.
+
+**Result:**
+
+### P7 — Deck warning
+1. Load a marked track to a deck, with Auto DJ **stopped**, then again with it
+   **running**.
+
+**Expected:** The deck title shows `[PAUSE AFTER]` in red in both cases, and while
+Auto DJ runs it follows the marked track from deck to deck.
+
+*Why both:* it was originally driven from deck signals that `toggleAutoDJ(false)`
+disconnects, so it was invisible in exactly the state where marks get set.
+
+**Result:**
+
+---
+
+## Q. Packaging and platform
+
+### Q1 — Executable and installer naming
+**Expected:** `tangomode.exe` on Windows; Start-menu shortcut and installer
+entries match. Bundled DLLs keep their upstream names — only the executable was
+renamed.
+
+**Result:**
+
+### Q2 — About dialog
+1. Open About on a **light** theme and a **dark** one.
+
+**Expected:** The wordmark is legible on both.
+
+**Result:**
+
+### Q3 — Theme switch while running
+**Expected:** Everything stays readable — no invisible text, tags or separator
+lines. Widget colours here are hard-coded rather than taken from the palette,
+precisely because QSS skins do not populate it.
+
+**Result:**
+
+### Q4 — macOS shortcut
+**Expected:** `⌘⌥⇧T` toggles Tango mode, following the usual convention (Windows
+Ctrl → Command, Alt → Option). The Preferences label shows the native symbols.
+
+**Result:**
+
+### Q5 — Fresh profile
+1. Launch with no existing settings directory.
+
+**Expected:** Sane defaults, no crash, Tango off.
+
+**Result:**
+
+---
+
 ## R. Regression (stock Mixxx unaffected)
 
 ### R1 — Normal Auto DJ unchanged with Tango off (MUST PASS)
@@ -855,5 +1039,72 @@ no automated envelope or inserted gaps.
 
 **Expected:** Clean stop; no deck resumes on its own afterward (pending gap timer
 cancelled).
+
+**Result:**
+
+### R5 — Clean exit (MUST PASS)
+1. Tango on, tracks loaded on **both** decks. Quit.
+
+**Expected:** No crash. No new `%LOCALAPPDATA%\CrashDumps\tangomode.exe.*.dmp`,
+and `mixxx.log` ends with `Mixxx shutdown complete with code 0`.
+
+*Why it matters:* `PlayerManager` is destroyed before the `Library` that owns
+`AutoDJProcessor`, so the processor briefly outlives its own decks. Anything that
+reacts to a deck signal during teardown can dereference a freed deck — which
+crashed on quit for a whole evening. Anything new that listens to deck or
+`PlayerInfo` signals should re-run this.
+
+**Result:**
+
+### R6 — Played flags cleared on next launch
+1. After R5, relaunch.
+
+**Expected:** The Auto DJ queue comes back **ungreyed**.
+
+*Why:* the played flags are cleared only by `TrackDAO::finish()`, on the clean
+shutdown path. Greyed rows on launch are proof the previous run did **not** exit
+cleanly, even if you did not notice a crash. This is the cheapest crash detector
+in the build.
+
+**Result:**
+
+### R7 — Queue runs dry, then refills
+1. Let the queue empty while a track is still playing, then append more tracks.
+
+**Expected:** Auto DJ stays **on**, the idle deck reloads from the queue, and the
+set continues. It must not report the set as over while the floor is dancing.
+
+**Result:**
+
+### R8 — End of set
+1. Let the queue genuinely run out.
+
+**Expected:** The last track plays **out in full**, and Auto DJ switches off only
+once it has ended — not when it starts.
+
+**Result:**
+
+### R9 — Resume onto the last queued track
+1. Let the set stop, append exactly **one** track, press Auto DJ.
+
+**Expected:** It plays, Auto DJ stays **on**, and the crossfader follows the deck
+that is actually playing. Auto DJ switches off when that track ends.
+
+*Why:* enabling used to start the track and then immediately report "queue empty",
+so Auto DJ went dark mid-track with the crossfader stranded on the other deck.
+
+**Result:**
+
+### R10 — Set ends on a cortina
+1. Make the last item in the queue a cortina, Cortina Fade on.
+
+**Expected:** The cortina is audible through its whole envelope and is not left
+stranded at its cue point; Auto DJ switches off after it finishes.
+
+**Result:**
+
+### R11 — Auto DJ toggled off and on mid-set
+**Expected:** The idle deck's waveform does not flicker or re-render — its cued
+track is not reloaded.
 
 **Result:**
