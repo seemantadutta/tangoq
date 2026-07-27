@@ -5,7 +5,6 @@
 
 #include "engine/channels/enginedeck.h"
 #include "library/autodj/cortinaregistry.h"
-#include "library/autodj/tracktyperegistry.h"
 #include "library/basetracktablemodel.h"
 #include "library/columncache.h"
 #include "mixer/basetrackplayer.h"
@@ -1306,15 +1305,6 @@ int AutoDJProcessor::keepQueueRowForDeck(DeckAttributes* pDeck) {
     return keepQueueRowForTrack(pDeck->getLoadedTrack(), m_keepQueueRow - 1);
 }
 
-TangoTrackType AutoDJProcessor::keepQueueTypeForRow(int row) {
-    if (row < 0 || row >= m_pAutoDJTableModel->rowCount()) {
-        return TangoTrackType::Milonga;
-    }
-    const TrackId trackId =
-            m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(row, 0));
-    return TrackTypeRegistry::instance().type(trackId);
-}
-
 void AutoDJProcessor::armStopWhenLastTrackEnds() {
     m_bStopWhenLastTrackEnds = true;
     // Neutralise any pending transition. The deck left without a track must not
@@ -1330,38 +1320,17 @@ void AutoDJProcessor::armStopWhenLastTrackEnds() {
     }
 }
 
-bool AutoDJProcessor::shouldStopAfterRow(int row, bool* pConsumeMark) {
-    if (pConsumeMark) {
-        *pConsumeMark = false;
-    }
+bool AutoDJProcessor::shouldStopAfterRow(int row) {
     if (!keepQueueEnabled() || row < 0) {
         return false;
     }
-    // Three reasons to hand the floor over instead of transitioning, checked in
-    // order of how specific they are. Shared by both places a transition can be
-    // claimed, so a cortina hand-off obeys exactly the same rules as a normal
-    // one - they diverged once, and a cortina followed by an outro played
-    // straight on through the boundary.
-    const TangoTrackType type = keepQueueTypeForRow(row);
-    if (m_pAutoDJTableModel->isPauseAfterRow(row)) {
-        // The DJ marked this row for an announcement. One-shot.
-        if (pConsumeMark) {
-            *pConsumeMark = true;
-        }
-        return true;
-    }
-    if (type == TangoTrackType::Performance) {
-        // A performance always stops, so the audience can applaud and the
-        // organiser can speak. Never consumed: it stops every time.
-        return true;
-    }
-    if (row + 1 < m_pAutoDJTableModel->rowCount() &&
-            keepQueueTypeForRow(row + 1) != type) {
-        // The set changes character here - sound check into the milonga, or the
-        // milonga into the goodbyes - and those hand-overs are made by hand.
-        return true;
-    }
-    return false;
+    // An explicit mark is the only reason the set stops, and it applies to any
+    // row - a cortina included. Kept as its own function, thin as it is, because
+    // both places a transition can be claimed call it: the fade trigger and the
+    // cortina hand-off. Those two once made the decision separately and drifted
+    // apart, and a cortina played straight on through a stop it should have
+    // honoured. Anything added here reaches both by construction.
+    return m_pAutoDJTableModel->isPauseAfterRow(row);
 }
 
 bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
@@ -1374,15 +1343,12 @@ bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
         return false;
     }
     const int row = keepQueueRowForDeck(pDeck);
-    bool consumeMark = false;
-    if (!shouldStopAfterRow(row, &consumeMark)) {
+    if (!shouldStopAfterRow(row)) {
         return false;
     }
-    if (consumeMark) {
-        // Consume now, so resuming after the announcement plays on instead of
-        // stopping again at the same place.
-        m_pAutoDJTableModel->clearPauseAfterRow(row);
-    }
+    // Consume now, so resuming after the announcement plays on instead of
+    // stopping again at the same place.
+    m_pAutoDJTableModel->clearPauseAfterRow(row);
     m_bPauseAfterPending = true;
     // Let the track finish rather than cutting it: playerPlayChanged() stops
     // Auto DJ once it ends. Neutralise its fade so the transition machinery does
@@ -1758,17 +1724,13 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             cancelCortinaFade();
             return;
         }
-        // A cortina that the set stops after - marked for an announcement, or
-        // followed by a different kind of track - keeps its whole envelope: the
-        // before-gap, fade-in, hold and fade-out have all run by the time we get
-        // here, and only then does the set stop. Nothing is playing at this
+        // A cortina the DJ marked for an announcement keeps its whole envelope:
+        // the before-gap, fade-in, hold and fade-out have all run by the time we
+        // get here, and only then does the set stop. Nothing is playing at this
         // point, so stop directly rather than waiting for a deck to end.
         const int cortinaRow = keepQueueRowForDeck(pCortinaDeck);
-        bool consumeCortinaMark = false;
-        if (shouldStopAfterRow(cortinaRow, &consumeCortinaMark)) {
-            if (consumeCortinaMark) {
-                m_pAutoDJTableModel->clearPauseAfterRow(cortinaRow);
-            }
+        if (shouldStopAfterRow(cortinaRow)) {
+            m_pAutoDJTableModel->clearPauseAfterRow(cortinaRow);
             cancelCortinaFade();
             // Marks this as an automatic stop, so the LIVE guard lets it through
             // instead of waiting for a confirmation that will never come.
@@ -1827,15 +1789,6 @@ void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
         const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
         const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
         double seconds = m_pAutoDJTableModel->durationSecondsForRow(row);
-        // Intro is sound check and outro is the goodbyes: both sit outside the
-        // milonga, so they are no part of how long it runs. A performance does
-        // count - nobody is dancing, but the clock is still running, and the
-        // number's job is to answer whether the night finishes on time.
-        const TangoTrackType type = TrackTypeRegistry::instance().type(trackId);
-        if (type == TangoTrackType::Intro || type == TangoTrackType::Outro) {
-            continue;
-        }
-
         const bool cortina = trackId.isValid() &&
                 CortinaRegistry::instance().contains(trackId);
 
@@ -2766,20 +2719,6 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
         pFromDeck->fadeEndPos = pFromDeck->fadeBeginPos;
         pToDeck->startPos = getFirstSoundSecond(pToDeck) -
                 static_cast<double>(m_cortinaGapSeconds);
-    }
-
-    // A performance piece plays in full. Every path above cues past leading
-    // silence - to the intro cue, or to the N60dBSound cue in Skip Silence mode -
-    // which is right for a tanda but wrong for a track handed over by the
-    // performer, whose opening is theirs to decide. A cortina cannot also be a
-    // performance, so this never fights the block above.
-    if (keepQueueEnabled()) {
-        const TrackPointer pToTrack = pToDeck->getLoadedTrack();
-        if (pToTrack &&
-                TrackTypeRegistry::instance().type(pToTrack->getId()) ==
-                        TangoTrackType::Performance) {
-            pToDeck->startPos = 0.0;
-        }
     }
 
     // These are expected to be a fraction of the track length.

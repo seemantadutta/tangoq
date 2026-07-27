@@ -11,7 +11,6 @@
 #include "control/controlpotmeter.h"
 #include "control/controlpushbutton.h"
 #include "library/autodj/cortinaregistry.h"
-#include "library/autodj/tracktyperegistry.h"
 #include "engine/engine.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -335,137 +334,38 @@ TEST_F(AutoDJProcessorTest, FullIntroOutro_LongerIntro) {
     EXPECT_DOUBLE_EQ(1.0, mixer.crossfader.get());
 }
 
-TEST_F(AutoDJProcessorTest, TrackType_BoundaryStopsTheSet) {
-    // A change of type is a hand-over made by hand: sound check must not slide
-    // into the milonga. Needs two different files, because types belong to
-    // tracks - the same file on two rows cannot straddle a boundary.
+TEST_F(AutoDJProcessorTest, PauseAfter_MarkAppliesToACortinaLikeAnyOtherRow) {
+    // A cortina is just a track as far as stopping goes: it stops when the DJ
+    // marked it and not otherwise. Worth pinning because a cortina hands over
+    // through its own gap timer rather than the fade trigger, so it is a second
+    // place the decision gets made - the two once drifted apart and a cortina
+    // played straight on through a stop it should have honoured. Both now go
+    // through shouldStopAfterRow().
+    //
+    // The full hand-off is not reachable here: the after-gap is driven by a real
+    // QTimer, so the fake decks cannot walk the envelope. The rule is exercised
+    // directly and the hand-off itself stays a manual check.
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
-    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
-
-    TrackId introId = addTrackToCollection(kTrackLocationTest);
-    TrackId milongaId = addTrackToCollection(kTrackLocationTest2);
-    ASSERT_TRUE(introId.isValid());
-    ASSERT_TRUE(milongaId.isValid());
-    ASSERT_NE(introId, milongaId);
-    // The playing track is the sound check; the queue continues into the milonga.
-    TrackTypeRegistry::instance().setType(introId, TangoTrackType::Intro);
-
-    mixer.crossfader.set(-1.0);
-    TrackPointer pIntro = newTestTrack(introId);
-    pIntro->setDuration(100);
-    deck1.slotLoadTrack(pIntro, true);
-    deck1.fakeTrackLoadedEvent(pIntro);
-
-    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
-    pAutoDJTableModel->appendTrack(introId);
-    pAutoDJTableModel->appendTrack(milongaId);
-
-    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
-    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
-    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
-
-    TrackPointer pMilonga = newTestTrack(milongaId);
-    pMilonga->setDuration(100);
-    deck2.slotLoadTrack(pMilonga, false);
-    const double kSamplesPerSecond = kChannelCount * pIntro->getSampleRate();
-    deck1.outroStartPos.set(60 * kSamplesPerSecond);
-    deck1.outroEndPos.set(70 * kSamplesPerSecond);
-    deck2.introStartPos.set(10 * kSamplesPerSecond);
-    deck2.introEndPos.set(40 * kSamplesPerSecond);
-    deck2.fakeTrackLoadedEvent(pMilonga);
-
-    // Intro followed by Milonga: the set must stop rather than fade across.
-    deck1.playposition.set(0.6);
-    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
-    EXPECT_FALSE(deck2.play.toBool());
-    // The milonga track stays cued, so continuing is immediate.
-    EXPECT_TRUE(deck2.getLoadedTrack() != nullptr);
-
-    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
-    deck1.playposition.set(1.0);
-    deck1.play.set(0.0);
-    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
-
-    TrackTypeRegistry::instance().setType(introId, TangoTrackType::Milonga);
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
-}
-
-TEST_F(AutoDJProcessorTest, TrackType_BoundaryStopsAfterACortinaToo) {
-    // A cortina hands over through its own gap timer rather than the fade
-    // trigger, so it is a second place a transition gets claimed. It once
-    // checked only for an explicit mark, and a cortina followed by an outro
-    // played straight on through the boundary.
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
-    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
 
     TrackId cortinaId = addTrackToCollection(kTrackLocationTest);
-    TrackId outroId = addTrackToCollection(kTrackLocationTest2);
     ASSERT_TRUE(cortinaId.isValid());
-    ASSERT_TRUE(outroId.isValid());
     CortinaRegistry::instance().mark(cortinaId);
-    TrackTypeRegistry::instance().setType(outroId, TangoTrackType::Outro);
 
     PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
     pAutoDJTableModel->appendTrack(cortinaId);
-    pAutoDJTableModel->appendTrack(outroId);
+    pAutoDJTableModel->appendTrack(cortinaId);
 
-    // The cortina is the track that just played, so the cursor sits past it and
-    // the outro is next: exactly the boundary the set must stop at.
+    // Being a cortina is not by itself a reason to stop - that would break every
+    // tanda boundary in the set.
+    EXPECT_FALSE(pProcessor->shouldStopAfterRowForTest(0));
+
+    // Marked, it stops like any other row.
+    pAutoDJTableModel->togglePauseAfterRow(0);
     EXPECT_TRUE(pProcessor->shouldStopAfterRowForTest(0));
-    // Two rows of the same kind are not a boundary.
-    pAutoDJTableModel->appendTrack(outroId);
+    // ...and only that row.
     EXPECT_FALSE(pProcessor->shouldStopAfterRowForTest(1));
 
     CortinaRegistry::instance().unmark(cortinaId);
-    TrackTypeRegistry::instance().setType(outroId, TangoTrackType::Milonga);
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
-}
-
-TEST_F(AutoDJProcessorTest, TrackType_PerformanceAlwaysStopsAndIsNotConsumed) {
-    // A performance plays and stops so the audience can applaud. Unlike a pause
-    // mark this is not one-shot: it stops every time the set runs through it.
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
-    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
-
-    TrackId testId = addTrackToCollection(kTrackLocationTest);
-    ASSERT_TRUE(testId.isValid());
-    TrackTypeRegistry::instance().setType(testId, TangoTrackType::Performance);
-
-    mixer.crossfader.set(-1.0);
-    TrackPointer pTrack = newTestTrack(testId);
-    pTrack->setDuration(100);
-    deck1.slotLoadTrack(pTrack, true);
-    deck1.fakeTrackLoadedEvent(pTrack);
-
-    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
-    pAutoDJTableModel->appendTrack(testId);
-    pAutoDJTableModel->appendTrack(testId);
-
-    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
-    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
-    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
-
-    deck2.slotLoadTrack(pTrack, false);
-    const double kSamplesPerSecond = kChannelCount * pTrack->getSampleRate();
-    deck1.outroStartPos.set(60 * kSamplesPerSecond);
-    deck1.outroEndPos.set(70 * kSamplesPerSecond);
-    deck2.introStartPos.set(10 * kSamplesPerSecond);
-    deck2.introEndPos.set(40 * kSamplesPerSecond);
-    deck2.fakeTrackLoadedEvent(pTrack);
-
-    // Reaching the transition point must not start deck 2.
-    deck1.playposition.set(0.6);
-    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
-    EXPECT_FALSE(deck2.play.toBool());
-    // A performer's own file is played from the top, not cued past its opening.
-    EXPECT_DOUBLE_EQ(0.0, deck2.playposition.get());
-
-    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
-    deck1.playposition.set(1.0);
-    deck1.play.set(0.0);
-    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
-
-    TrackTypeRegistry::instance().setType(testId, TangoTrackType::Milonga);
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
