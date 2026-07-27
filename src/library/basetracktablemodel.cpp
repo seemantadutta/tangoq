@@ -6,6 +6,7 @@
 #include <QScreen>
 
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/tracklabelregistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
 #include "library/starrating.h"
@@ -501,6 +502,16 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     if (enable) {
         // Repaint the whole table (text color + title prefix) whenever the set of
         // tagged tracks changes.
+        connect(&TrackLabelRegistry::instance(),
+                &TrackLabelRegistry::trackLabelsChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::DisplayRole});
+                    }
+                });
         connect(&CortinaRegistry::instance(),
                 &CortinaRegistry::cortinaMarksChanged,
                 this,
@@ -677,11 +688,20 @@ QVariant BaseTrackTableModel::data(
         if (isPauseAfterRow(index.row())) {
             marks << QStringLiteral("PAUSE AFTER");
         }
+        // A display name stands in for the title when the DJ has given the
+        // track one - the real title often says nothing about the job the track
+        // does tonight. Only this column changes; artist and album still show
+        // the real metadata, so the row remains identifiable as its file.
+        QString title = TrackLabelRegistry::instance().label(trackId);
+        if (title.isEmpty()) {
+            title = roleValue(index, rawValue(index), role).toString();
+        }
         if (!marks.isEmpty()) {
-            const QString title =
-                    roleValue(index, rawValue(index), role).toString();
             return QStringLiteral("[-- %1 --] %2")
                     .arg(marks.join(QStringLiteral(" -- ")), title);
+        }
+        if (TrackLabelRegistry::instance().contains(trackId)) {
+            return title;
         }
     }
 

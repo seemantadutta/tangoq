@@ -14,6 +14,7 @@
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/tracklabelregistry.h"
 #include "library/basetracktablemodel.h"
 #include "library/coverartutils.h"
 #include "library/dao/trackschema.h"
@@ -352,6 +353,16 @@ void WTrackMenu::createActions() {
             &QAction::triggered,
             this,
             &WTrackMenu::slotTogglePauseAfter);
+
+    // Give a track a name that says what it is doing tonight - a performance
+    // piece, an intro, an outro - since its real title usually does not. Shown
+    // in the Auto DJ list only; the file's metadata is never touched.
+    m_pDisplayNameAct = make_parented<QAction>(tr("Set display name..."), this);
+    m_pDisplayNameAct->setVisible(false);
+    connect(m_pDisplayNameAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetDisplayName);
 
     // Reset the Tango set state (mark all unplayed + restart from the top). Like
     // the cortina toggle it lives on the Auto DJ queue list, so create it
@@ -754,6 +765,7 @@ void WTrackMenu::setupActions() {
     m_pPauseAfterSeparator = addSeparator();
     m_pPauseAfterSeparator->setVisible(false);
     addAction(m_pPauseAfterToggleAct);
+    addAction(m_pDisplayNameAct);
 
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
@@ -1071,8 +1083,16 @@ void WTrackMenu::updateMenus() {
         const bool singleRow = m_trackIndexList.size() == 1;
         const bool show = tangoMode && isCortinaList() && pTableModel && singleRow;
         m_pPauseAfterToggleAct->setVisible(show);
+        m_pDisplayNameAct->setVisible(show);
         if (m_pPauseAfterSeparator) {
             m_pPauseAfterSeparator->setVisible(show);
+        }
+        if (show) {
+            m_pDisplayNameAct->setText(
+                    TrackLabelRegistry::instance().contains(
+                            getTrackIds().value(0))
+                            ? tr("Change display name...")
+                            : tr("Set display name..."));
         }
         if (show) {
             m_pPauseAfterToggleAct->setText(
@@ -2887,6 +2907,28 @@ void WTrackMenu::slotTogglePauseAfter() {
         return;
     }
     pTableModel->togglePauseAfterRow(m_trackIndexList.first().row());
+}
+
+void WTrackMenu::slotSetDisplayName() {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.size() != 1) {
+        return;
+    }
+    const TrackId trackId = trackIds.first();
+    bool accepted = false;
+    // Prefilled with the current label so it can be edited rather than retyped,
+    // and clearing the box removes it.
+    const QString name = QInputDialog::getText(this,
+            tr("Display name"),
+            tr("Show this track in the Auto DJ list as:\n"
+               "(leave empty to show its real title again)"),
+            QLineEdit::Normal,
+            TrackLabelRegistry::instance().label(trackId),
+            &accepted);
+    if (!accepted) {
+        return;
+    }
+    TrackLabelRegistry::instance().setLabel(trackId, name);
 }
 
 void WTrackMenu::slotAddToAutoDJCortina() {

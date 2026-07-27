@@ -176,6 +176,7 @@ class WTrackMenu : public QMenu {
     void slotAddToAutoDJCortina();
     void slotToggleCortina();
     void slotTogglePauseAfter();
+    void slotSetDisplayName();
     void slotResetAutoDJQueueState();
 
     // Cover
@@ -302,6 +303,7 @@ class WTrackMenu : public QMenu {
     // track(s) as cortinas in place (without re-adding them).
     parented_ptr<QAction> m_pCortinaToggleAct;
     parented_ptr<QAction> m_pPauseAfterToggleAct;
+    parented_ptr<QAction> m_pDisplayNameAct;
     // Tango DJ mode only: greyed, non-clickable info line above the Auto DJ /
     // cortina actions showing the total duration of the selected tracks, plus its
     // trailing separator (owned by the menu).
