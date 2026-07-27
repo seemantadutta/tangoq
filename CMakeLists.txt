@@ -1846,8 +1846,13 @@ target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 # TangoMode fork: ship the Windows executable under the product name. Only the
 # final binary is renamed -- the CMake target, the libraries and the bundled
 # DLLs keep their upstream names, so this stays a one-line difference from
-# upstream. macOS does the same further down via MACOS_BUNDLE_NAME, which is why
-# the app bundle already contains a TangoMode binary rather than a mixxx one.
+# upstream.
+#
+# macOS is NOT covered by this. Its executable comes from MACOS_BUNDLE_NAME
+# further down, which is a cache variable still defaulting to "Mixxx"; only
+# tools/tangomode_build_macos.sh overrides it. A plain cmake configure -- which
+# is what CI does -- therefore produces Mixxx.app under org.mixxx.mixxx, sharing
+# its settings container with a real Mixxx install.
 if(WIN32)
   set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangomode")
 endif()

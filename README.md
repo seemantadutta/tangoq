@@ -3,7 +3,7 @@
 **An unofficial build of [Mixxx] with features for Argentine tango DJing.**
 
 TangoMode is [Mixxx] — the free, open-source DJ software — with one extra switch.
-Turn **Tango DJ Mode** on and Auto DJ stops behaving like a shuffle player and
+Turn **Tango DJ Mode** on and Auto DJ stops behaving like a club mixing list and
 starts behaving like a milonga set: the queue plays **in order**, played tracks
 **stay in the list**, cortinas are handled properly, and the toolbar tells you
 whether you will finish on time.
@@ -13,7 +13,7 @@ Turn it off and you have ordinary Mixxx, unchanged.
 > **Not affiliated with the Mixxx project.** This is a community build, not
 > produced or endorsed by [the Mixxx team](https://mixxx.org). Please report
 > problems with it [here](https://github.com/seemantadutta/mixxx/issues), not to
-> them. If you want official, signed builds with vendor support, get Mixxx from
+> them. If you want official, signed builds for club style DJing functions, get Mixxx from
 > [mixxx.org](https://mixxx.org).
 
 ---
@@ -105,8 +105,14 @@ Then:
     $ cmake ..
     $ cmake --build .
 
-On Windows the executable is `tangomode`; elsewhere it is `mixxx`, as upstream.
-Bundled libraries keep their original names.
+**On macOS, build with `tools/tangomode_build_macos.sh` instead.** It passes the
+fork's bundle name and identifier, producing `TangoMode.app` and keeping its
+settings separate from any Mixxx you already have installed. A plain `cmake ..`
+leaves both at their upstream defaults and gives you `Mixxx.app` sharing Mixxx's
+settings container.
+
+The Windows executable is `tangomode`; on Linux it is `mixxx`, as upstream.
+Bundled libraries keep their original names on every platform.
 
 Upstream's [detailed build instructions](https://github.com/mixxxdj/mixxx/wiki#compile-mixxx-from-source-code)
 apply unchanged, as does [packaging/flatpak/README.md](packaging/flatpak/README.md).
