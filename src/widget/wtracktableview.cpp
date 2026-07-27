@@ -748,11 +748,17 @@ void WTrackTableView::paintEvent(QPaintEvent* pEvent) {
         if (!pTableModel->isPauseAfterRow(row)) {
             continue;
         }
-        const QRect rect = visualRect(pTableModel->index(row, 0));
-        if (!rect.isValid()) {
+        // Ask the view for the row's geometry directly rather than going through
+        // visualRect() on a cell. Column 0 is one of the hidden internal columns,
+        // so its rect is empty and every marked row was silently skipped - the
+        // line was never drawn once, which no amount of recolouring would have
+        // fixed. Row geometry needs no column and cannot be hidden out from
+        // under us.
+        const int height = rowHeight(row);
+        if (height <= 0) {
             continue;
         }
-        const int y = rect.bottom();
+        const int y = rowViewportPosition(row) + height - 1;
         painter.drawLine(0, y, viewport()->width(), y);
     }
 }
