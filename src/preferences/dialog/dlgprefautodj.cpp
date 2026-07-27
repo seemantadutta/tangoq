@@ -4,6 +4,8 @@
 #include <QTimeZone>
 #endif
 
+#include <QKeySequence>
+
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "moc_dlgprefautodj.cpp"
@@ -87,6 +89,17 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
     // Tango DJ mode (persisted as [Auto DJ], KeepQueue; the toolbar shows a
     // read-only indicator and the queue/transition behavior follows it).
     bool tangoMode = m_pConfig->getValue<bool>(ConfigKey("[Auto DJ]", "KeepQueue"));
+    // Spell the shortcut the way the platform does. The .ui file can only carry
+    // one spelling, and hardcoding the Windows one told macOS users to press
+    // Control - which is not what the binding does there. Qt follows the usual
+    // cross-platform convention (Ctrl -> Command, Alt -> Option), so the same
+    // sequence renders as "Ctrl+Alt+Shift+T" on Windows and Linux and as the
+    // native symbols on macOS. Generated from the sequence rather than written
+    // out, so the label cannot drift from the binding in en_US.kbd.cfg.
+    TangoModeCheckBox->setText(
+            tr("Enable Tango DJ mode (%1)")
+                    .arg(QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_T)
+                                    .toString(QKeySequence::NativeText)));
     TangoModeCheckBox->setChecked(tangoMode);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), tangoMode);
     connect(TangoModeCheckBox,
