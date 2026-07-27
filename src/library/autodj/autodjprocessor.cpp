@@ -59,6 +59,14 @@ DeckAttributes::DeckAttributes(int index,
             this, &DeckAttributes::slotLoadingTrack);
     connect(m_pPlayer, &BaseTrackPlayer::playerEmpty,
             this, &DeckAttributes::slotPlayerEmpty);
+    // PlayerManager owns the decks and is destroyed before the Library that owns
+    // AutoDJProcessor, so this raw pointer outlives what it points at. Every
+    // other accessor here goes through a ControlProxy, which keeps its control
+    // alive independently; getLoadedTrack() is the one that dereferences the
+    // player, and calling it on a freed deck jumps through a reused vtable.
+    connect(m_pPlayer, &BaseTrackPlayer::destroyed, this, [this]() {
+        m_pPlayer = nullptr;
+    });
     m_playPos.connectValueChanged(this, &DeckAttributes::slotPlayPosChanged);
     m_play.connectValueChanged(this, &DeckAttributes::slotPlayChanged);
     m_introStartPos.connectValueChanged(this, &DeckAttributes::slotIntroStartPositionChanged);
@@ -174,12 +182,21 @@ AutoDJProcessor::AutoDJProcessor(
     // deck warning cannot be driven from playerTrackLoaded(): marks are set with
     // Auto DJ stopped, and the track is often put on a deck by hand afterwards.
     // PlayerInfo reports track changes regardless of Auto DJ's own connections.
+    // Queued deliberately. PlayerInfo emits this from inside
+    // BaseTrackPlayerImpl::unloadTrack(), which the deck's own destructor calls
+    // on shutdown - so answering inline would walk m_decks while PlayerManager
+    // is part-way through deleting the decks, reading a deck that is either
+    // half-destroyed (its vtable demoted to the abstract base) or already freed.
+    // Deferring to the event loop means the work happens after the load or eject
+    // has settled, and on shutdown the loop is already gone so it is simply
+    // dropped - which is right, since the skin it updates is deleted first.
     connect(&PlayerInfo::instance(),
             &PlayerInfo::trackChanged,
             this,
             [this](const QString&, TrackPointer, TrackPointer) {
                 updatePauseAfterDeckControl();
-            });
+            },
+            Qt::QueuedConnection);
     // A mark can be set or cleared while its track is already on a deck, so the
     // deck's warning has to follow it.
     connect(m_pAutoDJTableModel.get(),

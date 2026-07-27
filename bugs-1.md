@@ -12,6 +12,7 @@
 * Support drag and drop to autodj docking/floating window
 * Detect duplicates and show warnig, but ignore cortinas when adding them as duplicates (maybe color code them or add a DUPLICATE cortina tag?)
 * Message at shutdown: warning [LibraryScanner 1] QSqlDatabasePrivate::removeDatabase: connection 'MIXXX-2' is still in use, all queries will cease to work.
+* Crash on quit in Tango mode with tracks on the decks. Symptom seen first as "the Auto DJ queue comes up with played rows still greyed from the previous run" - the played flags are only cleared by TrackDAO::finish(), which runs on the clean shutdown path, so a crash silently keeps them. The crash itself: PlayerManager is destroyed before the Library that owns AutoDJProcessor, and a deck's destructor emits PlayerInfo::trackChanged from unloadTrack(), which we answered inline by walking every deck - reading one that was already freed.
 ----
 
 # Medium effort
