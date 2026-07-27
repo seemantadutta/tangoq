@@ -1,44 +1,93 @@
-# Mixxx
+# TangoMode
 
-[![GitHub latest tag](https://img.shields.io/github/tag/mixxxdj/mixxx.svg)](https://mixxx.org/download)
-[![Packaging status](https://repology.org/badge/tiny-repos/mixxx.svg)](https://repology.org/metapackage/mixxx/versions)
-[![Build status](https://github.com/mixxxdj/mixxx/actions/workflows/build.yml/badge.svg)](https://github.com/mixxxdj/mixxx/actions/workflows/build.yml)
-[![Coverage status](https://coveralls.io/repos/github/mixxxdj/mixxx/badge.svg)](https://coveralls.io/github/mixxxdj/mixxx)
-[![Zulip chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://mixxx.zulipchat.com)
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://mixxx.org/donate)
+**An unofficial build of [Mixxx] with features for Argentine tango DJing.**
 
-[Mixxx] is Free DJ software that gives you everything you need to perform live
-DJ mixes. Mixxx works on GNU/Linux, Windows, and macOS.
+TangoMode is [Mixxx] — the free, open-source DJ software — with one extra switch.
+Turn **Tango DJ Mode** on and Auto DJ stops behaving like a shuffle player and
+starts behaving like a milonga set: the queue plays **in order**, played tracks
+**stay in the list**, cortinas are handled properly, and the toolbar tells you
+whether you will finish on time.
 
-## Quick Start
+Turn it off and you have ordinary Mixxx, unchanged.
 
-To get started with Mixxx:
+> **Not affiliated with the Mixxx project.** This is a community build, not
+> produced or endorsed by [the Mixxx team](https://mixxx.org). Please report
+> problems with it [here](https://github.com/seemantadutta/mixxx/issues), not to
+> them. If you want official, signed builds with vendor support, get Mixxx from
+> [mixxx.org](https://mixxx.org).
 
-1. For live use, [download the latest stable version][download-stable].
-2. For experimentation and testing, [download a development release][download-testing].
-3. To live on the bleeding edge, clone the repo: `git clone https://github.com/mixxxdj/mixxx.git`
+---
 
-## Bug tracker
+## Install
 
-The Mixxx team uses [Github Issues][issues] to manage Mixxx development.
+See **[INSTALL.md](INSTALL.md)** for step-by-step instructions, including how to
+get past the Windows SmartScreen and macOS Gatekeeper warnings — the builds are
+unsigned, so both operating systems will complain the first time.
 
-Have a bug or feature request? [File a bug on Github][fileabug].
+Downloads are attached to the [Releases](https://github.com/seemantadutta/mixxx/releases)
+page. Windows `.msi` and macOS `.dmg` (Intel and Apple Silicon).
 
-Want to get involved in Mixxx development? Assign yourself a bug from the [easy
-bug list][easybugs] and get started!
-Read [CONTRIBUTING](CONTRIBUTING.md) for more information.
+---
 
-## Building Mixxx
+## What Tango mode adds
 
-First, open a terminal (on Windows, use "**x64 Native Tools Command Prompt for
-[VS 2022][visualstudio2022]**"), download the mixxx
-source code and navigate to it:
+Everything below is behind the single **Tango DJ Mode** switch in
+*Preferences → Auto DJ* (or `Ctrl+Alt+Shift+T`, `⌘⌥⇧T` on macOS).
 
-    $ git clone https://github.com/mixxxdj/mixxx.git
+**The set plays as you arranged it**
+- The queue plays top to bottom and nothing is deleted by playing it, so you can
+  see what you have played and what is coming
+- The cursor stays anchored to the playing track while you edit the rest of the
+  queue — you build the set during the milonga, not before it
+- Auto DJ stops at the end of the queue rather than picking tracks at random
+- The reordering actions that could wipe a queue by accident are locked out
+
+**Cortinas**
+- Tag any track as a cortina; it shows blue in the queue and on the deck
+- **Cortina Fade** plays a cortina as a proper envelope — silence, fade in, hold,
+  fade out, silence — instead of a hard cut you have to ride manually
+- Cortina length is budgeted separately for timing, and can be nudged live
+
+**Will I finish on time?**
+- **Set Length**, **Ends** and **Left** for everything queued
+- Set a target end time and see how far over or under you are running
+
+**Playing to a room**
+- **Pause after this track** — mark any row and the set stops there for an
+  announcement, then carries on when you press play. A red line in the queue shows
+  where it will stop
+- **Display names** — rename a row for the night, e.g. `[PERF] …`, without
+  touching the file's tags
+- Duplicate tracks are flagged in amber (repeated cortinas are not, because that
+  is normal)
+- **LIVE mode** — while performing, stopping Auto DJ takes two presses and the
+  deck play/pause keys are disabled, so one stray keystroke cannot kill the floor
+- A dockable Auto DJ queue panel that stays visible while you browse
+
+For the full behaviour, see [tangomode_manual_test_cases.md](tangomode_manual_test_cases.md).
+
+---
+
+## Bugs and requests
+
+| What | Where |
+|---|---|
+| Anything Tango-specific | [This tracker](https://github.com/seemantadutta/mixxx/issues) |
+| A bug in Mixxx itself, present with Tango mode **off** | [Upstream][issues] — please reproduce on an official build first |
+
+Mixxx's [Zulip][zulip] and [forums][discourse] are the Mixxx community's, not a
+support channel for this build. Please don't take TangoMode problems there.
+
+---
+
+## Building from source
+
+Same as Mixxx, from this fork:
+
+    $ git clone https://github.com/seemantadutta/mixxx.git
     $ cd mixxx
 
-Download the required dependencies and set up the build environment by running the
-corresponding command for your operating system:
+Set up the build environment for your platform:
 
 | Platform | Command | Requirements |
 | -- | ------- | ------------ |
@@ -49,70 +98,60 @@ corresponding command for your operating system:
 | Flatpak | `tools/flatpak_buildenv.sh setup` | ~2.6 GB download, ~5 GB disk space |
 | Other Linux distros | See the [wiki article](https://github.com/mixxxdj/mixxx/wiki/Compiling%20on%20Linux) | |
 
-To build Mixxx, run
+Then:
 
     $ mkdir build
     $ cd build
     $ cmake ..
     $ cmake --build .
 
-There should now be a `mixxx` executable in the current directory that you can
-run. Alternatively, can generate a package using `cpack`.
+On Windows the executable is `tangomode`; elsewhere it is `mixxx`, as upstream.
+Bundled libraries keep their original names.
 
-For building and installing Mixxx as a Flatpak, check the documentation in [packaging/flatpak/README.md](packaging/flatpak/README.md).
+Upstream's [detailed build instructions](https://github.com/mixxxdj/mixxx/wiki#compile-mixxx-from-source-code)
+apply unchanged, as does [packaging/flatpak/README.md](packaging/flatpak/README.md).
 
-Detailed build instructions for each target OS can be found [on the wiki](https://github.com/mixxxdj/mixxx/wiki#compile-mixxx-from-source-code)
+---
 
 ## Documentation
 
-For help using Mixxx, there are a variety of options:
+TangoMode is Mixxx, so the Mixxx documentation covers nearly all of it:
 
-- [Mixxx manual][manual]
+- [Mixxx manual][manual] — everything except the Tango features
 - [Mixxx wiki][wiki]
-- [Hardware Compatibility]
-- [Creating Skins]
+- [Hardware compatibility]
+- [Creating skins]
 
-## Translation
+Tango-specific behaviour is documented in this repository.
 
-Help to spread Mixxx with translations into more languages, as well as to update and ensure the accuracy of existing translations.
+---
 
-- [Help translate content]
-- [Mixxx i18n wiki]
-- [Mixxx localization forum]
-- [Mixxx glossary]
+## Relationship to Mixxx
 
-## Community
+TangoMode tracks a Mixxx release rather than its development branch, so it
+inherits a stable base. The Tango work is kept in its own commits with the aim of
+proposing the generally useful parts upstream — which would be the better outcome
+for everyone, since official builds are signed and supported.
 
-Mixxx is a vibrant community of hackers, DJs and artists. To keep track of
-development and community news:
-
-- Chat with us on [Zulip][zulip].
-- Follow us on [Mastodon], [Twitter] and [Facebook].
-- Subscribe to the [Mixxx Blog][blog].
-- Post on the [Mixxx forums][discourse].
+If you find Mixxx useful, [support the people who make it](https://mixxx.org/donate).
 
 ## License
 
-Mixxx is released under the GPLv2. See the LICENSE file for a full copy of the
-license.
+Mixxx is released under the **GPLv2**, and so is this build. See the
+[LICENSE](LICENSE) file for a full copy of the license.
+
+The GPL covers the source code. It does not grant rights to the Mixxx name or
+logo, which is why this build carries its own name, states plainly that it is
+unofficial, and links back to the original project.
+
+Original Mixxx copyright is held by the Mixxx developers; see the source headers
+and [CONTRIBUTING](CONTRIBUTING.md).
 
 [mixxx]: https://mixxx.org
-[download-stable]: https://mixxx.org/download/#stable
-[download-testing]: https://mixxx.org/download/#testing
 [issues]: https://github.com/mixxxdj/mixxx/issues
-[fileabug]: https://github.com/mixxxdj/mixxx/issues/new/choose
-[mastodon]: https://floss.social/@mixxx
-[twitter]: https://twitter.com/mixxxdj
-[facebook]: https://www.facebook.com/pages/Mixxx-DJ-Software/21723485212
-[blog]: https://mixxx.org/news/
 [manual]: https://manual.mixxx.org/
 [wiki]: https://github.com/mixxxdj/mixxx/wiki
-[visualstudio2022]: https://docs.microsoft.com/visualstudio/install/install-visual-studio?view=vs-2022
-[easybugs]: https://github.com/mixxxdj/mixxx/issues?q=is%3Aopen+is%3Aissue+label%3Aeasy
 [creating skins]: https://mixxx.org/wiki/doku.php/Creating-Skins
-[help translate content]: https://explore.transifex.com/mixxx-dj-software/
-[Mixxx i18n wiki]: https://github.com/mixxxdj/mixxx/wiki/Internationalization
-[Mixxx localization forum]: https://mixxx.discourse.group/c/translation/13
 [hardware compatibility]: https://manual.mixxx.org/2.3/en/hardware/manuals.html
 [zulip]: https://mixxx.zulipchat.com/
 [discourse]: https://mixxx.discourse.group/
