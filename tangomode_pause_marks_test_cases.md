@@ -49,7 +49,20 @@ Mark a track *and* give it a display name.
 **Expect:** `[-- PAUSE AFTER --] [PERF] Tango de Roxanne`, with the separator
 line below it.
 
-### T1.5 Blocks by hand
+### T1.5 The separator line
+Mark two tracks well apart in a long queue.
+
+**Expect:** a red line under **each** marked row, under that row and not a
+neighbour. Scroll both off the top and back — the lines return. Resize the
+window — they redraw.
+
+*Why it matters:* this line was never drawn at all until it was fixed, and the
+failure was silent — the row still said `[-- PAUSE AFTER --]`, so everything
+looked half-right. It is drawn from row geometry in `WTrackTableView::paintEvent`
+and nothing in the test suite can see it. Scrolling matters because the paint
+loop only walks the rows currently on screen.
+
+### T1.6 Blocks by hand
 Two intro tracks, a mark on the second, then the milonga. La Cumparsita marked,
 then outro tracks.
 
@@ -133,7 +146,17 @@ Worth re-checking after any change to Auto DJ transitions or the cortina fade:
   `Library` that owns `AutoDJProcessor`, so the processor briefly outlives its
   own decks. Anything new that reacts to a deck signal can dereference a freed
   deck — which crashed on quit once already. T2.7 is the check.
-- **Widget display is not unit-tested at all.** The deck warning bug (invisible
-  while Auto DJ was stopped) and the separator line bug (drawn in near-black on a
-  near-black skin) both passed every test, because the tests assert processor
-  state rather than what a widget shows.
+- **Widget display is not unit-tested at all.** Two bugs proved it. The deck
+  warning was invisible whenever Auto DJ was stopped, because the code driving it
+  hung off deck signals that `toggleAutoDJ(false)` disconnects. And the separator
+  line was *never drawn at all*, in any build: it asked `visualRect()` for the
+  geometry of column 0, which is one of the hidden internal columns, so the rect
+  came back empty and every marked row hit the `continue`. Both passed every
+  test, because the tests assert processor state rather than what a widget
+  renders. Green tests say nothing about this area — look at it.
+
+  Two traps for anyone editing `WTrackTableView::paintEvent()`: never derive row
+  geometry from a *cell* (use `rowViewportPosition()` + `rowHeight()`, which
+  cannot be hidden out from under you), and never take a colour from
+  `palette()` — skins style this view through QSS, which does not populate the
+  QPalette, so palette colours come out as defaults.
