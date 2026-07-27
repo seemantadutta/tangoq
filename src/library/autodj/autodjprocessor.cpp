@@ -8,6 +8,7 @@
 #include "library/basetracktablemodel.h"
 #include "library/columncache.h"
 #include "mixer/basetrackplayer.h"
+#include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_autodjprocessor.cpp"
 #include "track/cue.h"
@@ -168,6 +169,16 @@ AutoDJProcessor::AutoDJProcessor(
     // In Keep Queue mode the cursor must stay anchored to the playing track when
     // the user edits the queue. The model rebuilds itself on every edit (emitting
     // row insert/remove), so re-anchor the cursor after each rebuild.
+    // Disabling Auto DJ disconnects every deck signal from this object, so the
+    // deck warning cannot be driven from playerTrackLoaded(): marks are set with
+    // Auto DJ stopped, and the track is often put on a deck by hand afterwards.
+    // PlayerInfo reports track changes regardless of Auto DJ's own connections.
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::trackChanged,
+            this,
+            [this](const QString&, TrackPointer, TrackPointer) {
+                updatePauseAfterDeckControl();
+            });
     // A mark can be set or cleared while its track is already on a deck, so the
     // deck's warning has to follow it.
     connect(m_pAutoDJTableModel.get(),
@@ -1297,7 +1308,9 @@ bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
 
 void AutoDJProcessor::updatePauseAfterDeckControl() {
     double deckIndex = 0.0;
-    if (keepQueueEnabled() && m_eState != ADJ_DISABLED) {
+    // Deliberately not gated on Auto DJ running: marks are set while it is
+    // stopped, which is exactly when the DJ is looking at the decks.
+    if (keepQueueEnabled()) {
         for (const auto& pDeck : m_decks) {
             if (!pDeck || !pDeck->getLoadedTrack()) {
                 continue;
@@ -1877,6 +1890,8 @@ void AutoDJProcessor::controlKeepQueue(double value) {
     // Persist the live Tango DJ mode control to the user setting.
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
             value > 0.0);
+    // Leaving Tango mode has to clear the deck warning with everything else.
+    updatePauseAfterDeckControl();
 }
 
 void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
@@ -1959,6 +1974,7 @@ bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
         return false;
     }
     m_keepQueueRow++;
+    updatePauseAfterDeckControl();
     // The upcoming-tracks set shrank by one, so the cached set duration is stale.
     invalidateRemainingSetDuration();
     // Remember the just-played track; it now sits at cursor-1 and is used to
