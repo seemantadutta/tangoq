@@ -1111,7 +1111,14 @@ void WTrackMenu::updateMenus() {
                                        QStringLiteral("keep_queue"))) > 0.0;
         auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(m_pTrackModel);
         const bool singleRow = m_trackIndexList.size() == 1;
-        const bool show = tangoMode && isCortinaList() && pTableModel && singleRow;
+        // A performance always stops anyway, so a pause mark there adds nothing
+        // and would be consumed silently - the DJ would see the mark vanish with
+        // no visible reason. Hide it rather than explain it.
+        const bool performance = singleRow &&
+                TrackTypeRegistry::instance().type(getTrackIds().value(0)) ==
+                        TangoTrackType::Performance;
+        const bool show = tangoMode && isCortinaList() && pTableModel &&
+                singleRow && !performance;
         m_pPauseAfterToggleAct->setVisible(show);
         m_pDisplayNameAct->setVisible(show);
         if (m_pPauseAfterSeparator) {

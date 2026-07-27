@@ -8,6 +8,7 @@
 
 #include "audio/frame.h"
 #include "control/controlproxy.h"
+#include "library/autodj/tracktyperegistry.h"
 #include "control/controlpushbutton.h"
 #include "control/pollingcontrolproxy.h"
 #include "engine/channels/enginechannel.h"
@@ -218,6 +219,13 @@ class AutoDJProcessor : public QObject {
 
     bool nextTrackLoaded();
 
+    /// Test seam for the stop decision. The two callers reach it from deep
+    /// inside a transition or a gap timer, neither of which the fake decks can
+    /// drive faithfully, so the rule itself is exercised directly.
+    bool shouldStopAfterRowForTest(int row) {
+        return shouldStopAfterRow(row, nullptr);
+    }
+
     /// True while Tango (Keep Queue) mode owns the Auto DJ queue: the list is a
     /// pre-arranged set and the cursor tracks the DJ's position in it. Callers
     /// that would reorder or clear the queue must refuse while this holds.
@@ -349,6 +357,11 @@ class AutoDJProcessor : public QObject {
         return m_bStopWhenLastTrackEnds || m_bPauseAfterPending;
     }
 
+    /// Whether the set should stop after the track on this row, and why: an
+    /// explicit one-shot mark, a performance, or a change of track type. Shared
+    /// by both places a transition is claimed so they cannot diverge.
+    bool shouldStopAfterRow(int row, bool* pConsumeMark);
+
     /// Claims the transition when the playing deck sits on a "pause after" row:
     /// consumes the mark, arms the stop and leaves the track to play out.
     /// Returns true if the caller should abandon the transition.
@@ -357,6 +370,9 @@ class AutoDJProcessor : public QObject {
     /// Publishes which deck holds a pending pause so its title can warn. Rows
     /// are positional, so a deck cannot work this out from its own track.
     void updatePauseAfterDeckControl();
+
+    /// Type of the track on a queue row; Milonga for anything out of range.
+    TangoTrackType keepQueueTypeForRow(int row);
 
     /// Row of the track loaded on pDeck, or -1. Uses the cursor as the guess so
     /// a repeated cortina resolves to the occurrence actually playing.
