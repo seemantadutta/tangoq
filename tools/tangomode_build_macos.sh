@@ -37,6 +37,10 @@ DEPLOYMENT_TARGET="11.0"
 # for Launch Services and privacy (TCC) permissions. The settings directory is
 # derived separately, from kMixxx in src/util/versionstore.cpp -- keep the two in
 # sync if you rename. Deliberately not under org.mixxx.*, which upstream owns.
+# These now match the defaults in CMakeLists.txt, so passing them below is
+# redundant for an ordinary build. Kept deliberately: the script still works if
+# the defaults change, it documents which values it expects, and it lets you
+# build a differently-named bundle by exporting BUNDLE_NAME.
 BUNDLE_NAME="${BUNDLE_NAME:-TangoMode}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-io.github.seemantadutta.tangomode}"
 

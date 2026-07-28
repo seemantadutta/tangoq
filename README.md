@@ -105,11 +105,10 @@ Then:
     $ cmake ..
     $ cmake --build .
 
-**On macOS, build with `tools/tangomode_build_macos.sh` instead.** It passes the
-fork's bundle name and identifier, producing `TangoMode.app` and keeping its
-settings separate from any Mixxx you already have installed. A plain `cmake ..`
-leaves both at their upstream defaults and gives you `Mixxx.app` sharing Mixxx's
-settings container.
+On macOS this produces `TangoMode.app`, with its own bundle identifier so it sits
+alongside a real Mixxx install rather than replacing it or sharing its settings.
+`tools/tangomode_build_macos.sh` wraps the same configure with a few
+conveniences, but is no longer required to get a correctly branded build.
 
 The Windows executable is `tangomode`; on Linux it is `mixxx`, as upstream.
 Bundled libraries keep their original names on every platform.

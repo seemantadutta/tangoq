@@ -41,7 +41,7 @@ any audible click, wrong colour, control that should be locked but isn't, or a
 crash). Cases marked **(MUST PASS)** are the release-blocking core.
 
 Release must-pass set: **A1, A2, B1, B3, C1, D1, E1, F3, G1, G2, K1, K5, L1, M2,
-M6, M16, M28, O1, P1, P2, R1, R2**.
+M6, M16, M28, O1, P1, P2, Q6, R1, R2, R5**.
 
 ### Twenty-minute smoke test
 The full plan is long. When there is only time for a sanity check — a new build
@@ -993,6 +993,24 @@ precisely because QSS skins do not populate it.
 ### Q4 — macOS shortcut
 **Expected:** `⌘⌥⇧T` toggles Tango mode, following the usual convention (Windows
 Ctrl → Command, Alt → Option). The Preferences label shows the native symbols.
+
+**Result:**
+
+### Q6 — macOS bundle identity (MUST PASS)
+1. Install the **CI-built** `.dmg` on a Mac that **already has Mixxx installed**.
+
+**Expected:**
+- The app is `TangoMode.app`, not `Mixxx.app`, so dragging it to `/Applications`
+  cannot replace an existing Mixxx
+- Both apps run, and each keeps its **own** library and settings — check
+  `~/Library/Containers/io.github.seemantadutta.tangomode/` exists separately from
+  `~/Library/Containers/org.mixxx.mixxx/`
+- Editing the library in one does not change the other
+
+*Why must-pass:* until the bundle name and identifier were branded by default,
+CI shipped a DMG containing `Mixxx.app` under `org.mixxx.mixxx`, which could
+overwrite a tester's Mixxx and share its `mixxxdb.sqlite`. Only a CI build proves
+this — a local build via the script was always correct and would hide it.
 
 **Result:**
 

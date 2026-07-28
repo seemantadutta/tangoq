@@ -1760,8 +1760,14 @@ set(MIXXX_INSTALL_DOCDIR "./doc")
 set(MIXXX_INSTALL_LICENSEDIR "./doc")
 if (APPLE AND MACOS_BUNDLE)
   set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(MACOS_BUNDLE_NAME Mixxx CACHE STRING "The macOS app bundle and executable name")
-  set(MACOS_BUNDLE_IDENTIFIER org.mixxx.mixxx CACHE STRING "The macOS app bundle identifier")
+  # TangoMode fork: brand the macOS bundle by default, so every build path agrees
+  # -- CI, a plain `cmake ..`, and tools/tangomode_build_macos.sh alike. Upstream
+  # defaults these to Mixxx / org.mixxx.mixxx; leaving them there meant CI shipped
+  # a DMG containing "Mixxx.app", which could replace a real Mixxx in
+  # /Applications and, via the identifier below, shared its settings container and
+  # library database. Still CACHE, so -DMACOS_BUNDLE_NAME=... can override.
+  set(MACOS_BUNDLE_NAME TangoMode CACHE STRING "The macOS app bundle and executable name")
+  set(MACOS_BUNDLE_IDENTIFIER io.github.seemantadutta.tangomode CACHE STRING "The macOS app bundle identifier")
   # Sandbox::migrateOldSettings() builds the settings path from these. Deriving them
   # from the bundle identity keeps a fork's library separate from an upstream install
   # on the same machine; leaving the bundle vars at their defaults reproduces the
@@ -1848,11 +1854,10 @@ target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 # DLLs keep their upstream names, so this stays a one-line difference from
 # upstream.
 #
-# macOS is NOT covered by this. Its executable comes from MACOS_BUNDLE_NAME
-# further down, which is a cache variable still defaulting to "Mixxx"; only
-# tools/tangomode_build_macos.sh overrides it. A plain cmake configure -- which
-# is what CI does -- therefore produces Mixxx.app under org.mixxx.mixxx, sharing
-# its settings container with a real Mixxx install.
+# macOS is handled separately, further up: its executable name comes from
+# MACOS_BUNDLE_NAME, which this fork defaults to TangoMode, so the bundle, the
+# binary inside it and the settings container are all branded without anyone
+# having to pass a flag.
 if(WIN32)
   set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangomode")
 endif()
