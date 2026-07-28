@@ -188,17 +188,62 @@ Consequences, both intended:
 - `kTangoGapSeconds = -2` at `dlgautodj.cpp:769` becomes `+2` under the new sign
   convention.
 
+### Cortinas honour the cue too — decided
+
+A cortina often has a lead-in worth skipping. Setting a cue 11 s in must make the
+**Cortina Fade envelope start there**: the silent lead-in is taken relative to the
+cue, and the fade-in begins at the cue, not at the analysed first sound.
+
+This is the part that makes the task structural rather than a one-line addition.
+`getFirstSoundSecond()` — "where does this track's audio begin" — has **seven**
+call sites, and the cortina envelope depends on three of them:
+
+| Line | Role |
+|---|---|
+| 1561, 1600 | inside `maybeHandleCortinaFade()` — the envelope's reference point for the fade-in and phase timing |
+| 1751 | `slotCortinaGapElapsed()` — cueing the *next* track after the cortina |
+| 2322 | another consumer; check what it does before touching it |
+| 2390 | the definition itself |
+| 2673 | the stock `FixedSkipSilence` branch — **must not change** |
+| 2720 | the cortina's own start: `getFirstSoundSecond(pToDeck) - m_cortinaGapSeconds` |
+
+Rather than patch each one, introduce a single notion of where a track's *useful*
+audio begins:
+
+```cpp
+// The DJ's cue wins over analysis: they know the track.
+double AutoDJProcessor::audibleStartSecond(DeckAttributes* pDeck) {
+    const double cue = getIntroStartSecond(pDeck);
+    return cueIsSet(cue) ? cue : getFirstSoundSecond(pDeck);
+}
+```
+
+Then the cortina case falls out with no special handling — pre-roll becomes
+`audibleStart - Nc`, and the envelope references `audibleStart`.
+
+**Route only the Tango-gated sites through it.** Line 2673 is the stock Skip
+Silence branch; sending that through a cue-aware helper would change stock
+behaviour, which is the thing this whole design is avoiding. The cortina paths
+are already behind `m_cortinaFadeEnabled && keepQueueEnabled()`, and the new
+Tanda case is Tango-only by construction, so those are safe.
+
+**Keep the negative pre-roll.** The comment at 2711-2716 explains that
+`startPos` is deliberately *not* clamped to `>= 0`: a hot-start or un-analysed
+cortina gets synthetic silence pre-rolled before 0:00, which is what stops the
+onset reaching the output at full crossfader. With a cue 11 s in there is plenty
+of room and the value stays positive, but both cases still have to work.
+
 ### Open decisions
 
-- **Should the cortina hand-off honour the cue too?** `slotCortinaGapElapsed()`
-  cues the next track with `getFirstSoundSecond()` directly, so a cue on a
-  post-cortina track is ignored unless that path changes as well.
 - **How is "no cue set" represented?** `getIntroStartSecond()` may return 0, the
-  track start, or an invalid position. Confirm before relying on `> 0.0`.
+  track start, or an invalid position. Confirm before writing `cueIsSet()` — the
+  whole design rests on distinguishing "cue at 0:00" from "no cue".
 - **Re-check the cortina envelope under the new mode.** Cortina Fade currently
   has to work across whichever transition mode is selected. Once Tango pins the
   mode, its interaction is with Tanda Transition only — a simplification, but the
-  envelope tests (G1, G2, P2) should be re-run against it rather than assumed.
+  envelope tests (G1, G2, P2) must be re-run against it rather than assumed,
+  along with a new case: a cortina with a cue, confirming the fade-in starts
+  there and the gap before it is still true silence.
 
 ---
 
