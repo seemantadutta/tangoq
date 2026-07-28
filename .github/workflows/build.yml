@@ -507,79 +507,18 @@ jobs:
           archive: "false"
           path: ${{ matrix.artifacts_path }}
 
-  build-flatpak:
-    name: "Flatpak"
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
-      options: --privileged
-      volumes:
-        - /usr:/host/usr
-        - /opt:/host/opt
-    strategy:
-      matrix:
-        variant:
-          - arch: x86_64
-            runner: ubuntu-24.04
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.variant.runner }}
-    steps:
-      - name: "Recover host disk space"
-        run: |
-          rm -rf /host/opt/hostedtoolcache/CodeQL
-          rm -rf /host/opt/hostedtoolcache/go
-          rm -rf /host/usr/local/lib/android
-          rm -rf /host/usr/local/.ghcup
-          rm -rf /host/usr/local/share/powershell
-          rm -rf /host/usr/share/swift
-          rm -rf /host/usr/share/dotnet
-
-      - name: "Check out repository"
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: "Store Git version"
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          GIT_DESC=$(git describe --always --first-parent --dirty=-modified)
-          if [ -z "$GIT_DESC" ]; then
-            GIT_DESC="unknown"
-          fi
-          echo "GIT_DESC=$GIT_DESC" >> $GITHUB_ENV
-
-      - name: "Build Flatpak"
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          manifest-path: packaging/flatpak/org.mixxx.Mixxx.yaml
-          arch: ${{ matrix.variant.arch }}
-          build-bundle: false
-          upload-artifact: false
-
-      - name: "Create Flatpak bundle"
-        run: |
-          flatpak build-bundle repo \
-            --arch=${{ matrix.variant.arch }} \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            Mixxx-${GIT_DESC}-${{ matrix.variant.arch }}.flatpak org.mixxx.Mixxx
-
-      - name: "Create Debug extension"
-        run: |
-          flatpak build-bundle repo \
-            --arch=${{ matrix.variant.arch }} \
-            --runtime Mixxx-${GIT_DESC}-${{ matrix.variant.arch }}.Debug.flatpak org.mixxx.Mixxx.Debug
-
-      - name: "Upload Flatpak bundle"
-        uses: actions/upload-artifact@v7.0.0
-        with:
-          archive: "false"
-          path: Mixxx-${{ env.GIT_DESC }}-${{ matrix.variant.arch }}.flatpak
-
-      - name: "Upload Debug extension"
-        uses: actions/upload-artifact@v7.0.0
-        with:
-          archive: "false"
-          path: Mixxx-${{ env.GIT_DESC }}-${{ matrix.variant.arch }}.Debug.flatpak
+  # TangoMode fork: the Flatpak jobs are deliberately removed, not broken.
+  #
+  # This fork ships a Windows .msi and a macOS .dmg (see INSTALL.md), and the
+  # Ubuntu job above already produces a .deb, so Flatpak reached no user who
+  # could not already install. It failed on every run, and a permanently red
+  # job is worse than a missing one: it hid a real Windows build failure for
+  # hours, because a red run had stopped meaning anything.
+  #
+  # Nothing depends on this job -- update_manifest needs `build`, not
+  # build-flatpak -- so restoring it is just reinstating the block. The
+  # packaging/flatpak manifest and the separate flatpak.yml (workflow_call
+  # only, never triggered by a push) are left untouched.
 
   update_manifest:
     name: "Update manifest file on download server"
