@@ -16,7 +16,9 @@ void TrackLabelRegistry::setLabel(TrackId trackId, const QString& label) {
     if (trimmed.isEmpty()) {
         // Clearing rather than storing an empty label, so a row with nothing to
         // say falls back to its real title instead of showing a blank.
-        if (m_labels.remove(trackId) > 0) {
+        // QHash::remove() returns bool in Qt 6 (it returned a count in Qt 5), so
+        // test it directly - comparing it against 0 is what MSVC flags as C4804.
+        if (m_labels.remove(trackId)) {
             emit trackLabelsChanged();
         }
         return;

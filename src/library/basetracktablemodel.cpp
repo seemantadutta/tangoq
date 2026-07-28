@@ -413,7 +413,10 @@ bool BaseTrackTableModel::isPauseAfterRow(int row) const {
 }
 
 void BaseTrackTableModel::togglePauseAfterRow(int row) {
-    if (m_pauseAfterRows.remove(row) == 0) {
+    // QHash::remove() returns bool in Qt 6; "did not remove" means it was not
+    // marked, so this toggles it on. Comparing the result against 0 reads as a
+    // count and MSVC flags the bool/int mix.
+    if (!m_pauseAfterRows.remove(row)) {
         const TrackId trackId(
                 rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
         m_pauseAfterRows.insert(row, trackId);
@@ -427,7 +430,8 @@ void BaseTrackTableModel::togglePauseAfterRow(int row) {
 }
 
 void BaseTrackTableModel::clearPauseAfterRow(int row) {
-    if (m_pauseAfterRows.remove(row) == 0) {
+    if (!m_pauseAfterRows.remove(row)) {
+        // Nothing was marked on this row, so there is nothing to announce.
         return;
     }
     emit pauseAfterRowsChanged();
