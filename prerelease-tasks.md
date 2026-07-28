@@ -62,62 +62,143 @@ on macOS, and much cheaper before there are users.
 
 ---
 
-## 2. Honour an explicit Intro Start cue in Skip Silence mode
+## 2. New transition mode: **Tanda Transition**
 
-**Status:** understood, not implemented. Small and contained.
+**Status:** specified, not implemented. Roughly half a day, plus one unresolved
+design question (see "The gap problem" below) that could make it longer.
 
-**Want:** set a cue a few seconds into a track you know, and have Auto DJ start
-that track there on the transition.
+A fifth transition mode alongside the four stock ones, rather than changing what
+"Skip Silence" means. Two reasons:
 
-### What stock Mixxx already does
+1. **Tango off must stay stock Mixxx, byte for byte.** Redefining Skip Silence
+   would change behaviour for someone using that mode with Tango off who happens
+   to have an intro cue set.
+2. **It gives DJs something nameable.** The cue is only the first thing this mode
+   wants; the gap rule, no-crossfade and cortina awareness belong with it. Once
+   the mode exists those have a home instead of accreting as special cases inside
+   a stock mode until nobody can say what "Skip Silence" means in this build.
 
-`calculateTransition()` reads the **Intro Start** cue and uses it as the
-incoming track's start position:
+### The behaviour, as it should be documented for DJs
+
+> **Tanda Transition** — the next track starts at your **Intro Start cue** if you
+> set one, otherwise at its first audible sound. The outgoing track plays through
+> to its last audible sound. Between them is a gap of the number of seconds in the
+> box. Tracks are never crossfaded into each other. Cortinas keep their own fade
+> envelope when Cortina Fade is on.
+
+Every clause is verifiable by ear, which is the test of whether it is worth
+documenting.
+
+### The seconds box means the opposite of stock
+
+In stock Mixxx the value is a **crossfade** length and a **negative** value means
+a gap. In Tanda Transition a **positive** value is the gap, and **overlap is not
+possible at all** — by design, since two tango tracks should never be played over
+one another.
+
+- The spinbox minimum becomes **0** while this mode is selected, and the label
+  should read *Gap* rather than *Transition*.
+- **Migration:** `[Auto DJ] Transition` is shared across modes. Switching from
+  Skip Silence to Tanda should take `abs()` of the stored value — a DJ on `-3`
+  wanted a 3 second gap and gets a 3 second gap, the same audible result.
+
+### The gap problem — settle this first
+
+The gap in stock Skip Silence is **not a pause**. `useFixedFadeTime()`
+(`autodjprocessor.cpp:2786-2790`) produces it by cueing the incoming track
+*backwards into its leading silence*:
 
 ```cpp
-const double introStart = getIntroStartSecond(pToDeck);   // ~line 2536
-...
-toDeckStartSeconds = introStart;                          // -> pToDeck->startPos
+pFromDeck->fadeBeginPos = fadeEndSecond;
+pFromDeck->fadeEndPos = fadeEndSecond;                     // hard cut
+pToDeck->startPos = toDeckStartSecond + m_transitionTime;  // negative -> earlier
 ```
 
-| Transition mode | Where the incoming track starts |
+That silently conflicts with the whole point of the cue: if the DJ set a cue to
+skip the first few seconds, starting the deck `gap` seconds before it replays
+exactly what they asked to skip — and if the cue is near the start of the file,
+there may not even be that much room.
+
+Three ways out, to choose between:
+
+1. **Delay the start instead of cueing earlier.** True silence, works with any
+   cue. Needs a timer, which the cortina envelope already has in
+   `m_cortinaGapTimer` / `slotCortinaGapElapsed()` — generalising that is the
+   real work in this task, and the reason the estimate could grow.
+2. **Cue back only as far as there is silence**, clamped so it never crosses the
+   cue. Cheap, but the gap silently shortens on some tracks, which makes the
+   documented behaviour a lie.
+3. **Only honour the cue when no gap is configured.** Cheapest, and the worst —
+   two settings that quietly cancel each other are exactly the kind of thing
+   this mode exists to avoid.
+
+Option 1 is the one that matches the documented sentence. Decide before writing
+code.
+
+### Where the code has to change
+
+Six sites, all mechanical apart from the above:
+
+| Site | Change |
 |---|---|
-| **Full Intro + Outro** | Intro Start cue ✔ |
-| **Fade at outro start** | Intro Start cue ✔ |
-| **Skip Silence** | `getFirstSoundSecond()` — the analysed `N60dBSound` cue ✘ |
-| **Full Track** | 0.0 ✘ |
+| `autodjprocessor.h:169` enum | **append** one value — see the trap below |
+| `dlgautodj.cpp:224` | one `addItem` for the dropdown |
+| `calculateTransition()` | new `case`, starting from the `FixedSkipSilence` branch |
+| 3 set-length conditions | they test `FixedFullTrack \|\| FixedSkipSilence`, or `== FixedSkipSilence` for the audible-range refinement |
+| `dlgautodj.cpp:773`, `upgrade.cpp:84` | the Tango default becomes the new mode |
+| `autodjprocessor_test.cpp` | a case with a cue, one without, one for the gap |
 
-So the feature exists, but only in the intro/outro modes. Skip Silence — the
-mode Tango sets as its default — never consults the cue.
+**Enum ordering trap.** The mode is persisted as a raw enum index —
+`upgrade.cpp:84` literally writes `TransitionMode = "3"` for Skip Silence. The
+new value **must be appended** at the end. Inserting it anywhere else silently
+changes the saved mode of every existing user.
 
-Switching mode is not the answer: intro/outro modes crossfade over the
-intro/outro length, whereas a tango set wants a clean gap between tracks.
+**Set Length sign flip.** `recomputeKeepQueueUpcomingDuration()` currently does
+`seconds -= transitions * m_transitionTime`, which *adds* time because the value
+is negative. With a positive gap it becomes `seconds += transitions * gap`. Get
+this wrong and Set Length — a headline feature — is quietly wrong.
 
-### Proposed change
+### In Tango mode, this is the *only* mode
 
-In the `FixedSkipSilence` branch of `calculateTransition()`
-(`autodjprocessor.cpp` ~2665), prefer an explicit Intro Start cue when the track
-has one, and fall back to first-sound when it does not:
+The dropdown is restricted to **Tanda Transition** while Tango DJ Mode is on, and
+the full stock list returns when it is off. Consistent with the rest of the Tango
+lockdown (toolbar controls, column sorting, the queue-reordering actions), and it
+removes a large amount of interaction surface: cortinas, pause marks and the set
+timing then only have to be correct under one transition mode instead of four.
 
-```cpp
-const double introStart = getIntroStartSecond(pToDeck);
-toDeckStartSecond = introStart > 0.0 ? introStart : getFirstSoundSecond(pToDeck);
-```
+Today the code merely *nudges* — `dlgautodj.cpp:773` switches Full Intro + Outro
+to Skip Silence when Tango is enabled at factory defaults, and leaves the
+dropdown fully usable. That becomes a restriction instead.
 
-Points to settle while implementing:
+Prefer **repopulating** the combo box with the single item over greying out a
+four-item list: the DJ sees the mode they are in and no alternatives, which is
+self-documenting. This is safe because `slotTransitionModeChanged()` reads
+`itemData(index)` rather than assuming index equals the enum value
+(`dlgautodj.cpp:482`), so the indices moving does not matter.
 
-- **How is "no cue set" represented?** `getIntroStartSecond()` needs checking —
-  an unset cue may come back as 0, as the track start, or as invalid. The
-  condition above assumes 0/absent; confirm before relying on it.
-- **Interaction with the cortina envelope.** `slotCortinaGapElapsed()` cues the
-  next track with `getFirstSoundSecond()` directly, so a cue on a post-cortina
-  track would still be ignored unless that path is changed too. Decide whether
-  it should be.
-- **Scope.** Gate behind `keepQueueEnabled()` if it should be Tango-only, or
-  leave it general — arguably it is a plain improvement to Skip Silence and a
-  candidate to send upstream.
-- **Tests.** `autodjprocessor_test.cpp` already covers Skip Silence; add a case
-  for "cue set" and one for "no cue set, still trims silence".
+Consequences, both intended:
+
+- **Enabling Tango now changes the transition mode unconditionally**, including
+  for existing Tango users currently on Skip Silence. That is the right
+  behaviour once Tango owns the transition — but it means the migration rule
+  above (`abs()` of the stored gap) is doing real work, not just tidying.
+- **Wanting a stock transition means turning Tango off.** Acceptable: the modes
+  it hides all crossfade tracks into one another, which a milonga set should
+  never do.
+- `kTangoGapSeconds = -2` at `dlgautodj.cpp:769` becomes `+2` under the new sign
+  convention.
+
+### Open decisions
+
+- **Should the cortina hand-off honour the cue too?** `slotCortinaGapElapsed()`
+  cues the next track with `getFirstSoundSecond()` directly, so a cue on a
+  post-cortina track is ignored unless that path changes as well.
+- **How is "no cue set" represented?** `getIntroStartSecond()` may return 0, the
+  track start, or an invalid position. Confirm before relying on `> 0.0`.
+- **Re-check the cortina envelope under the new mode.** Cortina Fade currently
+  has to work across whichever transition mode is selected. Once Tango pins the
+  mode, its interaction is with Tanda Transition only — a simplification, but the
+  envelope tests (G1, G2, P2) should be re-run against it rather than assumed.
 
 ---
 
