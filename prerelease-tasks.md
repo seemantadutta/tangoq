@@ -35,6 +35,25 @@ schema whenever their versions differ. macOS was fixed by branding the bundle
   with no `QCoreApplication` in existence — `CmdlineArgs::parse()` even asserts
   that (`DEBUG_ASSERT(!QCoreApplication::instance())`).
 
+### Step zero — the reproduction is now two-way
+
+Renaming `%LOCALAPPDATA%\Mixxx` aside and relaunching **created
+`%LOCALAPPDATA%\TangoMode`**. So the path logic is capable of producing the right
+answer; an existing `Mixxx` directory somehow wins over it. Renaming the folder
+back should restore the wrong behaviour, giving a clean A/B to instrument
+against.
+
+**This is not the all-clear it looks like.** That `Mixxx` folder came from this
+machine's own pre-rename TangoMode builds — but a user who has never run
+TangoMode and simply has **stock Mixxx installed** has the same folder. If the
+mechanism keys on the directory existing, that user gets the shared settings and
+database this task exists to prevent. The experiment cannot distinguish the two,
+so it does not close the question.
+
+Already ruled out: `upgrade.cpp` has exactly two `setSettingsPath()` redirects,
+`~/.mixxx/` (macOS, pre-1.9) and `~/Local Settings/Application Data/Mixxx/`
+(Windows, pre-1.12). Neither is `%LOCALAPPDATA%\Mixxx`.
+
 ### Next step — instrument, do not guess
 
 Two wrong hypotheses have already cost time here. Print the path at each stage
@@ -247,7 +266,58 @@ of room and the value stays positive, but both cases still have to work.
 
 ---
 
-## 3. Already known, not blocking
+## 3. Mixxx branding in user-visible strings
+
+**Status:** audited, not started. Cheap if scoped; a trap if done as a
+find-and-replace.
+
+Dialogs and messages still say "Mixxx" where they mean this application. The
+surface is roughly **60 translatable strings** in `.cpp` plus **11 `.ui` files**.
+
+### Three kinds of string — only one should change
+
+| Kind | Example | Change? |
+|---|---|---|
+| The app talking about itself | *"A deck is currently playing. Exit Mixxx?"* (`mixxxmainwindow.cpp:1568`) | **Yes** |
+| Pointing at the upstream project | manual and wiki links, `mixxx.org`, the About credits, "Mixxx DJ Hardware Guide" | **No** |
+| Historical or technical | *"Mixxx versions before 1.11"*, `MixxxControl`, "Mixxx Effect Chain Presets" as a file-format name | **No** |
+
+A blanket replace would rewrite the second group, which is factually wrong and
+undercuts the trademark position taken deliberately in README and INSTALL — this
+build is careful to say what is Mixxx's and what is not. It would also break
+every translation and balloon the diff against upstream.
+
+### Recommended scope for the release
+
+Fix only the first group, ordered by how often a DJ actually sees it. Roughly
+10-15 strings covering nearly all real exposure:
+
+- `mixxxmainwindow.cpp` — exit confirmation (1568), the sound-device failure
+  dialog and its buttons (727-753), the menu-bar prompt (637)
+- `database/mixxxdb.cpp:94` — "Try renaming it and restarting Mixxx"
+- `library/scanner/libraryscannerdlg.cpp:19` — the library-scan wait message
+- `engine/sidechain/shoutconnection.cpp:81,86` — "Mixxx encountered a problem"
+- `library/browse/browsetablemodel.cpp:225` — "Mixxx Library"
+- `library/dlgtrackmetadataexport.cpp:17` — the file-modification notice
+
+Leave the long tail of preference tooltips. A DJ deep in ReplayGain settings
+reading *"Mixxx will avoid an abrupt volume change"* is not confused about what
+they are running, and each one costs a translation.
+
+`dlgabout.cpp:469` already reads *"TangoMode is a modified version of Mixxx
+for…"*, which is the tone to match: name this build, credit the original.
+
+### Worth considering instead of literals
+
+`VersionStore::applicationName()` already returns `"TangoMode"`. Strings in the
+first group could take it as `%1` rather than hard-coding either name, which
+keeps a single source of truth and survives a future rename. Costs a
+re-translation of the touched strings either way, so it is nearly free to do it
+the better way while in there.
+
+---
+
+## 4. Already known, not blocking
 
 - **Flatpak CI fails.** Pre-existing and unrelated to the `.msi` / `.dmg`. A
   soundtouch cherry-pick (`4f35d26249`) is outstanding for it.
