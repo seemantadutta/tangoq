@@ -4,6 +4,7 @@
 #include <QDialogButtonBox>
 #include <QActionGroup>
 #include <QInputDialog>
+#include <QLineEdit>
 #include <QList>
 #include <QListWidget>
 #include <QMessageBox>
@@ -2916,18 +2917,39 @@ void WTrackMenu::slotSetDisplayName() {
         return;
     }
     const TrackId trackId = trackIds.first();
-    bool accepted = false;
-    // Prefilled with the current label so it can be edited rather than retyped,
-    // and clearing the box removes it.
-    const QString name = QInputDialog::getText(this,
-            tr("Display name"),
-            tr("Show this track in the Auto DJ list as:\n"
-               "(leave empty to show its real title again)"),
-            QLineEdit::Normal,
-            TrackLabelRegistry::instance().label(trackId),
-            &accepted);
-    if (!accepted) {
+
+    // Prefill with whatever the row shows right now: the label if there is one,
+    // otherwise the real title. Starting from the title means renaming a track
+    // for the first time is an edit ("add a prefix") rather than a retype.
+    const TrackPointer pTrack = getFirstTrackPointer();
+    const QString realTitle = pTrack ? pTrack->getTitle() : QString();
+    QString current = TrackLabelRegistry::instance().label(trackId);
+    if (current.isEmpty()) {
+        current = realTitle;
+    }
+
+    // Built by hand rather than via QInputDialog::getText() so the text can be
+    // preselected: typing or Delete replaces the whole name, while Home/End or
+    // an arrow key drops the selection to edit it in place. setTextValue()
+    // creates the line edit, so it can only be found after that call.
+    QInputDialog dialog(this);
+    dialog.setWindowTitle(tr("Display name"));
+    dialog.setLabelText(tr("Show this track in the Auto DJ list as:\n"
+                           "(leave empty to show its real title again)"));
+    dialog.setTextValue(current);
+    if (auto* pLineEdit = dialog.findChild<QLineEdit*>()) {
+        pLineEdit->selectAll();
+    }
+    if (dialog.exec() != QDialog::Accepted) {
         return;
+    }
+
+    QString name = dialog.textValue();
+    if (name == realTitle) {
+        // Accepting the prefilled title unchanged means "no custom name", not a
+        // label that happens to match. Storing it would pin the row to today's
+        // metadata and flip the menu to "Change display name...".
+        name.clear();
     }
     TrackLabelRegistry::instance().setLabel(trackId, name);
 }
