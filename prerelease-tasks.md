@@ -5,79 +5,30 @@ what has already been established, so nothing has to be re-derived.
 
 ---
 
-## 1. Windows settings directory is shared with stock Mixxx
+## 1. Windows settings directory is shared with stock Mixxx — FIXED
 
-**Status:** diagnosed but **not fixed**. Not a blocker for testing installers.
+Fixed in `5598b07d84`. Kept here as the record of what it was.
 
-TangoMode on Windows stores its settings, log and library database in
-`%LOCALAPPDATA%\Mixxx` — the same directory a stock Mixxx install uses. So the
-two share one `mixxxdb.sqlite` and `mixxx.cfg`, and take turns migrating the
-schema whenever their versions differ. macOS was fixed by branding the bundle
-(`d4348e74fe`); Windows still needs it.
+TangoMode stored its settings, log and database in `%LOCALAPPDATA%\Mixxx`, the
+same directory a stock Mixxx install uses, so the two shared one
+`mixxxdb.sqlite` and took turns migrating the schema.
 
-### Verified
+**Cause:** the pre-1.12.0 Windows migration in `versionUpgrade()`. On any first
+run (no `[Config]/Version` yet) it looked for
+`~/Local Settings/Application Data/Mixxx/mixxx.cfg`, adopted it, and redirected
+the whole settings path there. `Local Settings` is still a **junction** to
+`AppData\Local` on current Windows, so that "legacy" path resolves to
+`%LOCALAPPDATA%\Mixxx` — a stock Mixxx install. The strings look unrelated,
+which is why reading the code ruled it out twice.
 
-- **Reproducible.** Launch the build and watch `%LOCALAPPDATA%\Mixxx` receive
-  `soundconfig.xml` in real time while `%LOCALAPPDATA%\TangoMode` stays empty
-  (it exists, created 25 Jul, zero files).
-- **Not `MIXXX_SETTINGS_PATH`.** `build/src/config.h` shows it undefined on
-  Windows; CMakeLists only sets it for `UNIX AND NOT APPLE`.
-- **Not the macOS migration.** `setSettingsPath(Sandbox::migrateOldSettings())`
-  is inside `#ifdef Q_OS_MACOS`.
-- **Not `CmdlineArgs`' constructor default.** Its `#else` branch was changed to
-  build the path explicitly from `VersionStore::applicationName()`; the object
-  recompiled and the app still wrote to `Mixxx`. The change was reverted rather
-  than left in.
-- `VersionStore::applicationName()` **does** return `"TangoMode"`
-  (`versionstore.cpp:38`), and `main.cpp:207` passes it to
-  `setApplicationName()` before `CmdlineArgs::Instance()` at `:211`. Note
-  `MixxxApplication` is not constructed until `:231`, so all of this happens
-  with no `QCoreApplication` in existence — `CmdlineArgs::parse()` even asserts
-  that (`DEBUG_ASSERT(!QCoreApplication::instance())`).
+**Fix:** both legacy migrations removed, macOS pre-1.9.0 as well as Windows
+pre-1.12.0. In a fork they can only adopt *upstream's* settings, since TangoMode
+has never had an install of its own that old.
 
-### Step zero — the reproduction is now two-way
-
-Renaming `%LOCALAPPDATA%\Mixxx` aside and relaunching **created
-`%LOCALAPPDATA%\TangoMode`**. So the path logic is capable of producing the right
-answer; an existing `Mixxx` directory somehow wins over it. Renaming the folder
-back should restore the wrong behaviour, giving a clean A/B to instrument
-against.
-
-**This is not the all-clear it looks like.** That `Mixxx` folder came from this
-machine's own pre-rename TangoMode builds — but a user who has never run
-TangoMode and simply has **stock Mixxx installed** has the same folder. If the
-mechanism keys on the directory existing, that user gets the shared settings and
-database this task exists to prevent. The experiment cannot distinguish the two,
-so it does not close the question.
-
-Already ruled out: `upgrade.cpp` has exactly two `setSettingsPath()` redirects,
-`~/.mixxx/` (macOS, pre-1.9) and `~/Local Settings/Application Data/Mixxx/`
-(Windows, pre-1.12). Neither is `%LOCALAPPDATA%\Mixxx`.
-
-### Next step — instrument, do not guess
-
-Two wrong hypotheses have already cost time here. Print the path at each stage
-and read the log rather than reasoning about it:
-
-1. `CmdlineArgs`' constructor — what it computes
-2. `CmdlineArgs::getSettingsPath()` — what it returns when `CoreServices` asks
-   (`coreservices.cpp:425`)
-3. what `SettingsManager` receives
-4. what `Upgrade::versionUpgrade(settingsPath)` returns — the current prime
-   suspect, since upgrade logic is exactly the kind of code that relocates
-   settings between versions
-
-One build-and-launch cycle should settle it.
-
-### When fixing
-
-Whatever the cause, prefer deriving the directory from
-`VersionStore::applicationName()` over relying on `QStandardPaths`' implicit
-naming, which is evidently sensitive to initialisation order.
-
-**Consequence to accept:** existing Windows users' settings stay behind in
-`Mixxx` and they start fresh in `TangoMode` — the same trade-off already taken
-on macOS, and much cheaper before there are users.
+**Lesson worth keeping:** two hypotheses were formed by reading and both were
+wrong; instrumenting the four stages between `CmdlineArgs` and `SettingsManager`
+found it in one run. Write to a fixed file, not `qDebug()` — Mixxx's logging is
+initialised from the very path under investigation.
 
 ---
 
