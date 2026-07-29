@@ -322,55 +322,30 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     QString configVersion = config->getValueString(ConfigKey("[Config]","Version"));
 
     if (configVersion.isEmpty()) {
-
-#ifdef __APPLE__
-        qDebug() << "Config version is empty, trying to read pre-1.9.0 config";
-        // Try to read the config from the pre-1.9.0 final directory on OS X (we moved it in 1.9.0 final)
-        QScopedPointer<QFile> oldConfigFile(new QFile(QDir::homePath().append("/").append(".mixxx/mixxx.cfg")));
-        if (oldConfigFile->exists() && ! CmdlineArgs::Instance().getSettingsPathSet()) {
-            qDebug() << "Found pre-1.9.0 config for OS X";
-            // Note: We changed MIXXX_SETTINGS_PATH in 1.9.0 final on OS X so
-            // it must be hardcoded to ".mixxx" here for legacy.
-            config = UserSettingsPointer(new ConfigObject<ConfigValue>(
-                QDir::homePath().append("/.mixxx/mixxx.cfg")));
-            // Just to be sure all files like logs and soundconfig go with mixxx.cfg
-            // TODO(XXX) Trailing slash not needed anymore as we switches from String::append
-            // to QDir::filePath elsewhere in the code. This is candidate for removal.
-            CmdlineArgs::Instance().setSettingsPath(QDir::homePath().append("/.mixxx/"));
-            configVersion = config->getValueString(ConfigKey("[Config]","Version"));
-        }
-        else {
-#elif defined(__WINDOWS__)
-        qDebug() << "Config version is empty, trying to read pre-1.12.0 config";
-        // Try to read the config from the pre-1.12.0 final directory on Windows (we moved it in 1.12.0 final)
-        QScopedPointer<QFile> oldConfigFile(new QFile(QDir::homePath().append("/Local Settings/Application Data/Mixxx/mixxx.cfg")));
-        if (oldConfigFile->exists() && ! CmdlineArgs::Instance().getSettingsPathSet()) {
-            qDebug() << "Found pre-1.12.0 config for Windows";
-            // Note: We changed MIXXX_SETTINGS_PATH in 1.12.0 final on Windows
-            // so it must be hardcoded to "Local Settings/Application
-            // Data/Mixxx/" here for legacy.
-            config = UserSettingsPointer(new ConfigObject<ConfigValue>(
-                QDir::homePath().append("/Local Settings/Application Data/Mixxx/mixxx.cfg")));
-            // Just to be sure all files like logs and soundconfig go with mixxx.cfg
-            // TODO(XXX) Trailing slash not needed anymore as we switches from String::append
-            // to QDir::filePath elsewhere in the code. This is candidate for removal.
-            CmdlineArgs::Instance().setSettingsPath(QDir::homePath().append("/Local Settings/Application Data/Mixxx/"));
-            configVersion = config->getValueString(ConfigKey("[Config]","Version"));
-        }
-        else {
-#endif
-            // This must have been the first run... right? :)
-            qDebug() << "No version number in configuration file. Setting to"
-                     << VersionStore::version();
-            config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
-            applyFirstRunDefaults(config);
-            m_bFirstRun = true;
-            return config;
-#ifdef __APPLE__
-        }
-#elif defined(__WINDOWS__)
-        }
-#endif
+        // TangoMode fork: upstream adopts settings here from two pre-move
+        // locations - ~/.mixxx on macOS (pre-1.9.0) and
+        // ~/Local Settings/Application Data/Mixxx on Windows (pre-1.12.0) -
+        // reading their mixxx.cfg and then redirecting the whole settings path
+        // there. Both are removed, because in a fork they can only ever adopt
+        // *upstream Mixxx's* settings: this application has never had a
+        // pre-1.9.0 or pre-1.12.0 install of its own to migrate from.
+        //
+        // On Windows this was not theoretical. "Local Settings" is still a
+        // junction to AppData\Local on current Windows, so that "legacy" path
+        // resolves to %LOCALAPPDATA%\Mixxx - which is where a *stock Mixxx*
+        // install keeps its data. Any machine with Mixxx installed handed
+        // TangoMode its mixxx.cfg on first run, and from then on both
+        // applications shared one settings directory and one mixxxdb.sqlite,
+        // taking turns migrating the schema. The two paths look unrelated as
+        // strings, which is what made this hard to spot.
+        //
+        // This must have been the first run... right? :)
+        qDebug() << "No version number in configuration file. Setting to"
+                 << VersionStore::version();
+        config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
+        applyFirstRunDefaults(config);
+        m_bFirstRun = true;
+        return config;
     }
 
     config->set(ConfigKey("[Waveform]", "VSync"),
