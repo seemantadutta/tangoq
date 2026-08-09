@@ -992,6 +992,18 @@ void Tooltips::addStandardTooltips() {
             << quantizeSnap
             << QString("%1: %2").arg(rightClick, tr("If marker is set, clears the marker."));
 
+    // Tango DJ mode start point. Deliberately not reusing the "intro_start"
+    // tooltip: that one describes jumping to the marker, which is the opposite
+    // of what this button does.
+    add("tango_set_start")
+            << tr("Start Point")
+            << tr("Marks where this track should start playing, for example "
+                  "after a spoken introduction or a cortina's lead-in.")
+            << QString("%1: %2").arg(leftClick,
+                       tr("Sets the start point at the current play position."))
+            << QString("%1: %2").arg(rightClick, tr("Clears the start point."))
+            << tr("The point is placed exactly, ignoring quantization.");
+
     // Effect Unit Controls
     add("EffectUnit_clear")
             << tr("Clear Unit")

@@ -11,6 +11,8 @@ class CueControlTest : public BaseSignalPathTest {
         m_pIntroStartPosition = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_position");
         m_pIntroStartEnabled = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_enabled");
         m_pIntroStartSet = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set");
+        m_pIntroStartSetExact =
+                std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set_exact");
         m_pIntroStartClear = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_clear");
         m_pIntroEndPosition = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_position");
         m_pIntroEndEnabled = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_enabled");
@@ -65,6 +67,7 @@ class CueControlTest : public BaseSignalPathTest {
     std::unique_ptr<ControlProxy> m_pIntroStartPosition;
     std::unique_ptr<ControlProxy> m_pIntroStartEnabled;
     std::unique_ptr<ControlProxy> m_pIntroStartSet;
+    std::unique_ptr<ControlProxy> m_pIntroStartSetExact;
     std::unique_ptr<ControlProxy> m_pIntroStartClear;
     std::unique_ptr<ControlProxy> m_pIntroEndPosition;
     std::unique_ptr<ControlProxy> m_pIntroEndEnabled;
@@ -224,6 +227,65 @@ TEST_F(CueControlTest, LoadAutodetectedCues_QuantizeEnabled) {
     EXPECT_FRAMEPOS_EQ_CONTROL(kQuantizedIntroEndPosition, m_pIntroEndPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(kQuantizedOutroStartPosition, m_pOutroStartPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(kQuantizedOutroEndPosition, m_pOutroEndPosition);
+}
+
+// Tango DJ mode places a start point where the music actually begins - after a
+// spoken announcement, say. The beatgrid over such an intro is unreliable, so
+// snapping the point to it would move it away from where the DJ put it. These
+// two tests pin the difference between the stock control and the Tango one.
+TEST_F(CueControlTest, IntroStartSetExact_DoesNotSnapToBeatgrid) {
+    m_pQuantizeEnabled->set(1);
+
+    TrackPointer pTrack = createTestTrack();
+    pTrack->trySetBpm(120.0);
+    loadTrack(pTrack);
+
+    const double beatLengthFrames = 60.0 * pTrack->getSampleRate() / pTrack->getBpm();
+    const auto offBeatPosition = mixxx::audio::FramePos(2.1 * beatLengthFrames);
+    const auto snappedPosition = mixxx::audio::FramePos(2.0 * beatLengthFrames);
+
+    // The stock control snaps the stored cue to the closest beat.
+    setCurrentFramePos(offBeatPosition);
+    m_pIntroStartSet->set(1);
+    m_pIntroStartSet->set(0);
+    auto pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_TRUE(pCue != nullptr);
+    EXPECT_FRAMEPOS_EQ(snappedPosition, pCue->getPosition());
+
+    // The Tango control stores exactly where the playhead was. Note the
+    // *ControlObject* is still quantized on the way out by loadCuesFromTrack(),
+    // so this asserts on the track's cue - the value that persists. Tango turns
+    // quantize off, which is what makes the exact value visible downstream; the
+    // companion test below covers that path.
+    m_pIntroStartClear->set(1);
+    m_pIntroStartClear->set(0);
+    setCurrentFramePos(offBeatPosition);
+    m_pIntroStartSetExact->set(1);
+    m_pIntroStartSetExact->set(0);
+    pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_TRUE(pCue != nullptr);
+    EXPECT_FRAMEPOS_EQ(offBeatPosition, pCue->getPosition());
+}
+
+TEST_F(CueControlTest, IntroStartSetExact_QuantizeDisabledReachesTheControl) {
+    // This is the path Tango actually runs: quantize is forced off, so the
+    // exact position survives all the way to intro_start_position, which is what
+    // the waveform marker and the Auto DJ transition code both read.
+    m_pQuantizeEnabled->set(0);
+
+    TrackPointer pTrack = createTestTrack();
+    pTrack->trySetBpm(120.0);
+    loadTrack(pTrack);
+
+    const double beatLengthFrames = 60.0 * pTrack->getSampleRate() / pTrack->getBpm();
+    const auto offBeatPosition = mixxx::audio::FramePos(2.1 * beatLengthFrames);
+
+    setCurrentFramePos(offBeatPosition);
+    m_pIntroStartSetExact->set(1);
+    m_pIntroStartSetExact->set(0);
+
+    EXPECT_FRAMEPOS_EQ_CONTROL(offBeatPosition, m_pIntroStartPosition);
+    EXPECT_TRUE(m_pIntroStartEnabled->toBool());
 }
 
 TEST_F(CueControlTest, LoadAutodetectedCues_QuantizeEnabledNoBeats) {

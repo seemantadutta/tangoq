@@ -17,6 +17,25 @@
             <Layout>vertical</Layout>
             <SizePolicy>max,min</SizePolicy>
             <Children>
+              <!-- Tango DJ mode replaces this whole row. Cue and Reverse have no
+                   part in a milonga set - the deck is driven by Auto DJ - and the
+                   start point is what the DJ actually reaches for, so it takes
+                   the slot directly above Play/Pause. 68px matches the Play
+                   button below (Cue 42 + Reverse 26). -->
+              <WidgetGroup><!-- Tango DJ mode: Set Start -->
+                <Layout>horizontal</Layout>
+                <SizePolicy>max,min</SizePolicy>
+                <Children>
+                  <Template src="skins:LateNight/controls/button_tango_set_start.xml">
+                    <SetVariable name="Size">68f,26f</SetVariable>
+                  </Template>
+                </Children>
+                <Connection>
+                  <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
+              </WidgetGroup><!-- / Tango DJ mode: Set Start -->
+
               <WidgetGroup><!-- Reverse | Cue -->
                 <Layout>horizontal</Layout>
                 <Children>
@@ -65,6 +84,10 @@
                   </Template>
 
                 </Children>
+                <Connection>
+                  <ConfigKey>[AutoDJ],keep_queue_off</ConfigKey>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
               </WidgetGroup><!-- Reverse | Cue -->
 
               <WidgetGroup><!-- Play + PlayBlink + default dark background -->
@@ -182,6 +205,17 @@
           <WidgetGroup><Size>2f,0min</Size></WidgetGroup><!--  = 2-8px wide -->
           <WidgetGroup><SizePolicy>i,min</SizePolicy><MaximumSize>8,</MaximumSize></WidgetGroup>
 
+          <!-- The stock intro/outro cue buttons are hidden in Tango mode, where
+               the "Set Start" button in the transport cluster replaces them. Two
+               <Connection> blocks binding the same property would fight rather
+               than AND - each writes the property from its own control, last
+               writer wins - so the AND comes from nesting: a hidden parent hides
+               its children, and the inner group keeps its own
+               show_intro_outro_cues connection untouched. -->
+          <WidgetGroup><!-- not in Tango mode -->
+            <Layout>horizontal</Layout>
+            <SizePolicy>max,min</SizePolicy>
+            <Children>
           <WidgetGroup><!-- Intro + Outro -->
             <Layout>vertical</Layout>
             <SizePolicy>me,min</SizePolicy>
@@ -221,6 +255,13 @@
               <BindProperty>visible</BindProperty>
             </Connection>
           </WidgetGroup><!-- / Intro + Outro -->
+            </Children>
+            <Connection>
+              <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+          </WidgetGroup><!-- / not in Tango mode -->
 
           <WidgetGroup><Size>2f,0min</Size></WidgetGroup><!--  = 2-8px wide -->
           <WidgetGroup><SizePolicy>i,min</SizePolicy><MaximumSize>80,</MaximumSize></WidgetGroup>

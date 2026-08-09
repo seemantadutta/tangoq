@@ -37,6 +37,10 @@
     <Mark>
       <Control>cue_point</Control>
       <Text>C</Text>
+      <!-- Hidden in Tango DJ mode: "S" is the only start marker that matters
+           there, and showing C beside it invites the DJ to wonder which one the
+           transition will use. -->
+      <VisibilityControl>[AutoDJ],keep_queue_off</VisibilityControl>
       <Align>top|right</Align>
       <Color><Variable name="CueColor"/></Color>
       <TextColor>#FFFFFF</TextColor>
@@ -89,6 +93,16 @@
       <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
       <Text>&#9698;</Text>
       <Align>top|left</Align>
+      <Color><Variable name="IntroOutroColor"/></Color>
+      <TextColor>#FFFFFF</TextColor>
+    </Mark>
+    <!-- Tango DJ mode start point; see waveform.xml for why this binds to the
+         tango_start_position mirror rather than intro_start_position. -->
+    <Mark>
+      <Control>tango_start_position</Control>
+      <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+      <Text>S</Text>
+      <Align>top|right</Align>
       <Color><Variable name="IntroOutroColor"/></Color>
       <TextColor>#FFFFFF</TextColor>
     </Mark>

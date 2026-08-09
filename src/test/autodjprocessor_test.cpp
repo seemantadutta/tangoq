@@ -369,6 +369,27 @@ TEST_F(AutoDJProcessorTest, PauseAfter_MarkAppliesToACortinaLikeAnyOtherRow) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
+// [AutoDJ],keep_queue_off exists so skins can hide things *while* Tango mode is
+// on - a waveform <VisibilityControl> takes a single bare ConfigKey and cannot
+// negate. It is only useful if it tracks keep_queue exactly, and a skin that
+// reads a stale value fails silently (the marker just keeps drawing), so pin it.
+TEST_F(AutoDJProcessorTest, TangoMode_KeepQueueOffIsTheInverseOfKeepQueue) {
+    auto keepQueue = std::make_unique<ControlProxy>("[AutoDJ]", "keep_queue");
+    auto keepQueueOff = std::make_unique<ControlProxy>("[AutoDJ]", "keep_queue_off");
+
+    // The mirror must exist; a ControlProxy to a missing control would read 0
+    // and silently mean "Tango is on", hiding the main cue marker for ever.
+    ASSERT_TRUE(keepQueueOff->valid());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    EXPECT_TRUE(keepQueue->toBool());
+    EXPECT_FALSE(keepQueueOff->toBool());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+    EXPECT_FALSE(keepQueue->toBool());
+    EXPECT_TRUE(keepQueueOff->toBool());
+}
+
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
     // stop has to pre-empt the transition: waiting for the track to end would be

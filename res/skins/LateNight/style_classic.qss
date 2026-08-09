@@ -1286,6 +1286,19 @@ WPushButton#VinylStatus[displayValue="0"], /* off */
   color: #d2d2d1;
   }
 
+/* Tango DJ mode "Set Start". Every other label in the transport row is an SVG
+   glyph (see btn__cue_deck.svg), so a Qt-rendered text label needs the glyph's
+   colour and weight applied explicitly or it reads as low-contrast next to them.
+   Both states get the same colour deliberately: the intro cue is auto-created at
+   first sound by AnalyzerSilence, so "set" is true for nearly every analysed
+   track and colouring it would just be noise. */
+WPushButton#TangoSetStart,
+WPushButton#TangoSetStart[displayValue="0"],
+WPushButton#TangoSetStart[displayValue="1"] {
+  color: #d2d2d1;
+  font-weight: bold;
+  }
+
 WPushButton#VinylStatus[displayValue="1"], /* enabled (green bg) */
 WPushButton#VinylStatus[displayValue="2"], /* end of record (blinking yellow bg) */
 WPushButton#VinylStatus[displayValue="3"], /* needle skip detected (pink bg) */

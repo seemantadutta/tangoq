@@ -148,11 +148,15 @@ void CueControl::createControls() {
 
     m_pIntroStartPosition = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_position"));
-    m_pIntroStartPosition->set(Cue::kNoPosition);
+    m_pTangoStartPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_start_position"));
+    setIntroStartPositionValue(Cue::kNoPosition);
     m_pIntroStartEnabled = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_enabled"));
     m_pIntroStartEnabled->setReadOnly();
     m_pIntroStartSet = std::make_unique<ControlPushButton>(ConfigKey(m_group, "intro_start_set"));
+    m_pIntroStartSetExact = std::make_unique<ControlPushButton>(
+            ConfigKey(m_group, "intro_start_set_exact"));
     m_pIntroStartClear = std::make_unique<ControlPushButton>(
             ConfigKey(m_group, "intro_start_clear"));
     m_pIntroStartActivate = std::make_unique<ControlPushButton>(
@@ -260,6 +264,11 @@ void CueControl::connectControls() {
             &ControlObject::valueChanged,
             this,
             &CueControl::introStartSet,
+            Qt::DirectConnection);
+    connect(m_pIntroStartSetExact.get(),
+            &ControlObject::valueChanged,
+            this,
+            &CueControl::introStartSetExact,
             Qt::DirectConnection);
     connect(m_pIntroStartClear.get(),
             &ControlObject::valueChanged,
@@ -478,7 +487,7 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
 
         m_pCueIndicator->setBlinkValue(ControlIndicator::OFF);
         m_pCuePoint->set(Cue::kNoPosition);
-        m_pIntroStartPosition->set(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -694,12 +703,12 @@ void CueControl::loadCuesFromTrack() {
         const auto startPosition = quantizeCuePoint(pIntroCue->getPosition());
         const auto endPosition = quantizeCuePoint(pIntroCue->getEndPosition());
 
-        m_pIntroStartPosition->set(startPosition.toEngineSamplePosMaybeInvalid());
+        setIntroStartPositionValue(startPosition.toEngineSamplePosMaybeInvalid());
         m_pIntroStartEnabled->forceSet(startPosition.isValid());
         m_pIntroEndPosition->set(endPosition.toEngineSamplePosMaybeInvalid());
         m_pIntroEndEnabled->forceSet(endPosition.isValid());
     } else {
-        m_pIntroStartPosition->set(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -1606,10 +1615,26 @@ void CueControl::introStartSet(double value) {
     if (value <= 0) {
         return;
     }
+    introStartSetInternal(true);
+}
 
+void CueControl::introStartSetExact(double value) {
+    if (value <= 0) {
+        return;
+    }
+    introStartSetInternal(false);
+}
+
+void CueControl::setIntroStartPositionValue(double engineSamplePos) {
+    m_pIntroStartPosition->set(engineSamplePos);
+    m_pTangoStartPosition->set(engineSamplePos);
+}
+
+void CueControl::introStartSetInternal(bool quantize) {
     auto lock = lockMutex(&m_trackMutex);
 
-    const mixxx::audio::FramePos position = getQuantizedCurrentPosition();
+    const mixxx::audio::FramePos position =
+            quantize ? getQuantizedCurrentPosition() : frameInfo().currentPosition;
     if (!position.isValid()) {
         return;
     }

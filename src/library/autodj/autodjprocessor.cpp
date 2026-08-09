@@ -162,6 +162,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_fadeNow(ConfigKey(kControlGroup, QStringLiteral("fade_now"))),
           m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
           m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))),
+          m_keepQueueOff(ConfigKey(kControlGroup, QStringLiteral("keep_queue_off"))),
           m_pauseAfterDeck(ConfigKey(kControlGroup, QStringLiteral("pause_after_deck"))),
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
@@ -264,6 +265,7 @@ AutoDJProcessor::AutoDJProcessor(
                             ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")))
                     ? 1.0
                     : 0.0);
+    m_keepQueueOff.set(m_keepQueue.toBool() ? 0.0 : 1.0);
     connect(&m_keepQueue,
             &ControlObject::valueChanged,
             this,
@@ -1950,6 +1952,8 @@ void AutoDJProcessor::controlKeepQueue(double value) {
     // Persist the live Tango DJ mode control to the user setting.
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
             value > 0.0);
+    // Kept in lockstep here so skins never see the two disagree.
+    m_keepQueueOff.set(value > 0.0 ? 0.0 : 1.0);
     // Leaving Tango mode has to clear the deck warning with everything else.
     updatePauseAfterDeckControl();
 }
@@ -1965,7 +1969,15 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
         m_keepQueue.setAndConfirm(m_keepQueue.get());
         return;
     }
-    m_keepQueue.setAndConfirm(value > 0.0 ? 1.0 : 0.0);
+    const bool enabled = value > 0.0;
+    m_keepQueue.setAndConfirm(enabled ? 1.0 : 0.0);
+    // The mirror has to be updated here, not only in controlKeepQueue(): a
+    // ControlObject does not emit valueChanged for a change it made itself, so
+    // setAndConfirm() above never reaches that slot. Every route into Tango mode
+    // - keyboard shortcut, controller, preferences checkbox - arrives as a change
+    // *request* and lands here, so this is the path that actually runs.
+    m_keepQueueOff.set(enabled ? 0.0 : 1.0);
+    m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")), enabled);
 }
 
 void AutoDJProcessor::controlCortinaLength(double value) {

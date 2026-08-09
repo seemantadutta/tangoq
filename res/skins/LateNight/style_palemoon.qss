@@ -1445,6 +1445,15 @@ WEffectChainPresetSelector QAbstractScrollArea,
   color: #777;
 }
 
+/* Tango DJ mode "Set Start" - see style_classic.qss for why a text label in this
+   row needs its colour and weight set explicitly. */
+WPushButton#TangoSetStart,
+WPushButton#TangoSetStart[displayValue="0"],
+WPushButton#TangoSetStart[displayValue="1"] {
+  color: #d2d2d1;
+  font-weight: bold;
+}
+
 /* Darker grey for knob labels & inactive decks/units */
 #KnobLabel,
 #FxKnobLabel,

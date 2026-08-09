@@ -57,12 +57,27 @@ Description:
         </Children>
       </WidgetGroup><!-- 4/8 Hotcues -->
 
-      <!-- Intro & Outro cues -->
-      <Template src="skins:LateNight/helpers/skin_settings_button_2state.xml">
-        <SetVariable name="TooltipId">show_intro_outro_cues</SetVariable>
-        <SetVariable name="Text">Intro &amp; Outro Cues</SetVariable>
-        <SetVariable name="Setting">[Skin],show_intro_outro_cues</SetVariable>
-      </Template>
+      <!-- Intro & Outro cues - hidden in Tango DJ mode, where the deck's
+           "Set Start" button replaces the group of four. Hiding the entry as
+           well as the buttons means a Tango DJ is never left with the buttons
+           showing and no way to turn them off. The setting's value is never
+           written, so leaving Tango restores whatever the DJ had. -->
+      <WidgetGroup>
+        <SizePolicy>me,min</SizePolicy>
+        <Layout>vertical</Layout>
+        <Children>
+          <Template src="skins:LateNight/helpers/skin_settings_button_2state.xml">
+            <SetVariable name="TooltipId">show_intro_outro_cues</SetVariable>
+            <SetVariable name="Text">Intro &amp; Outro Cues</SetVariable>
+            <SetVariable name="Setting">[Skin],show_intro_outro_cues</SetVariable>
+          </Template>
+        </Children>
+        <Connection>
+          <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+          <Transform><Not/></Transform>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </WidgetGroup>
 
       <!-- Loop Controls -->
       <Template src="skins:LateNight/helpers/skin_settings_button_2state.xml">

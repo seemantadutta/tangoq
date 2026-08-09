@@ -521,6 +521,12 @@ class AutoDJProcessor : public QObject {
     // A toggle rather than a plain control so a keyboard shortcut or controller
     // button flips it on the rising edge, the way [AutoDJ],enabled works.
     ControlPushButton m_keepQueue;
+    // The inverse of m_keepQueue, kept in lockstep with it. Exists purely so
+    // skins can hide things *while* Tango mode is on: a waveform
+    // <VisibilityControl> takes a single bare ConfigKey with no transform, so it
+    // cannot express "not Tango" on its own. Used to drop the main cue marker in
+    // Tango, where the start-point marker is the only one that should show.
+    ControlObject m_keepQueueOff;
     // Index (1-based) of the deck holding a track marked "pause after", 0 for
     // none. Read by the deck's title widget, which cannot resolve a positional
     // mark by itself.

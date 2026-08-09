@@ -254,6 +254,12 @@ class CueControl : public EngineControl {
     void playStutter(double v);
 
     void introStartSet(double v);
+    // Tango DJ mode: place the intro start cue at the exact play position,
+    // ignoring quantize. A tango start point marks where the music actually
+    // begins - after a spoken announcement, say - and the beatgrid over such an
+    // intro is often unreliable, so snapping to it would move the point away
+    // from where the DJ put it.
+    void introStartSetExact(double v);
     void introStartClear(double v);
     void introStartActivate(double v);
     void introEndSet(double v);
@@ -284,6 +290,12 @@ class CueControl : public EngineControl {
     void loadCuesFromTrack();
     mixxx::audio::FramePos quantizeCuePoint(mixxx::audio::FramePos position);
     mixxx::audio::FramePos getQuantizedCurrentPosition();
+    // Shared body of introStartSet()/introStartSetExact(); the two differ only
+    // in whether the play position is snapped to the beatgrid.
+    void introStartSetInternal(bool quantize);
+    // The only place intro_start_position is written, so its Tango mirror
+    // cannot drift away from it. See m_pTangoStartPosition.
+    void setIntroStartPositionValue(double engineSamplePos);
     TrackAt getTrackAt() const;
     void seekOnLoad(mixxx::audio::FramePos seekOnLoadPosition);
     void setHotcueFocusIndex(int hotcueIndex);
@@ -326,8 +338,14 @@ class CueControl : public EngineControl {
     std::unique_ptr<ControlPushButton> m_pCuePreview;
 
     std::unique_ptr<ControlObject> m_pIntroStartPosition;
+    // Mirrors m_pIntroStartPosition, purely so Tango DJ mode can draw its own
+    // "S" start marker. A skin can only bind one waveform Mark per control -
+    // WaveformMarkSet silently drops a second definition of the same item - so
+    // a Tango-gated marker on intro_start_position would never be rendered.
+    std::unique_ptr<ControlObject> m_pTangoStartPosition;
     std::unique_ptr<ControlObject> m_pIntroStartEnabled;
     std::unique_ptr<ControlPushButton> m_pIntroStartSet;
+    std::unique_ptr<ControlPushButton> m_pIntroStartSetExact;
     std::unique_ptr<ControlPushButton> m_pIntroStartClear;
     std::unique_ptr<ControlPushButton> m_pIntroStartActivate;
 
