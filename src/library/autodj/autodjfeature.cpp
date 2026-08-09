@@ -62,6 +62,8 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_showAutoDJDockControl(ConfigKey(
                   QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_dock"))),
           m_pTangoModeControl(nullptr),
+          m_tangoModeEnabled(false),
+          m_restoreAutoDJDockOnTangoMode(false),
           m_autoDjCratesDao(m_iAutoDJPlaylistId, pLibrary->trackCollectionManager(), m_pConfig) {
     qRegisterMetaType<AutoDJProcessor::AutoDJState>("AutoDJState");
     m_pAutoDJProcessor = new AutoDJProcessor(this,
@@ -94,6 +96,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             this);
     m_pTangoModeControl->connectValueChanged(
             this, &AutoDJFeature::slotTangoModeChanged);
+    m_tangoModeEnabled = m_pTangoModeControl->toBool();
 
     // Create the "Crates" tree-item under the root item.
     std::unique_ptr<TreeItem> pRootItem = TreeItem::newRoot(this);
@@ -228,7 +231,7 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
 }
 
 bool AutoDJFeature::tangoModeEnabled() const {
-    return m_pTangoModeControl && m_pTangoModeControl->toBool();
+    return m_tangoModeEnabled;
 }
 
 void AutoDJFeature::slotShowAutoDJDockChanged(double value) {
@@ -240,13 +243,27 @@ void AutoDJFeature::slotShowAutoDJDockChanged(double value) {
 }
 
 void AutoDJFeature::slotTangoModeChanged(double value) {
-    // Leaving Tango mode hides the queue panel and clears the toggle so the View
-    // menu unchecks (and is greyed out by the menu's own Tango gate).
-    if (value <= 0.0) {
-        m_showAutoDJDockControl.set(0.0);
-        if (m_pAutoDJDock) {
-            m_pAutoDJDock->hide();
+    m_tangoModeEnabled = value > 0.0;
+
+    if (m_tangoModeEnabled) {
+        if (m_restoreAutoDJDockOnTangoMode) {
+            m_restoreAutoDJDockOnTangoMode = false;
+            m_showAutoDJDockControl.set(1.0);
+            if (m_pAutoDJDock) {
+                m_pAutoDJDock->show();
+            }
         }
+        return;
+    }
+
+    // Leaving Tango mode hides the queue panel and clears the toggle so the View
+    // menu unchecks while hidden by the menu's own Tango gate. Remember whether
+    // this forced hide closed an open panel so Tango mode can restore it later.
+    m_restoreAutoDJDockOnTangoMode = m_showAutoDJDockControl.toBool() ||
+            (m_pAutoDJDock && m_pAutoDJDock->isVisible());
+    m_showAutoDJDockControl.set(0.0);
+    if (m_pAutoDJDock) {
+        m_pAutoDJDock->hide();
     }
 }
 

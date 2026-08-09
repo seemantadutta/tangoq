@@ -94,6 +94,12 @@ class AutoDJFeature : public LibraryFeature {
     QString libraryStyleSheet() const;
     // True while Tango mode ([AutoDJ],keep_queue) is engaged.
     bool tangoModeEnabled() const;
+    // Cached Tango-mode state. This avoids re-querying the keep_queue proxy
+    // while its own valueChanged signal is still being processed.
+    bool m_tangoModeEnabled;
+    // True when Tango mode forced the Auto DJ side panel closed and it should
+    // be restored the next time Tango mode is enabled.
+    bool m_restoreAutoDJDockOnTangoMode;
 
     // Initialize the list of crates loaded into the auto-DJ queue.
     void constructCrateChildModel();
