@@ -44,6 +44,7 @@
 #include "preferences/configobject.h"
 #include "preferences/dialog/dlgprefdeck.h"
 #include "sources/soundsourceproxy.h"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/defs.h"
 #include "util/desktophelper.h"
@@ -2452,10 +2453,13 @@ void WTrackMenu::applyStartPointSeconds(double seconds) {
     if (pCue) {
         pCue->setStartPosition(position);
     } else {
-        pTrack->createAndAddCue(mixxx::CueType::Intro,
+        pCue = pTrack->createAndAddCue(mixxx::CueType::Intro,
                 Cue::kNoHotCue,
                 position,
                 mixxx::audio::kInvalidFramePos);
+    }
+    if (pCue) {
+        pCue->setLabel(mixxx::tango::authoredStartCueLabel());
     }
     m_pLibrary->trackCollectionManager()->saveTrack(pTrack);
     // No explicit deck refresh needed: the change reaches Track::cuesUpdated(),

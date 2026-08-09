@@ -6,6 +6,7 @@
 #include "engine/enginebuffer.h"
 #include "moc_cuecontrol.cpp"
 #include "preferences/colorpalettesettings.h"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/color/predefinedcolorpalettes.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
@@ -1674,13 +1675,16 @@ void CueControl::introStartReset(double value) {
     if (pLoadedTrack) {
         CuePointer pCue = pLoadedTrack->findCueByType(mixxx::CueType::Intro);
         if (!pCue) {
-            pLoadedTrack->createAndAddCue(
+            pCue = pLoadedTrack->createAndAddCue(
                     mixxx::CueType::Intro,
                     Cue::kNoHotCue,
                     mixxx::audio::kStartFramePos,
                     introEnd);
         } else {
             pCue->setStartAndEndPosition(mixxx::audio::kStartFramePos, introEnd);
+        }
+        if (pCue) {
+            pCue->setLabel(mixxx::tango::authoredStartCueLabel());
         }
     }
 }
@@ -1738,6 +1742,9 @@ void CueControl::introStartSetInternal(bool quantize) {
         } else {
             pCue->setStartAndEndPosition(position, introEnd);
         }
+        if (pCue) {
+            pCue->setLabel(mixxx::tango::authoredStartCueLabel());
+        }
     }
 }
 
@@ -1764,6 +1771,7 @@ void CueControl::introStartClear(double value) {
             // first audible sample whenever one is missing, which would make a
             // user-cleared Tango start marker reappear after reload/reanalysis.
             pCue->setStartAndEndPosition(mixxx::audio::kInvalidFramePos, introEndPosition);
+            pCue->setLabel(QString());
         }
     }
 }

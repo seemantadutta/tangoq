@@ -24,6 +24,7 @@
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_basetracktablemodel.cpp"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/assert.h"
 #include "util/clipboard.h"
@@ -614,6 +615,13 @@ QString BaseTrackTableModel::tangoStartTimeMark(const QModelIndex& index) const 
     const auto startPosition = pStartCue->getPosition();
     if (!startPosition.isValid()) {
         return QString();
+    }
+    if (mixxx::tango::isAuthoredStartCueLabel(pStartCue->getLabel())) {
+        const auto sampleRate = pTrack->getSampleRate();
+        if (!sampleRate.isValid()) {
+            return QString();
+        }
+        return formatTangoStartTime(startPosition.value() / sampleRate);
     }
 
     const CuePointer pFirstSoundCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);

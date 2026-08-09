@@ -1,6 +1,7 @@
 #include "analyzer/analyzersilence.h"
 #include "engine/controls/cuecontrol.h"
 #include "test/signalpathtest.h"
+#include "track/tangostartcue.h"
 
 class CueControlTest : public BaseSignalPathTest {
   protected:
@@ -701,6 +702,7 @@ TEST_F(CueControlTest, IntroCue_ResetStartSetsStartToBeginning) {
     CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
     ASSERT_NE(nullptr, pCue);
     EXPECT_FRAMEPOS_EQ(mixxx::audio::kStartFramePos, pCue->getPosition());
+    EXPECT_EQ(mixxx::tango::authoredStartCueLabel(), pCue->getLabel());
 }
 
 TEST_F(CueControlTest, OutroCue_SetStartEnd_ClearStartEnd) {
