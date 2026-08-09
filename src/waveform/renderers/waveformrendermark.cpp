@@ -29,6 +29,11 @@ void WaveformRenderMark::draw(QPainter* painter, QPaintEvent* /*event*/) {
     painter->setWorldMatrixEnabled(false);
 
     for (const auto& pMark : std::as_const(m_marks)) {
+        // Honour <VisibilityControl>; see the allshader renderer for why this
+        // guard is needed in each draw loop separately.
+        if (!pMark->isVisible()) {
+            continue;
+        }
         const QImage& image = static_cast<ImageGraphics*>(pMark->m_pGraphics.get())->image();
 
         const double samplePosition = pMark->getSamplePosition();

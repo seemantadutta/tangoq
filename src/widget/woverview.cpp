@@ -901,6 +901,15 @@ void WOverview::drawMarks(QPainter* pPainter, const float offset, const float ga
     for (auto it = m_marks.cbegin(); it != m_marks.cend(); ++it) {
         PainterScope painterScope(pPainter);
         const WaveformMarkPointer& pMark = *it;
+        // Honour a mark's VisibilityControl. drawMarkRanges() below already
+        // checks markRange.visible(), and the main waveform renderer checks
+        // marks too, but this loop drew every mark unconditionally - so a mark
+        // the skin had switched off still painted its line and label here.
+        // isVisible() returns true when no VisibilityControl was declared, so
+        // marks without one are unaffected.
+        if (!pMark->isVisible()) {
+            continue;
+        }
         double samplePosition = pMark->getSamplePosition();
         const float markPosition = math_clamp(
                 offset + static_cast<float>(samplePosition) * gain,
@@ -960,6 +969,11 @@ void WOverview::drawMarks(QPainter* pPainter, const float offset, const float ga
                 float nextMarkPosition = -1.0f;
                 for (auto m = std::next(it); m != m_marks.cend(); ++m) {
                     const WaveformMarkPointer& otherMark = *m;
+                    // A hidden mark must not elide a visible label; it occupies
+                    // no space on screen.
+                    if (!otherMark->isVisible()) {
+                        continue;
+                    }
                     bool otherAtSameHeight = valign == (otherMark->m_align & Qt::AlignVertical_Mask);
                     // Hotcues always show at least their number.
                     bool otherHasLabel = !otherMark->m_text.isEmpty() || otherMark->getHotCue() != Cue::kNoHotCue;
