@@ -294,8 +294,10 @@ class CueControl : public EngineControl {
     // in whether the play position is snapped to the beatgrid.
     void introStartSetInternal(bool quantize);
     // The only place intro_start_position is written, so its Tango mirror
-    // cannot drift away from it. See m_pTangoStartPosition.
-    void setIntroStartPositionValue(double engineSamplePos);
+    // cannot drift away from it. See m_pTangoStartPosition. The two values
+    // differ by design: stock quantizes the cue on the way to the control,
+    // Tango does not.
+    void setIntroStartPositionValue(double quantizedPos, double exactPos);
     TrackAt getTrackAt() const;
     void seekOnLoad(mixxx::audio::FramePos seekOnLoadPosition);
     void setHotcueFocusIndex(int hotcueIndex);
@@ -338,10 +340,13 @@ class CueControl : public EngineControl {
     std::unique_ptr<ControlPushButton> m_pCuePreview;
 
     std::unique_ptr<ControlObject> m_pIntroStartPosition;
-    // Mirrors m_pIntroStartPosition, purely so Tango DJ mode can draw its own
-    // "S" start marker. A skin can only bind one waveform Mark per control -
-    // WaveformMarkSet silently drops a second definition of the same item - so
-    // a Tango-gated marker on intro_start_position would never be rendered.
+    // The track's start point for Tango DJ mode. Exists separately from
+    // m_pIntroStartPosition for two reasons: a skin can only bind one waveform
+    // Mark per control (WaveformMarkSet silently drops a second definition of
+    // the same item), and this one is deliberately *not* quantized. A start
+    // point marks where the music begins - after a spoken announcement, say -
+    // and the beatgrid over such an intro is unreliable, so it must stay where
+    // the DJ put it whether or not quantize is enabled.
     std::unique_ptr<ControlObject> m_pTangoStartPosition;
     std::unique_ptr<ControlObject> m_pIntroStartEnabled;
     std::unique_ptr<ControlPushButton> m_pIntroStartSet;

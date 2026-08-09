@@ -13,6 +13,8 @@ class CueControlTest : public BaseSignalPathTest {
         m_pIntroStartSet = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set");
         m_pIntroStartSetExact =
                 std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set_exact");
+        m_pTangoStartPosition =
+                std::make_unique<ControlProxy>(m_sGroup1, "tango_start_position");
         m_pIntroStartClear = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_clear");
         m_pIntroEndPosition = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_position");
         m_pIntroEndEnabled = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_enabled");
@@ -68,6 +70,7 @@ class CueControlTest : public BaseSignalPathTest {
     std::unique_ptr<ControlProxy> m_pIntroStartEnabled;
     std::unique_ptr<ControlProxy> m_pIntroStartSet;
     std::unique_ptr<ControlProxy> m_pIntroStartSetExact;
+    std::unique_ptr<ControlProxy> m_pTangoStartPosition;
     std::unique_ptr<ControlProxy> m_pIntroStartClear;
     std::unique_ptr<ControlProxy> m_pIntroEndPosition;
     std::unique_ptr<ControlProxy> m_pIntroEndEnabled;
@@ -265,6 +268,31 @@ TEST_F(CueControlTest, IntroStartSetExact_DoesNotSnapToBeatgrid) {
     pCue = pTrack->findCueByType(mixxx::CueType::Intro);
     ASSERT_TRUE(pCue != nullptr);
     EXPECT_FRAMEPOS_EQ(offBeatPosition, pCue->getPosition());
+}
+
+// The DJ is allowed to switch quantize back on inside Tango mode, so the start
+// point must not depend on it being off. intro_start_position is quantized on
+// the way out of loadCuesFromTrack() for stock behaviour; the Tango mirror that
+// the "START"/"S" markers and the Tanda transition read must not be.
+TEST_F(CueControlTest, TangoStartPosition_IsNotQuantized) {
+    m_pQuantizeEnabled->set(1);
+
+    TrackPointer pTrack = createTestTrack();
+    pTrack->trySetBpm(120.0);
+    loadTrack(pTrack);
+
+    const double beatLengthFrames = 60.0 * pTrack->getSampleRate() / pTrack->getBpm();
+    const auto offBeatPosition = mixxx::audio::FramePos(2.1 * beatLengthFrames);
+    const auto snappedPosition = mixxx::audio::FramePos(2.0 * beatLengthFrames);
+
+    setCurrentFramePos(offBeatPosition);
+    m_pIntroStartSetExact->set(1);
+    m_pIntroStartSetExact->set(0);
+
+    // Stock control stays quantized, so nothing about stock behaviour changes...
+    EXPECT_FRAMEPOS_EQ_CONTROL(snappedPosition, m_pIntroStartPosition);
+    // ...while Tango sees the point exactly where it was placed.
+    EXPECT_FRAMEPOS_EQ_CONTROL(offBeatPosition, m_pTangoStartPosition);
 }
 
 TEST_F(CueControlTest, IntroStartSetExact_QuantizeDisabledReachesTheControl) {

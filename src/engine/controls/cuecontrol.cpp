@@ -150,7 +150,7 @@ void CueControl::createControls() {
             ConfigKey(m_group, "intro_start_position"));
     m_pTangoStartPosition = std::make_unique<ControlObject>(
             ConfigKey(m_group, "tango_start_position"));
-    setIntroStartPositionValue(Cue::kNoPosition);
+    setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
     m_pIntroStartEnabled = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_enabled"));
     m_pIntroStartEnabled->setReadOnly();
@@ -487,7 +487,7 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
 
         m_pCueIndicator->setBlinkValue(ControlIndicator::OFF);
         m_pCuePoint->set(Cue::kNoPosition);
-        setIntroStartPositionValue(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -703,12 +703,16 @@ void CueControl::loadCuesFromTrack() {
         const auto startPosition = quantizeCuePoint(pIntroCue->getPosition());
         const auto endPosition = quantizeCuePoint(pIntroCue->getEndPosition());
 
-        setIntroStartPositionValue(startPosition.toEngineSamplePosMaybeInvalid());
+        // The Tango mirror gets the cue's true position, not the quantized one:
+        // a start point has to stay where the DJ placed it even if quantize is
+        // on, since the beatgrid over a spoken intro is not to be trusted.
+        setIntroStartPositionValue(startPosition.toEngineSamplePosMaybeInvalid(),
+                pIntroCue->getPosition().toEngineSamplePosMaybeInvalid());
         m_pIntroStartEnabled->forceSet(startPosition.isValid());
         m_pIntroEndPosition->set(endPosition.toEngineSamplePosMaybeInvalid());
         m_pIntroEndEnabled->forceSet(endPosition.isValid());
     } else {
-        setIntroStartPositionValue(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -1625,9 +1629,9 @@ void CueControl::introStartSetExact(double value) {
     introStartSetInternal(false);
 }
 
-void CueControl::setIntroStartPositionValue(double engineSamplePos) {
-    m_pIntroStartPosition->set(engineSamplePos);
-    m_pTangoStartPosition->set(engineSamplePos);
+void CueControl::setIntroStartPositionValue(double quantizedPos, double exactPos) {
+    m_pIntroStartPosition->set(quantizedPos);
+    m_pTangoStartPosition->set(exactPos);
 }
 
 void CueControl::introStartSetInternal(bool quantize) {
