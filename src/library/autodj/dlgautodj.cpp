@@ -208,14 +208,19 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     fadeModeCombobox->setFocusPolicy(Qt::ClickFocus);
     spinBoxTransition->setFocusPolicy(Qt::ClickFocus);
     spinBoxTandaGap->setFocusPolicy(Qt::ClickFocus);
+    fadeModeCombobox->installEventFilter(pKeyboard);
+    spinBoxTransition->installEventFilter(pKeyboard);
+    spinBoxTandaGap->installEventFilter(pKeyboard);
     // work around QLineEdit being protected
     QLineEdit* lineEditTransition(spinBoxTransition->findChild<QLineEdit*>());
     lineEditTransition->setFocusPolicy(Qt::ClickFocus);
     // Needed to catch Enter, Return and Escape keypresses
     lineEditTransition->installEventFilter(this);
+    lineEditTransition->installEventFilter(pKeyboard);
     QLineEdit* lineEditTandaGap(spinBoxTandaGap->findChild<QLineEdit*>());
     lineEditTandaGap->setFocusPolicy(Qt::ClickFocus);
     lineEditTandaGap->installEventFilter(this);
+    lineEditTandaGap->installEventFilter(pKeyboard);
 
     spinBoxTandaGap->setValue(m_pConfig->getValue(
             ConfigKey(kPreferenceGroupName, kTandaGapPreference),
