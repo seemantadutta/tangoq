@@ -1,3 +1,4 @@
+#include "analyzer/analyzersilence.h"
 #include "engine/controls/cuecontrol.h"
 #include "test/signalpathtest.h"
 
@@ -270,6 +271,43 @@ TEST_F(CueControlTest, IntroStartSetExact_DoesNotSnapToBeatgrid) {
     pCue = pTrack->findCueByType(mixxx::CueType::Intro);
     ASSERT_TRUE(pCue != nullptr);
     EXPECT_FRAMEPOS_EQ(offBeatPosition, pCue->getPosition());
+}
+
+// Clearing the deck's Tango start point must persist as an explicit cleared
+// Intro cue. If the Intro cue is removed entirely, AnalyzerSilence treats the
+// track as uninitialized and recreates a default Intro cue at first sound.
+TEST_F(CueControlTest, IntroStartClearPreventsAnalyzerRecreatingStartMarker) {
+    TrackPointer pTrack = createTestTrack();
+    loadTrack(pTrack);
+
+    const auto manualStart = mixxx::audio::FramePos(100.0);
+    const auto firstSound = mixxx::audio::FramePos(1000.0);
+
+    setCurrentFramePos(manualStart);
+    m_pIntroStartSetExact->set(1);
+    m_pIntroStartSetExact->set(0);
+
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_NE(nullptr, pCue);
+    EXPECT_FRAMEPOS_EQ(manualStart, pCue->getPosition());
+
+    m_pIntroStartClear->set(1);
+    m_pIntroStartClear->set(0);
+
+    pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_NE(nullptr, pCue);
+    EXPECT_FRAMEPOS_EQ(mixxx::audio::kInvalidFramePos, pCue->getPosition());
+    EXPECT_FRAMEPOS_EQ(mixxx::audio::kInvalidFramePos, pCue->getEndPosition());
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pIntroStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoStartPosition);
+    EXPECT_FALSE(m_pIntroStartEnabled->toBool());
+
+    AnalyzerSilence::setupMainAndIntroCue(pTrack.get(), firstSound, config().data());
+
+    pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_NE(nullptr, pCue);
+    EXPECT_FRAMEPOS_EQ(mixxx::audio::kInvalidFramePos, pCue->getPosition());
+    EXPECT_FRAMEPOS_EQ(mixxx::audio::kInvalidFramePos, pCue->getEndPosition());
 }
 
 // The track-list "Set start point..." action writes the Intro cue straight onto

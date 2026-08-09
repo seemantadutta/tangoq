@@ -3,6 +3,7 @@
 #include <QHeaderView>
 #include <QMap>
 #include <QMenu>
+#include <QTimer>
 
 #include "proto/headers.pb.h"
 
@@ -74,10 +75,14 @@ class WTrackTableViewHeader : public QHeaderView {
 
   private:
     int hiddenCount();
+    void markHeaderStateDirty();
     void clearActions();
     TrackModel* getTrackModel();
 
     QMenu m_menu;
     QMap<int, QCheckBox*> m_columnCheckBoxes;
     QMap<int, int> m_hiddenColumnSizes;
+    bool m_headerStateSetupInProgress;
+    bool m_headerStateDirty;
+    QTimer m_saveHeaderStateTimer;
 };

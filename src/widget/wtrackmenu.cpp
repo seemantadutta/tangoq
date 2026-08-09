@@ -2457,6 +2457,7 @@ void WTrackMenu::applyStartPointSeconds(double seconds) {
                 position,
                 mixxx::audio::kInvalidFramePos);
     }
+    m_pLibrary->trackCollectionManager()->saveTrack(pTrack);
     // No explicit deck refresh needed: the change reaches Track::cuesUpdated(),
     // which CueControl already listens to, so a deck holding this track moves
     // its start marker on its own.
@@ -2544,7 +2545,8 @@ void WTrackMenu::slotResetIntroCue() {
             ResetIntroTrackPointerOperation(m_pConfig);
     applyTrackPointerOperation(
             progressLabelText,
-            &trackOperator);
+            &trackOperator,
+            mixxx::ModalTrackBatchOperationProcessor::Mode::ApplyAndSave);
 }
 
 void WTrackMenu::slotClearLoops() {

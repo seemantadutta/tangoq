@@ -1758,11 +1758,12 @@ void CueControl::introStartClear(double value) {
     // this can be done outside the locking scope
     if (pLoadedTrack) {
         CuePointer pCue = pLoadedTrack->findCueByType(mixxx::CueType::Intro);
-        if (introEndPosition.isValid()) {
-            pCue->setStartPosition(mixxx::audio::kInvalidFramePos);
-            pCue->setEndPosition(introEndPosition);
-        } else if (pCue) {
-            pLoadedTrack->removeCue(pCue);
+        if (pCue) {
+            // Keep the Intro cue as an explicit "start cleared" sentinel instead
+            // of removing it. AnalyzerSilence creates a default Intro cue at the
+            // first audible sample whenever one is missing, which would make a
+            // user-cleared Tango start marker reappear after reload/reanalysis.
+            pCue->setStartAndEndPosition(mixxx::audio::kInvalidFramePos, introEndPosition);
         }
     }
 }
