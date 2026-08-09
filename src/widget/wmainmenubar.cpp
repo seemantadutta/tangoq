@@ -351,6 +351,11 @@ void WMainMenuBar::initialize() {
                "only.");
     auto* pViewAutoDJQueue = new QAction(autoDJQueueTitle, this);
     pViewAutoDJQueue->setCheckable(true);
+    pViewAutoDJQueue->setShortcut(
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowAutoDJQueue"),
+                    tr("Ctrl+Shift+A", "Menubar|View|Auto DJ Side Panel"))));
+    pViewAutoDJQueue->setShortcutContext(Qt::ApplicationShortcut);
     pViewAutoDJQueue->setStatusTip(autoDJQueueText);
     pViewAutoDJQueue->setWhatsThis(buildWhatsThis(autoDJQueueTitle, autoDJQueueText));
     // Gated behind Tango mode ([AutoDJ],keep_queue): the queue panel is only
@@ -981,12 +986,15 @@ void VisibilityControlConnection::slotReconnectControl() {
 }
 
 void VisibilityControlConnection::updateActionState() {
-    m_pAction->setEnabled(m_pControl && m_pControl->valid());
+    const bool controlAvailable = m_pControl && m_pControl->valid();
+    const bool gateOpen = !m_pGateControl || m_pGateControl->toBool();
+    m_pAction->setEnabled(controlAvailable && gateOpen);
     // A gated action (e.g. Auto DJ Queue) is hidden entirely while its gate
     // (Tango mode) is closed, so the menu is unchanged outside that mode rather
-    // than showing a greyed-out item.
+    // than showing a greyed-out item. Disable it too so its shortcut cannot
+    // toggle the hidden feature while the gate is closed.
     if (m_pGateControl) {
-        m_pAction->setVisible(m_pGateControl->toBool());
+        m_pAction->setVisible(gateOpen);
     }
 }
 
