@@ -15,6 +15,7 @@ class CueControlTest : public BaseSignalPathTest {
                 std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set_exact");
         m_pTangoStartPosition =
                 std::make_unique<ControlProxy>(m_sGroup1, "tango_start_position");
+        m_pIntroStartReset = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_reset");
         m_pIntroStartClear = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_clear");
         m_pIntroEndPosition = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_position");
         m_pIntroEndEnabled = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_enabled");
@@ -71,6 +72,7 @@ class CueControlTest : public BaseSignalPathTest {
     std::unique_ptr<ControlProxy> m_pIntroStartSet;
     std::unique_ptr<ControlProxy> m_pIntroStartSetExact;
     std::unique_ptr<ControlProxy> m_pTangoStartPosition;
+    std::unique_ptr<ControlProxy> m_pIntroStartReset;
     std::unique_ptr<ControlProxy> m_pIntroStartClear;
     std::unique_ptr<ControlProxy> m_pIntroEndPosition;
     std::unique_ptr<ControlProxy> m_pIntroEndEnabled;
@@ -639,6 +641,28 @@ TEST_F(CueControlTest, IntroCue_SetStartEnd_ClearStartEnd) {
     EXPECT_FALSE(m_pIntroEndEnabled->toBool());
 
     EXPECT_EQ(nullptr, pTrack->findCueByType(mixxx::CueType::Intro));
+}
+
+TEST_F(CueControlTest, IntroCue_ResetStartSetsStartToBeginning) {
+    TrackPointer pTrack = createAndLoadFakeTrack();
+
+    setCurrentFramePos(mixxx::audio::FramePos(100.0));
+    m_pIntroStartSetExact->set(1);
+    m_pIntroStartSetExact->set(0);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::FramePos(100.0), m_pIntroStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::FramePos(100.0), m_pTangoStartPosition);
+    EXPECT_TRUE(m_pIntroStartEnabled->toBool());
+
+    m_pIntroStartReset->set(1);
+    m_pIntroStartReset->set(0);
+
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kStartFramePos, m_pIntroStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kStartFramePos, m_pTangoStartPosition);
+    EXPECT_TRUE(m_pIntroStartEnabled->toBool());
+
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    ASSERT_NE(nullptr, pCue);
+    EXPECT_FRAMEPOS_EQ(mixxx::audio::kStartFramePos, pCue->getPosition());
 }
 
 TEST_F(CueControlTest, OutroCue_SetStartEnd_ClearStartEnd) {

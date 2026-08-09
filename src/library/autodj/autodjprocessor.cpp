@@ -25,6 +25,8 @@ const QString kControlGroup = QStringLiteral("[AutoDJ]");
 const char* kTransitionPreferenceName = "Transition";
 const char* kTransitionModePreferenceName = "TransitionMode";
 const char* kLastStockTransitionModePreferenceName = "LastStockTransitionMode";
+const char* kTandaGapPreferenceName = "TandaGap";
+constexpr int kTandaGapPreferenceDefault = 3;
 constexpr double kTransitionPreferenceDefault = 10.0;
 constexpr double kKeepPosition = -1.0;
 
@@ -186,6 +188,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_eState(ADJ_DISABLED),
           m_transitionProgress(0.0),
           m_transitionTime(kTransitionPreferenceDefault),
+          m_tandaGapSeconds(kTandaGapPreferenceDefault),
           m_keepQueueRow(0),
           m_keepQueueReloading(false),
           m_keepQueueUpcomingSeconds(0.0),
@@ -201,8 +204,13 @@ AutoDJProcessor::AutoDJProcessor(
           m_cortinaFadeOutSeconds(5),
           m_cortinaGapSeconds(2),
           m_cortinaFadePhase(CortinaFadePhase::None),
+          m_cortinaEnvelopeStartSecond(kKeepPosition),
           m_pCortinaDeck(nullptr),
           m_cortinaTrackId(),
+          m_pTandaFromDeck(nullptr),
+          m_pTandaToDeck(nullptr),
+          m_tandaToTrackId(),
+          m_tandaEntrySecond(0.0),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
           m_coCrossfaderReverse(QStringLiteral("[Mixer Profile]"), QStringLiteral("xFaderReverse")),
@@ -365,6 +373,13 @@ AutoDJProcessor::AutoDJProcessor(
             this,
             &AutoDJProcessor::slotCortinaGapElapsed);
 
+    // One-shot timer that holds the real silent gap for Tanda Transition.
+    m_tandaGapTimer.setSingleShot(true);
+    connect(&m_tandaGapTimer,
+            &QTimer::timeout,
+            this,
+            &AutoDJProcessor::slotTandaGapElapsed);
+
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
             this,
@@ -385,6 +400,10 @@ AutoDJProcessor::AutoDJProcessor(
     } else if (isStockTransitionMode(m_transitionMode)) {
         rememberStockTransitionMode(m_transitionMode);
     }
+
+    m_tandaGapSeconds = m_pConfig->getValue(
+            ConfigKey(kPreferenceGroup, kTandaGapPreferenceName),
+            kTandaGapPreferenceDefault);
 
     loadCortinaFadeSettings();
 }
@@ -677,7 +696,12 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
 
         // Snapshot the Cortina Fade settings for this set. They are only
         // editable while Auto DJ is stopped, and reading them here keeps the
-        // engine behaviour independent of the UI refresh timer.
+        // engine behaviour independent of the UI refresh timer. TandaGap stays
+        // live through setTandaGapSeconds(), but read config here too so a
+        // value changed before the processor existed is picked up.
+        m_tandaGapSeconds = m_pConfig->getValue(
+                ConfigKey(kPreferenceGroup, kTandaGapPreferenceName),
+                kTandaGapPreferenceDefault);
         loadCortinaFadeSettings();
 
         // Keep Queue mode: always continue from the next unplayed track (the
@@ -1106,6 +1130,17 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
     if (thisPlayPosition >= thisDeck->fadeBeginPos && thisDeck->isFromDeck && !otherDeck->loading) {
         if (m_eState == ADJ_IDLE) {
             if (thisDeckPlaying || thisPlayPosition >= 1.0) {
+                if (shouldUseTandaGap(thisDeck, otherDeck) &&
+                        thisDeck->fadeBeginPos >= thisDeck->fadeEndPos) {
+                    // The DJ marked this row as a pause point: hand the floor
+                    // over rather than starting the next tanda. Checked here,
+                    // at the moment the Tanda handoff would begin.
+                    if (maybeHoldForAnnouncement(thisDeck)) {
+                        return;
+                    }
+                    startTandaGap(thisDeck, otherDeck);
+                    return;
+                }
                 // Cortina Fade: enter a cortina WITHOUT the standard crossfade to
                 // its side, so the crossfader doesn't flick to the cortina and back
                 // before the gentle fade-in. Keep it on the outgoing (silent) side;
@@ -1485,11 +1520,14 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // loaded track is held by the deck, so this is cheap (no database read). While
     // paused this stays frozen, so "time left" holds steady and the projected end
     // clock slips later in real time, which is the desired behaviour.
-    // In Cortina Fade mode the boundaries into and out of each cortina use the
-    // Nc gaps (counted per cortina in the sums) instead of the Auto DJ
-    // transition time, so exclude them from the Nt adjustment below.
+    // In stock fixed modes with Cortina Fade enabled, the boundaries into and
+    // out of each cortina use the Nc gaps counted per cortina in the sums, so
+    // exclude them from the stock transition-time adjustment below. Tanda
+    // Transition accounts for every boundary with its own positive gap instead.
     int cortinaBoundaries =
-            m_cortinaFadeEnabled ? 2 * m_keepQueueUpcomingCortinas : 0;
+            m_transitionMode != TransitionMode::TandaTransition && m_cortinaFadeEnabled
+            ? 2 * m_keepQueueUpcomingCortinas
+            : 0;
     if (m_eState != ADJ_DISABLED) {
         DeckAttributes* pFromDeck = getFromDeck();
         if (pFromDeck) {
@@ -1498,7 +1536,8 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
             if (pTrack && pos >= 0.0) {
                 seconds += keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
                 remainingTracks += 1;
-                if (m_cortinaFadeEnabled && isCortina(pTrack)) {
+                if (m_transitionMode != TransitionMode::TandaTransition &&
+                        m_cortinaFadeEnabled && isCortina(pTrack)) {
                     // Only the boundary out of the playing cortina remains.
                     cortinaBoundaries += 1;
                 }
@@ -1509,9 +1548,11 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // overlap (positive) at each remaining track boundary. Only the fixed modes
     // use a deterministic transition time; the intro/outro modes depend on
     // per-track cues we cannot know in advance, so the adjustment is skipped there.
-    if (m_transitionMode == TransitionMode::FixedFullTrack ||
-            m_transitionMode == TransitionMode::FixedSkipSilence ||
-            m_transitionMode == TransitionMode::TandaTransition) {
+    if (m_transitionMode == TransitionMode::TandaTransition) {
+        const int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
+        seconds += transitions * m_tandaGapSeconds;
+    } else if (m_transitionMode == TransitionMode::FixedFullTrack ||
+            m_transitionMode == TransitionMode::FixedSkipSilence) {
         int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
         transitions -= cortinaBoundaries;
         if (transitions < 0) {
@@ -1544,9 +1585,14 @@ void AutoDJProcessor::refreshSetDurationCacheIfNeeded() {
     if (m_eState == ADJ_DISABLED) {
         const bool fadeEnabled = m_cortinaFadeEnabled;
         const int gapSeconds = m_cortinaGapSeconds;
+        const int tandaGapSeconds = m_tandaGapSeconds;
+        m_tandaGapSeconds = m_pConfig->getValue(
+                ConfigKey(kPreferenceGroup, kTandaGapPreferenceName),
+                kTandaGapPreferenceDefault);
         loadCortinaFadeSettings();
         if (fadeEnabled != m_cortinaFadeEnabled ||
-                gapSeconds != m_cortinaGapSeconds) {
+                gapSeconds != m_cortinaGapSeconds ||
+                tandaGapSeconds != m_tandaGapSeconds) {
             m_keepQueueDurationDirty = true;
         }
     }
@@ -1617,24 +1663,29 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         // cortina - a pause/seek-back would be an audible stutter, so skip the
         // gap and run the envelope from the current position instead.
         const double firstSound = getFirstSoundSecond(thisDeck);
+        const int gapSeconds = m_transitionMode == TransitionMode::TandaTransition
+                ? m_tandaGapSeconds
+                : m_cortinaGapSeconds;
         TT_TRACE() << "cortina phase decision deck=" << thisDeck->group
                    << " playSecond=" << (thisPlayPosition * duration)
                    << " firstSound=" << firstSound
-                   << " gap=" << m_cortinaGapSeconds;
+                   << " gap=" << gapSeconds;
         if (thisPlayPosition * duration <= firstSound + 0.1) {
             m_cortinaFadePhase = CortinaFadePhase::BeforeGap;
+            m_cortinaEnvelopeStartSecond = firstSound;
             TT_TRACE() << "cortina phase=BeforeGap deck=" << thisDeck->group
                        << " seekSecond=" << firstSound
-                       << " gapMs=" << (m_cortinaGapSeconds * 1000);
+                       << " gapMs=" << (gapSeconds * 1000);
             // Order matters to keep this inaudible: stop and silence the
             // cortina before seeking it onto its first audible sample.
             thisDeck->stop();
             setCrossfader(thisDeck->isLeft() ? 1.0 : -1.0);
             thisDeck->setPlayPosition(firstSound / duration);
-            m_cortinaGapTimer.start(m_cortinaGapSeconds * 1000);
+            m_cortinaGapTimer.start(gapSeconds * 1000);
             return true;
         }
         m_cortinaFadePhase = CortinaFadePhase::Envelope;
+        m_cortinaEnvelopeStartSecond = firstSound;
         TT_TRACE() << "cortina phase=Envelope deck=" << thisDeck->group
                    << " reason=already-audible";
         // Fall through to the envelope below.
@@ -1667,13 +1718,16 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
     // since the cortina's first audible sample.
     const double duration = getEndSecond(thisDeck);
     const double firstSound = getFirstSoundSecond(thisDeck);
-    const double elapsed = thisPlayPosition * duration - firstSound;
+    const double envelopeStart = m_cortinaEnvelopeStartSecond >= 0.0
+            ? m_cortinaEnvelopeStartSecond
+            : firstSound;
+    const double elapsed = thisPlayPosition * duration - envelopeStart;
 
     // Envelope lengths. Clamp the on-deck budget (Cl) to the cortina's audible
     // span, and if fade-in + fade-out still overflow it, scale them down so the
     // hold time Y stays >= 0.
     const double audible =
-            math_max(getLastSoundSecond(thisDeck) - firstSound, 0.0);
+            math_max(getLastSoundSecond(thisDeck) - envelopeStart, 0.0);
     const double cl = math_min(
             static_cast<double>(m_keepQueueCortinaSeconds), audible);
     double x = static_cast<double>(m_cortinaFadeInSeconds);
@@ -1732,23 +1786,26 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
 }
 
 void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
+    const int gapSeconds = m_transitionMode == TransitionMode::TandaTransition
+            ? m_tandaGapSeconds
+            : m_cortinaGapSeconds;
     TT_TRACE() << "cortina startAfterGap deck=" << pCortinaDeck->group
-               << " gapMs=" << (m_cortinaGapSeconds * 1000);
+               << " gapMs=" << (gapSeconds * 1000);
     m_cortinaFadePhase = CortinaFadePhase::AfterGap;
     // Park the crossfader on the next deck's side so the upcoming hard start
     // comes in at full volume, and stop the (now inaudible) cortina. The gap is
     // wall-clock, so it doesn't depend on the cortina file having a silent tail.
     setCrossfader(pCortinaDeck->isLeft() ? 1.0 : -1.0);
     pCortinaDeck->stop();
-    m_cortinaGapTimer.start(m_cortinaGapSeconds * 1000);
+    m_cortinaGapTimer.start(gapSeconds * 1000);
 }
 
 void AutoDJProcessor::cancelCortinaFade() {
     TT_TRACE() << "cortina cancel phase=" << static_cast<int>(m_cortinaFadePhase);
     m_cortinaGapTimer.stop();
     m_cortinaFadePhase = CortinaFadePhase::None;
-    m_pCortinaDeck = nullptr;
-    m_cortinaTrackId = TrackId();
+    m_cortinaEnvelopeStartSecond = kKeepPosition;
+    m_pCortinaDeck = nullptr;m_cortinaTrackId = TrackId();
 }
 
 void AutoDJProcessor::slotCortinaGapElapsed() {
@@ -1829,7 +1886,9 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
         // own before-gap can engage without an audible blip.
         const TrackPointer pNextTrack = pNextDeck->getLoadedTrack();
         double startSecond = getFirstSoundSecond(pNextDeck);
-        if (isCortina(pNextTrack)) {
+        if (m_transitionMode == TransitionMode::TandaTransition) {
+            startSecond = tandaEntryPointSecond(pNextDeck);
+        } else if (isCortina(pNextTrack)) {
             startSecond = math_max(
                     startSecond - static_cast<double>(m_cortinaGapSeconds), 0.0);
         }
@@ -1877,9 +1936,10 @@ void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
 
         if (cortina) {
             seconds = std::min<double>(m_keepQueueCortinaSeconds, seconds);
-            if (m_cortinaFadeEnabled) {
-                // Cortina Fade inserts a silent Nc gap before and after the
-                // cortina, so the queue costs both gaps on top of the budget.
+            if (m_transitionMode != TransitionMode::TandaTransition &&
+                    m_cortinaFadeEnabled) {
+                // Stock Cortina Fade inserts a silent Nc gap before and after
+                // the cortina, so the queue costs both gaps on top of the budget.
                 seconds += 2.0 * m_cortinaGapSeconds;
             }
         } else if (m_transitionMode == TransitionMode::FixedSkipSilence ||
@@ -1928,9 +1988,12 @@ mixxx::Duration AutoDJProcessor::getTotalSetDuration() {
     // duration estimate. Only the fixed modes have a deterministic transition
     // time. In Cortina Fade mode the boundaries around each cortina use the Nc
     // gaps (counted per cortina in the sums) instead of Nt, so exclude them.
-    if (m_transitionMode == TransitionMode::FixedFullTrack ||
-            m_transitionMode == TransitionMode::FixedSkipSilence ||
-            m_transitionMode == TransitionMode::TandaTransition) {
+    if (m_transitionMode == TransitionMode::TandaTransition) {
+        const int transitions =
+                m_keepQueueTotalTracks > 1 ? m_keepQueueTotalTracks - 1 : 0;
+        seconds += transitions * m_tandaGapSeconds;
+    } else if (m_transitionMode == TransitionMode::FixedFullTrack ||
+            m_transitionMode == TransitionMode::FixedSkipSilence) {
         int transitions =
                 m_keepQueueTotalTracks > 1 ? m_keepQueueTotalTracks - 1 : 0;
         if (m_cortinaFadeEnabled) {
@@ -1974,10 +2037,10 @@ double AutoDJProcessor::keepQueueTrackPlaySeconds(const TrackPointer& pTrack) co
     if (isCortina(pTrack)) {
         double seconds = std::min<double>(
                 m_keepQueueCortinaSeconds, pTrack->getDuration());
-        if (m_cortinaFadeEnabled) {
-            // Cortina Fade inserts a silent Nc gap before and after the cortina
-            // (its boundaries are excluded from the Nt transition adjustment in
-            // the duration getters).
+        if (m_transitionMode != TransitionMode::TandaTransition &&
+                m_cortinaFadeEnabled) {
+            // Stock Cortina Fade inserts a silent Nc gap before and after the
+            // cortina. Tanda Transition accounts for gaps per boundary instead.
             seconds += 2.0 * m_cortinaGapSeconds;
         }
         return seconds;
@@ -2010,7 +2073,8 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
                 m_keepQueueCortinaSeconds, fullSeconds);
         const double remaining = budget - currentSeconds;
         double seconds = remaining > 0.0 ? remaining : 0.0;
-        if (m_cortinaFadeEnabled) {
+        if (m_transitionMode != TransitionMode::TandaTransition &&
+                m_cortinaFadeEnabled) {
             // The Nc after-gap is still to come (the before-gap has passed).
             seconds += m_cortinaGapSeconds;
         }
@@ -2299,6 +2363,10 @@ void AutoDJProcessor::maybeFillRandomTracks() {
 void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) {
     if constexpr (sDebug) {
         qDebug() << this << "playerPlayChanged" << thisDeck->group << playing;
+    }
+
+    if (isTandaGapPending()) {
+        return;
     }
 
     // The queue ran dry earlier and we stayed enabled to let the last track
@@ -2788,7 +2856,15 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
             useFixedFadeTime(pFromDeck, pToDeck, fromDeckPosition, outroEnd, toDeckStartSeconds);
         }
     } break;
-    case TransitionMode::TandaTransition:
+    case TransitionMode::TandaTransition: {
+        const double toDeckStartSecond = tandaEntryPointSecond(pToDeck);
+        pFromDeck->fadeBeginPos = getLastSoundSecond(pFromDeck);
+        pFromDeck->fadeEndPos = pFromDeck->fadeBeginPos;
+        pToDeck->startPos = toDeckStartSecond;
+        pToDeck->fadeBeginPos = getLastSoundSecond(pToDeck);
+        TT_TRACE() << "tanda calculate toStartSecond=" << toDeckStartSecond
+                   << " fromLastSound=" << pFromDeck->fadeBeginPos;
+    } break;
     case TransitionMode::FixedSkipSilence: {
         double toDeckStartSecond;
         pToDeck->fadeBeginPos = getLastSoundSecond(pToDeck);
@@ -2842,7 +2918,8 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
     // negative transition time uses. That guarantees the hard cut always lands
     // in silence, so the cortina's onset never reaches the output at full
     // crossfader (which is the "pop on hot-start cortinas" this avoids).
-    if (m_cortinaFadeEnabled && keepQueueEnabled() &&
+    if (m_transitionMode != TransitionMode::TandaTransition &&
+            m_cortinaFadeEnabled && keepQueueEnabled() &&
             isCortina(pToDeck->getLoadedTrack())) {
         TT_TRACE() << "cortina override incoming fromLastSound=" << getLastSoundSecond(pFromDeck)
                    << " toFirstSound=" << getFirstSoundSecond(pToDeck)
@@ -2880,6 +2957,132 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
     }
 }
 
+double AutoDJProcessor::tandaEntryPointSecond(DeckAttributes* pDeck) {
+    if (!pDeck) {
+        return 0.0;
+    }
+    const mixxx::audio::FramePos trackEndPosition = pDeck->trackEndPosition();
+    const mixxx::audio::FramePos introStartPosition = pDeck->introStartPosition();
+    if (introStartPosition.isValid() && introStartPosition <= trackEndPosition) {
+        return framePositionToSeconds(introStartPosition, pDeck);
+    }
+    return getFirstSoundSecond(pDeck);
+}
+
+int AutoDJProcessor::tandaGapSecondsFor(
+        DeckAttributes* pFromDeck, DeckAttributes* pToDeck) const {
+    Q_UNUSED(pFromDeck);
+    Q_UNUSED(pToDeck);
+    // Keep the seam split even while the product exposes one value. If feedback
+    // asks for separate intra-tanda and cortina-boundary gaps, this becomes the
+    // switch point instead of spreading that decision through transition code.
+    return m_tandaGapSeconds;
+}
+
+bool AutoDJProcessor::shouldUseTandaGap(
+        DeckAttributes* pFromDeck, DeckAttributes* pToDeck) const {
+    return keepQueueEnabled() &&
+            m_transitionMode == TransitionMode::TandaTransition &&
+            pFromDeck &&
+            pToDeck &&
+            !pToDeck->loading;
+}
+
+bool AutoDJProcessor::isTandaGapPending() const {
+    return m_tandaGapTimer.isActive() || m_pTandaFromDeck || m_pTandaToDeck;
+}
+
+void AutoDJProcessor::startTandaGap(DeckAttributes* pFromDeck, DeckAttributes* pToDeck) {
+    if (!shouldUseTandaGap(pFromDeck, pToDeck)) {
+        return;
+    }
+    const TrackPointer pToTrack = pToDeck->getLoadedTrack();
+    const double toDuration = getEndSecond(pToDeck);
+    if (!pToTrack || toDuration < kMinimumTrackDurationSec) {
+        toggleAutoDJ(false);
+        return;
+    }
+
+    m_pTandaFromDeck = pFromDeck;
+    m_pTandaToDeck = pToDeck;
+    m_tandaToTrackId = TrackId(pToTrack->getId());
+    m_tandaEntrySecond = tandaEntryPointSecond(pToDeck);
+
+    TT_TRACE() << "tanda gap start from=" << pFromDeck->group
+               << " to=" << pToDeck->group
+               << " gap=" << tandaGapSecondsFor(pFromDeck, pToDeck)
+               << " entry=" << m_tandaEntrySecond
+               << " toCortina=" << yesNo(isCortina(pToTrack))
+               << " cortinaFade=" << yesNo(m_cortinaFadeEnabled);
+
+    pFromDeck->stop();
+    pFromDeck->isFromDeck = false;
+    pFromDeck->fadeBeginPos = 1.0;
+    pFromDeck->fadeEndPos = 1.0;
+    pToDeck->isFromDeck = true;
+    pToDeck->setPlayPosition(m_tandaEntrySecond / toDuration);
+
+    const int gapMs = std::max(0, tandaGapSecondsFor(pFromDeck, pToDeck)) * 1000;
+    if (gapMs == 0) {
+        slotTandaGapElapsed();
+        return;
+    }
+    m_tandaGapTimer.start(gapMs);
+}
+
+void AutoDJProcessor::cancelTandaGap() {
+    if (isTandaGapPending()) {
+        TT_TRACE() << "tanda gap cancel";
+    }
+    m_tandaGapTimer.stop();
+    m_pTandaFromDeck = nullptr;
+    m_pTandaToDeck = nullptr;
+    m_tandaToTrackId = TrackId();
+    m_tandaEntrySecond = 0.0;
+}
+
+void AutoDJProcessor::slotTandaGapElapsed() {
+    DeckAttributes* pFromDeck = m_pTandaFromDeck;
+    DeckAttributes* pToDeck = m_pTandaToDeck;
+    const TrackId toTrackId = m_tandaToTrackId;
+    const double entrySecond = m_tandaEntrySecond;
+
+    TT_TRACE() << "tanda gap elapsed from=" << (pFromDeck ? pFromDeck->group : QString())
+               << " to=" << (pToDeck ? pToDeck->group : QString())
+               << " entry=" << entrySecond;
+
+    if (!pFromDeck || !pToDeck || m_eState != ADJ_IDLE || pToDeck->loading) {
+        cancelTandaGap();
+        return;
+    }
+
+    const TrackPointer pToTrack = pToDeck->getLoadedTrack();
+    const double toDuration = getEndSecond(pToDeck);
+    if (!pToTrack || TrackId(pToTrack->getId()) != toTrackId ||
+            pToDeck->isPlaying() || toDuration < kMinimumTrackDurationSec) {
+        cancelTandaGap();
+        return;
+    }
+
+    const bool fadeInCortina = m_cortinaFadeEnabled && isCortina(pToTrack);
+    if (fadeInCortina) {
+        m_pCortinaDeck = pToDeck;
+        m_cortinaTrackId = toTrackId;
+        m_cortinaFadePhase = CortinaFadePhase::Envelope;
+        m_cortinaEnvelopeStartSecond = entrySecond;
+        // Start the cortina faded out. maybeHandleCortinaFade() will ramp it in
+        // as callbacks arrive from the cortina deck.
+        setCrossfader(pToDeck->isLeft() ? 1.0 : -1.0);
+    } else {
+        setCrossfader(pToDeck->isLeft() ? -1.0 : 1.0);
+    }
+
+    pToDeck->setPlayPosition(entrySecond / toDuration);
+    pToDeck->play();
+    removeLoadedTrackFromTopOfQueue(*pToDeck);
+    loadNextTrackFromQueue(*pFromDeck);
+    cancelTandaGap();
+}
 void AutoDJProcessor::useFixedFadeTime(
         DeckAttributes* pFromDeck,
         DeckAttributes* pToDeck,
@@ -3031,6 +3234,13 @@ void AutoDJProcessor::playerEmpty(DeckAttributes* pDeck) {
         qDebug() << this << "playerEmpty()" << pDeck->group;
     }
 
+    if (isTandaGapPending() &&
+            (pDeck == m_pTandaFromDeck || pDeck == m_pTandaToDeck)) {
+        cancelTandaGap();
+        toggleAutoDJ(false);
+        return;
+    }
+
     // The Deck has ejected a track and no new one is loaded
     // This happens if loading fails or the user manually ejected the track
     // and would normally stop the AutoDJ flow, which is not desired.
@@ -3128,6 +3338,25 @@ void AutoDJProcessor::setTransitionTime(int time) {
     }
 }
 
+void AutoDJProcessor::setTandaGapSeconds(int seconds) {
+    const int boundedSeconds = std::max(0, seconds);
+    m_pConfig->setValue(ConfigKey(kPreferenceGroup, kTandaGapPreferenceName),
+            boundedSeconds);
+    if (m_tandaGapSeconds == boundedSeconds) {
+        return;
+    }
+    m_tandaGapSeconds = boundedSeconds;
+    invalidateRemainingSetDuration();
+
+    if (m_eState != ADJ_IDLE || isTandaGapPending()) {
+        return;
+    }
+
+    DeckAttributes* pFromDeck = getFromDeck();
+    if (pFromDeck) {
+        calculateTransition(pFromDeck, getOtherDeck(pFromDeck), false);
+    }
+}
 void AutoDJProcessor::setTransitionMode(TransitionMode newMode) {
     if (isStockTransitionMode(newMode)) {
         rememberStockTransitionMode(newMode);

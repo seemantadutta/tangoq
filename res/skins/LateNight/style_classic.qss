@@ -1294,7 +1294,9 @@ WPushButton#VinylStatus[displayValue="0"], /* off */
    track and colouring it would just be noise. */
 WPushButton#TangoSetStart,
 WPushButton#TangoSetStart[displayValue="0"],
-WPushButton#TangoSetStart[displayValue="1"] {
+WPushButton#TangoSetStart[displayValue="1"],
+WPushButton#TangoResetStart,
+WPushButton#TangoResetStart[displayValue="0"] {
   color: #d2d2d1;
   font-weight: bold;
   }

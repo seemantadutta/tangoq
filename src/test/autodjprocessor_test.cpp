@@ -404,6 +404,93 @@ TEST_F(AutoDJProcessorTest, TangoMode_EnableSelectsTandaTransitionAndRestoresSto
             pProcessor->getTransitionMode());
 }
 
+TEST_F(AutoDJProcessorTest, TandaTransition_ZeroGapStartsIncomingAtStartMarker) {
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack(testId);
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    deck2.slotLoadTrack(pTrack, false);
+    const double kSamplesPerSecond = kChannelCount * pTrack->getSampleRate();
+    deck2.introStartPos.set(15 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck1.playposition.set(1.0);
+
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+    EXPECT_DOUBLE_EQ(0.0, deck1.play.get());
+    EXPECT_DOUBLE_EQ(1.0, deck2.play.get());
+    EXPECT_DOUBLE_EQ(1.0, mixer.crossfader.get());
+    EXPECT_DOUBLE_EQ(0.15, deck2.playposition.get());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+TEST_F(AutoDJProcessorTest, TandaTransition_MarkedCortinaFadeStartsEnvelopeAtMarker) {
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(cortinaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(cortinaId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck2.slotLoadTrack(pCortina, false);
+    const double kSamplesPerSecond = kChannelCount * pCortina->getSampleRate();
+    deck2.introStartPos.set(56 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pCortina);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck1.playposition.set(1.0);
+
+    ASSERT_TRUE(deck2.play.toBool());
+    ASSERT_DOUBLE_EQ(0.56, deck2.playposition.get());
+
+    // This callback is just after the marker. The cortina envelope must treat
+    // the marker as elapsed=0, not subtract first sound and conclude that the
+    // cortina budget has already expired.
+    deck2.playposition.set(0.561);
+    EXPECT_TRUE(deck2.play.toBool());
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
     // stop has to pre-empt the transition: waiting for the track to end would be

@@ -1449,7 +1449,9 @@ WEffectChainPresetSelector QAbstractScrollArea,
    row needs its colour and weight set explicitly. */
 WPushButton#TangoSetStart,
 WPushButton#TangoSetStart[displayValue="0"],
-WPushButton#TangoSetStart[displayValue="1"] {
+WPushButton#TangoSetStart[displayValue="1"],
+WPushButton#TangoResetStart,
+WPushButton#TangoResetStart[displayValue="0"] {
   color: #d2d2d1;
   font-weight: bold;
 }

@@ -479,7 +479,7 @@ void DlgAutoDJ::transitionSliderChanged(int value) {
 }
 
 void DlgAutoDJ::tandaGapChanged(int value) {
-    m_pConfig->setValue(ConfigKey(kPreferenceGroupName, kTandaGapPreference), value);
+    m_pAutoDJProcessor->setTandaGapSeconds(value);
 }
 
 void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
@@ -812,14 +812,12 @@ void DlgAutoDJ::refreshTransitionControls() {
     const bool tandaTransition = static_cast<AutoDJProcessor::TransitionMode>(
             fadeModeCombobox->currentData().toInt()) ==
             AutoDJProcessor::TransitionMode::TandaTransition;
-    const bool autoDJRunning = m_pAutoDJProcessor->getState() !=
-            AutoDJProcessor::ADJ_DISABLED;
     spinBoxTransition->setVisible(!tandaTransition);
     labelTransitionAppendix->setVisible(!tandaTransition);
     spinBoxTandaGap->setVisible(tandaTransition);
-    spinBoxTandaGap->setEnabled(tandaTransition && !autoDJRunning);
+    spinBoxTandaGap->setEnabled(tandaTransition);
     labelTandaGapAppendix->setVisible(tandaTransition);
-    labelTandaGapAppendix->setEnabled(tandaTransition && !autoDJRunning);
+    labelTandaGapAppendix->setEnabled(tandaTransition);
 }
 
 void DlgAutoDJ::updateSelectionInfo() {

@@ -233,6 +233,8 @@ class AutoDJProcessor : public QObject {
 
     void setTransitionTime(int seconds);
 
+    void setTandaGapSeconds(int seconds);
+
     void setTransitionMode(TransitionMode newMode);
 
     AutoDJError shufflePlaylist(const QModelIndexList& selectedIndices);
@@ -286,6 +288,9 @@ class AutoDJProcessor : public QObject {
     // Fires when a cortina's Nc silent gap has elapsed: resumes the paused
     // cortina (before-gap) or hard-starts the next tanda track (after-gap).
     void slotCortinaGapElapsed();
+    // Fires when a Tanda Transition gap has elapsed: starts the cued incoming
+    // deck at the contract entry point and loads the next queue item behind it.
+    void slotTandaGapElapsed();
     void slotNumberOfDecksChanged(int decks);
 
   protected:
@@ -327,6 +332,12 @@ class AutoDJProcessor : public QObject {
             double fromDeckSecond,
             double fadeEndSecond,
             double toDeckStartSecond);
+    double tandaEntryPointSecond(DeckAttributes* pDeck);
+    int tandaGapSecondsFor(DeckAttributes* pFromDeck, DeckAttributes* pToDeck) const;
+    bool shouldUseTandaGap(DeckAttributes* pFromDeck, DeckAttributes* pToDeck) const;
+    bool isTandaGapPending() const;
+    void startTandaGap(DeckAttributes* pFromDeck, DeckAttributes* pToDeck);
+    void cancelTandaGap();
     DeckAttributes* getLeftDeck();
     DeckAttributes* getRightDeck();
     DeckAttributes* getOtherDeck(const DeckAttributes* pThisDeck);
@@ -456,6 +467,7 @@ class AutoDJProcessor : public QObject {
     AutoDJState m_eState;
     double m_transitionProgress;
     double m_transitionTime; // the desired value set by the user
+    int m_tandaGapSeconds;
     // Keep Queue ("Tango") mode: 0-based row index of the next track to play.
     // Acts as a cursor so played tracks stay in the list instead of being
     // removed, and Auto DJ stops when it reaches the end.
@@ -507,9 +519,15 @@ class AutoDJProcessor : public QObject {
         AfterGap,  // cortina stopped after fade-out, gap timer running
     };
     CortinaFadePhase m_cortinaFadePhase;
+    double m_cortinaEnvelopeStartSecond;
     QTimer m_cortinaGapTimer;
     DeckAttributes* m_pCortinaDeck;
     TrackId m_cortinaTrackId;
+    QTimer m_tandaGapTimer;
+    DeckAttributes* m_pTandaFromDeck;
+    DeckAttributes* m_pTandaToDeck;
+    TrackId m_tandaToTrackId;
+    double m_tandaEntrySecond;
     TransitionMode m_transitionMode;
 
     PlayerManagerInterface* m_pPlayerManager;

@@ -260,6 +260,7 @@ class CueControl : public EngineControl {
     // intro is often unreliable, so snapping to it would move the point away
     // from where the DJ put it.
     void introStartSetExact(double v);
+    void introStartReset(double v);
     void introStartClear(double v);
     void introStartActivate(double v);
     void introEndSet(double v);
@@ -351,6 +352,7 @@ class CueControl : public EngineControl {
     std::unique_ptr<ControlObject> m_pIntroStartEnabled;
     std::unique_ptr<ControlPushButton> m_pIntroStartSet;
     std::unique_ptr<ControlPushButton> m_pIntroStartSetExact;
+    std::unique_ptr<ControlPushButton> m_pIntroStartReset;
     std::unique_ptr<ControlPushButton> m_pIntroStartClear;
     std::unique_ptr<ControlPushButton> m_pIntroStartActivate;
 

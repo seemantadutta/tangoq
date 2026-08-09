@@ -157,6 +157,8 @@ void CueControl::createControls() {
     m_pIntroStartSet = std::make_unique<ControlPushButton>(ConfigKey(m_group, "intro_start_set"));
     m_pIntroStartSetExact = std::make_unique<ControlPushButton>(
             ConfigKey(m_group, "intro_start_set_exact"));
+    m_pIntroStartReset = std::make_unique<ControlPushButton>(
+            ConfigKey(m_group, "intro_start_reset"));
     m_pIntroStartClear = std::make_unique<ControlPushButton>(
             ConfigKey(m_group, "intro_start_clear"));
     m_pIntroStartActivate = std::make_unique<ControlPushButton>(
@@ -269,6 +271,11 @@ void CueControl::connectControls() {
             &ControlObject::valueChanged,
             this,
             &CueControl::introStartSetExact,
+            Qt::DirectConnection);
+    connect(m_pIntroStartReset.get(),
+            &ControlObject::valueChanged,
+            this,
+            &CueControl::introStartReset,
             Qt::DirectConnection);
     connect(m_pIntroStartClear.get(),
             &ControlObject::valueChanged,
@@ -409,6 +416,8 @@ void CueControl::disconnectControls() {
     disconnect(m_pPlayStutter.get(), nullptr, this, nullptr);
 
     disconnect(m_pIntroStartSet.get(), nullptr, this, nullptr);
+    disconnect(m_pIntroStartSetExact.get(), nullptr, this, nullptr);
+    disconnect(m_pIntroStartReset.get(), nullptr, this, nullptr);
     disconnect(m_pIntroStartClear.get(), nullptr, this, nullptr);
     disconnect(m_pIntroStartActivate.get(), nullptr, this, nullptr);
     disconnect(m_pIntroEndSet.get(), nullptr, this, nullptr);
@@ -1632,6 +1641,48 @@ void CueControl::introStartSetExact(double value) {
 void CueControl::setIntroStartPositionValue(double quantizedPos, double exactPos) {
     m_pIntroStartPosition->set(quantizedPos);
     m_pTangoStartPosition->set(exactPos);
+}
+
+void CueControl::introStartReset(double value) {
+    if (value <= 0) {
+        return;
+    }
+
+    auto lock = lockMutex(&m_trackMutex);
+    const auto introEnd = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pIntroEndPosition->get());
+    const auto outroStart = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pOutroStartPosition->get());
+    const auto outroEnd = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pOutroEndPosition->get());
+    if (introEnd.isValid() && mixxx::audio::kStartFramePos >= introEnd) {
+        qWarning() << "Trying to reset intro start cue on or after intro end cue.";
+        return;
+    }
+    if (outroStart.isValid() && mixxx::audio::kStartFramePos >= outroStart) {
+        qWarning() << "Trying to reset intro start cue on or after outro start cue.";
+        return;
+    }
+    if (outroEnd.isValid() && mixxx::audio::kStartFramePos >= outroEnd) {
+        qWarning() << "Trying to reset intro start cue on or after outro end cue.";
+        return;
+    }
+
+    TrackPointer pLoadedTrack = m_pLoadedTrack;
+    lock.unlock();
+
+    if (pLoadedTrack) {
+        CuePointer pCue = pLoadedTrack->findCueByType(mixxx::CueType::Intro);
+        if (!pCue) {
+            pLoadedTrack->createAndAddCue(
+                    mixxx::CueType::Intro,
+                    Cue::kNoHotCue,
+                    mixxx::audio::kStartFramePos,
+                    introEnd);
+        } else {
+            pCue->setStartAndEndPosition(mixxx::audio::kStartFramePos, introEnd);
+        }
+    }
 }
 
 void CueControl::introStartSetInternal(bool quantize) {

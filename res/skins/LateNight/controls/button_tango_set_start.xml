@@ -11,7 +11,8 @@ Description:
   Deliberately not intro_start_activate - that seeks to the cue when one exists,
   so a second press would move the deck instead of the mark.
 
-  Right click clears it. The two-state icon follows intro_start_enabled.
+  Right click clears it. The Reset button sets it to 00:00. The two-state icon
+  follows intro_start_enabled.
 Variables:
   group: The group for the controls.
   Size: Button size, e.g. 68f,26f.
@@ -52,6 +53,22 @@ Variables:
         <Connection>
           <ConfigKey><Variable name="Group"/>,intro_start_enabled</ConfigKey>
           <ConnectValueFromWidget>false</ConnectValueFromWidget>
+        </Connection>
+      </PushButton>
+      <PushButton>
+        <ObjectName>TangoResetStart</ObjectName>
+        <Size>42f,26f</Size>
+        <NumberStates>1</NumberStates>
+        <State>
+          <Number>0</Number>
+          <Text>Reset</Text>
+          <Alignment>center</Alignment>
+          <Unpressed scalemode="STRETCH">skins:LateNight/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium.svg</Unpressed>
+          <Pressed scalemode="STRETCH">skins:LateNight/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium_active.svg</Pressed>
+        </State>
+        <Connection>
+          <ConfigKey><Variable name="Group"/>,intro_start_reset</ConfigKey>
+          <ButtonState>LeftButton</ButtonState>
         </Connection>
       </PushButton>
     </Children>
