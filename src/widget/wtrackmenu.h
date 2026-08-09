@@ -177,6 +177,8 @@ class WTrackMenu : public QMenu {
     void slotToggleCortina();
     void slotTogglePauseAfter();
     void slotSetDisplayName();
+    void slotSetStartPoint();
+    void slotSetStartPointHere();
     void slotResetAutoDJQueueState();
 
     // Cover
@@ -227,6 +229,12 @@ class WTrackMenu : public QMenu {
     // True when this menu is operating on the Auto DJ queue list (the only model
     // that shows cortina marks). Scopes the cortina toggle to that list.
     bool isCortinaList() const;
+    // Group of the preview deck currently holding the selected track, empty if
+    // none is. "Set start here" needs a playhead, and an unloaded track has none.
+    QString previewDeckGroupForSelectedTrack() const;
+    // Writes the start point of the selected track, in seconds from 0:00. This
+    // is the stock intro cue, so it persists exactly like one set on a deck.
+    void applyStartPointSeconds(double seconds);
 
     void addSelectionToPlaylist(int iPlaylistId);
     void updateSelectionCrates(QWidget* pWidget);
@@ -304,6 +312,11 @@ class WTrackMenu : public QMenu {
     parented_ptr<QAction> m_pCortinaToggleAct;
     parented_ptr<QAction> m_pPauseAfterToggleAct;
     parented_ptr<QAction> m_pDisplayNameAct;
+    // Tango DJ mode: set a track's start point without loading it on a deck.
+    // Both are single-track only - a start point is a per-track judgement, so
+    // applying one value across a selection would be wrong rather than useful.
+    parented_ptr<QAction> m_pSetStartPointAct;
+    parented_ptr<QAction> m_pSetStartPointHereAct;
     // Tango DJ mode only: greyed, non-clickable info line above the Auto DJ /
     // cortina actions showing the total duration of the selected tracks, plus its
     // trailing separator (owned by the menu).

@@ -270,6 +270,33 @@ TEST_F(CueControlTest, IntroStartSetExact_DoesNotSnapToBeatgrid) {
     EXPECT_FRAMEPOS_EQ(offBeatPosition, pCue->getPosition());
 }
 
+// The track-list "Set start point..." action writes the Intro cue straight onto
+// the Track, not through any deck control, because the track need not be loaded.
+// A deck that *is* holding it has to move its start marker without a reload.
+// Track::cuesUpdated() already drives CueControl, so this needs no plumbing -
+// but the menu action silently depends on it, so pin the behaviour here.
+TEST_F(CueControlTest, TangoStartPosition_FollowsACueSetOnTheTrack) {
+    m_pQuantizeEnabled->set(0);
+
+    TrackPointer pTrack = createTestTrack();
+    loadTrack(pTrack);
+
+    constexpr auto kNewPosition = mixxx::audio::FramePos(45000);
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (pCue) {
+        pCue->setStartPosition(kNewPosition);
+    } else {
+        pTrack->createAndAddCue(mixxx::CueType::Intro,
+                Cue::kNoHotCue,
+                kNewPosition,
+                mixxx::audio::kInvalidFramePos);
+    }
+    ProcessBuffer();
+
+    EXPECT_FRAMEPOS_EQ_CONTROL(kNewPosition, m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(kNewPosition, m_pIntroStartPosition);
+}
+
 // The DJ is allowed to switch quantize back on inside Tango mode, so the start
 // point must not depend on it being off. intro_start_position is quantized on
 // the way out of loadCuesFromTrack() for stock behaviour; the Tango mirror that

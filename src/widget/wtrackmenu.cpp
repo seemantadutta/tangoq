@@ -4,11 +4,14 @@
 #include <QDialogButtonBox>
 #include <QActionGroup>
 #include <QInputDialog>
+#include <QLabel>
 #include <QLineEdit>
 #include <QList>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QModelIndex>
+#include <QTimeEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "analyzer/analyzerscheduledtrack.h"
@@ -365,6 +368,26 @@ void WTrackMenu::createActions() {
             &QAction::triggered,
             this,
             &WTrackMenu::slotSetDisplayName);
+
+    // Tango DJ mode: a track's start point, settable without loading a deck.
+    // "Set start point..." takes a typed time, for the case where the DJ already
+    // knows the number ("this El Choclo has 15 seconds of announcement");
+    // "Set start here" captures the preview deck's playhead, for finding it by
+    // ear. Clearing is deliberately left to the stock Clear Metadata > Intro,
+    // which already does exactly that and stays visible in Tango.
+    m_pSetStartPointAct = make_parented<QAction>(tr("Set start point..."), this);
+    m_pSetStartPointAct->setVisible(false);
+    connect(m_pSetStartPointAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetStartPoint);
+
+    m_pSetStartPointHereAct = make_parented<QAction>(tr("Set start here"), this);
+    m_pSetStartPointHereAct->setVisible(false);
+    connect(m_pSetStartPointHereAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetStartPointHere);
 
     // Reset the Tango set state (mark all unplayed + restart from the top). Like
     // the cortina toggle it lives on the Auto DJ queue list, so create it
@@ -768,6 +791,8 @@ void WTrackMenu::setupActions() {
     m_pPauseAfterSeparator->setVisible(false);
     addAction(m_pPauseAfterToggleAct);
     addAction(m_pDisplayNameAct);
+    addAction(m_pSetStartPointAct);
+    addAction(m_pSetStartPointHereAct);
 
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
@@ -1089,6 +1114,26 @@ void WTrackMenu::updateMenus() {
         if (m_pPauseAfterSeparator) {
             m_pPauseAfterSeparator->setVisible(show);
         }
+        // The start point applies to any single track in Tango mode, not just
+        // the Auto DJ queue: the DJ wants to trim a track's lead-in while
+        // building the set, before it is ever enqueued. Unlike a pause mark it
+        // is a property of the track, so it needs no positional context.
+        const bool showStart = tangoMode && singleRow;
+        m_pSetStartPointAct->setVisible(showStart);
+        m_pSetStartPointHereAct->setVisible(showStart);
+        if (showStart) {
+            // Shown but disabled when nothing is previewing, rather than hidden:
+            // a DJ who has never used the preview button would otherwise never
+            // discover the capability, and an item that appears and vanishes on
+            // invisible state is harder to reason about than a dimmed one.
+            const bool previewing = !previewDeckGroupForSelectedTrack().isEmpty();
+            m_pSetStartPointHereAct->setEnabled(previewing);
+            m_pSetStartPointHereAct->setToolTip(previewing
+                            ? tr("Use the previewed position as this track's "
+                                 "start point.")
+                            : tr("Preview this track first, then use its "
+                                 "position as the start point."));
+        }
         if (show) {
             m_pDisplayNameAct->setText(
                     TrackLabelRegistry::instance().contains(
@@ -1101,6 +1146,24 @@ void WTrackMenu::updateMenus() {
                     pTableModel->isPauseAfterRow(m_trackIndexList.first().row())
                             ? tr("Don't pause after this track")
                             : tr("Pause after this track"));
+        }
+    }
+
+    // Clear submenu, Tango mode. Tango has no intro/outro vocabulary - the intro
+    // cue *is* the start point - so "Intro" reads as something the DJ never set.
+    // Name it for what it does, and drop the outro entry: an outro cue exists on
+    // every analysed track (AnalyzerSilence places one at the last sound) but
+    // nothing in Tango shows or sets it, so offering to clear it is noise.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        if (m_pClearIntroCueAction) {
+            m_pClearIntroCueAction->setText(
+                    tangoMode ? tr("Starting point") : tr("Intro"));
+        }
+        if (m_pClearOutroCueAction) {
+            m_pClearOutroCueAction->setVisible(!tangoMode);
         }
     }
 
@@ -2343,6 +2406,135 @@ void WTrackMenu::slotResetOutroCue() {
     applyTrackPointerOperation(
             progressLabelText,
             &trackOperator);
+}
+
+QString WTrackMenu::previewDeckGroupForSelectedTrack() const {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.size() != 1) {
+        return QString();
+    }
+    const TrackId trackId = trackIds.first();
+    const int numPreviewDecks = static_cast<int>(ControlObject::get(
+            ConfigKey(QStringLiteral("[App]"), QStringLiteral("num_preview_decks"))));
+    for (int i = 1; i <= numPreviewDecks; ++i) {
+        const QString group = PlayerManager::groupForPreviewDeck(i - 1);
+        const TrackPointer pLoaded = PlayerInfo::instance().getTrackInfo(group);
+        if (pLoaded && pLoaded->getId() == trackId) {
+            return group;
+        }
+    }
+    return QString();
+}
+
+void WTrackMenu::applyStartPointSeconds(double seconds) {
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    if (!sampleRate.isValid()) {
+        return;
+    }
+    // Clamp into the track. A start point at or past the end would silence the
+    // track, and CueControl refuses positions beyond the outro anyway.
+    const double durationSeconds = pTrack->getDuration();
+    if (durationSeconds > 0.0) {
+        seconds = std::clamp(seconds, 0.0, durationSeconds);
+    } else if (seconds < 0.0) {
+        seconds = 0.0;
+    }
+    const auto position = mixxx::audio::FramePos(seconds * sampleRate);
+
+    // The stock intro cue, so this persists and shows up on a deck exactly as a
+    // point set with the deck's own button would. Moving an existing cue rather
+    // than replacing it keeps any intro end the DJ has set.
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (pCue) {
+        pCue->setStartPosition(position);
+    } else {
+        pTrack->createAndAddCue(mixxx::CueType::Intro,
+                Cue::kNoHotCue,
+                position,
+                mixxx::audio::kInvalidFramePos);
+    }
+    // No explicit deck refresh needed: the change reaches Track::cuesUpdated(),
+    // which CueControl already listens to, so a deck holding this track moves
+    // its start marker on its own.
+}
+
+void WTrackMenu::slotSetStartPoint() {
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+
+    // Prefill with the existing start point so reopening this is an edit rather
+    // than a retype. An analysed track always has an intro cue - AnalyzerSilence
+    // places one at first sound - so treat a point at or before first sound as
+    // "not really set" and start from 0:00 instead of showing an arbitrary
+    // fraction of a second the DJ never chose.
+    double currentSeconds = 0.0;
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    const CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (pCue && sampleRate.isValid()) {
+        const mixxx::audio::FramePos position = pCue->getPosition();
+        if (position.isValid()) {
+            currentSeconds = position.value() / sampleRate;
+        }
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Start point"));
+    auto* pLayout = new QVBoxLayout(&dialog);
+    pLayout->addWidget(new QLabel(
+            tr("Start playing %1\nat:").arg(pTrack->getTitle()), &dialog));
+
+    // A time spinner rather than a plain text field: mm:ss is what the DJ reads
+    // off the waveform, and the seconds section starts selected so a number can
+    // be typed straight in.
+    auto* pTimeEdit = new QTimeEdit(&dialog);
+    pTimeEdit->setDisplayFormat(QStringLiteral("mm:ss"));
+    pTimeEdit->setTime(QTime(0, 0).addSecs(static_cast<int>(currentSeconds)));
+    pLayout->addWidget(pTimeEdit);
+
+    auto* pButtons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    pLayout->addWidget(pButtons);
+    connect(pButtons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(pButtons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    pTimeEdit->setFocus();
+    // Selecting the seconds has to wait until the dialog is actually up:
+    // QDateTimeEdit re-selects its first section on focus-in, so doing it before
+    // exec() is silently undone and the minutes end up highlighted instead.
+    QTimer::singleShot(0, pTimeEdit, [pTimeEdit]() {
+        pTimeEdit->setSelectedSection(QDateTimeEdit::SecondSection);
+    });
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QTime time = pTimeEdit->time();
+    applyStartPointSeconds(QTime(0, 0).secsTo(time));
+}
+
+void WTrackMenu::slotSetStartPointHere() {
+    const QString group = previewDeckGroupForSelectedTrack();
+    if (group.isEmpty()) {
+        return;
+    }
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+    // playposition is a fraction of the track, so scale it by the duration
+    // rather than by anything the preview deck reports.
+    const double fraction = ControlObject::get(
+            ConfigKey(group, QStringLiteral("playposition")));
+    if (fraction < 0.0) {
+        return;
+    }
+    applyStartPointSeconds(fraction * pTrack->getDuration());
 }
 
 void WTrackMenu::slotResetIntroCue() {
