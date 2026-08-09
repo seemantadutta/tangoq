@@ -69,6 +69,25 @@ QSqlDatabase cloneDatabase(
             pTrackCollectionManager->internalCollection()->database());
 }
 
+QString formatTangoStartTime(double seconds) {
+    qint64 roundedSeconds = static_cast<qint64>(seconds + 0.5);
+    if (roundedSeconds < 0) {
+        roundedSeconds = 0;
+    }
+    const qint64 hours = roundedSeconds / 3600;
+    const qint64 minutes = (roundedSeconds / 60) % 60;
+    const qint64 remainingSeconds = roundedSeconds % 60;
+    if (hours > 0) {
+        return QStringLiteral("%1:%2:%3")
+                .arg(hours)
+                .arg(minutes, 2, 10, QLatin1Char('0'))
+                .arg(remainingSeconds, 2, 10, QLatin1Char('0'));
+    }
+    return QStringLiteral("%1:%2")
+            .arg(minutes, 2, 10, QLatin1Char('0'))
+            .arg(remainingSeconds, 2, 10, QLatin1Char('0'));
+}
+
 } // anonymous namespace
 
 // static
@@ -503,6 +522,7 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
         return;
     }
     m_showCortinaMarks = enable;
+    refreshTangoStartCueObservers();
     if (enable) {
         // Repaint the whole table (text color + title prefix) whenever the set of
         // tagged tracks changes.
@@ -579,6 +599,84 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
                 index(rowCount() - 1, columnCount() - 1),
                 {Qt::ForegroundRole, Qt::DisplayRole});
     }
+}
+
+QString BaseTrackTableModel::tangoStartTimeMark(const QModelIndex& index) const {
+    const TrackPointer pTrack = getTrack(index);
+    if (!pTrack) {
+        return QString();
+    }
+
+    const CuePointer pStartCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (!pStartCue) {
+        return QString();
+    }
+    const auto startPosition = pStartCue->getPosition();
+    if (!startPosition.isValid()) {
+        return QString();
+    }
+
+    const CuePointer pFirstSoundCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
+    if (pFirstSoundCue) {
+        const auto firstSoundPosition = pFirstSoundCue->getPosition();
+        if (firstSoundPosition.isValid() &&
+                startPosition == firstSoundPosition) {
+            return QString();
+        }
+    }
+
+    const auto sampleRate = pTrack->getSampleRate();
+    if (!sampleRate.isValid()) {
+        return QString();
+    }
+    return formatTangoStartTime(startPosition.value() / sampleRate);
+}
+
+void BaseTrackTableModel::refreshTangoStartCueObservers() {
+    while (!m_tangoStartCueTracksByGroup.isEmpty()) {
+        stopObservingTangoStartCueTrack(m_tangoStartCueTracksByGroup.constBegin().key());
+    }
+    if (!m_showCortinaMarks) {
+        return;
+    }
+
+    const auto loadedTracks = PlayerInfo::instance().getLoadedTracks();
+    for (auto it = loadedTracks.constBegin(); it != loadedTracks.constEnd(); ++it) {
+        observeTangoStartCueTrack(it.key(), it.value());
+    }
+}
+
+void BaseTrackTableModel::observeTangoStartCueTrack(
+        const QString& group,
+        const TrackPointer& pTrack) {
+    stopObservingTangoStartCueTrack(group);
+    if (!m_showCortinaMarks || !pTrack) {
+        return;
+    }
+    m_tangoStartCueTracksByGroup.insert(group, pTrack);
+    connect(pTrack.get(),
+            &Track::cuesUpdated,
+            this,
+            &BaseTrackTableModel::slotTrackCuesUpdated,
+            Qt::UniqueConnection);
+}
+
+void BaseTrackTableModel::stopObservingTangoStartCueTrack(const QString& group) {
+    const TrackPointer pOldTrack = m_tangoStartCueTracksByGroup.take(group);
+    if (!pOldTrack) {
+        return;
+    }
+    for (auto it = m_tangoStartCueTracksByGroup.constBegin();
+            it != m_tangoStartCueTracksByGroup.constEnd();
+            ++it) {
+        if (it.value() == pOldTrack) {
+            return;
+        }
+    }
+    disconnect(pOldTrack.get(),
+            &Track::cuesUpdated,
+            this,
+            &BaseTrackTableModel::slotTrackCuesUpdated);
 }
 
 QVariant BaseTrackTableModel::data(
@@ -688,6 +786,10 @@ QVariant BaseTrackTableModel::data(
             marks << QStringLiteral("CORTINA");
         } else if (duplicateTrackIds().contains(trackId)) {
             marks << QStringLiteral("DUPLICATE");
+        }
+        const QString startTimeMark = tangoStartTimeMark(index);
+        if (!startTimeMark.isEmpty()) {
+            marks << startTimeMark;
         }
         if (isPauseAfterRow(index.row())) {
             marks << QStringLiteral("PAUSE AFTER");
@@ -1248,6 +1350,35 @@ void BaseTrackTableModel::slotTrackChanged(
             }
         }
         m_previewDeckTrackId = doGetTrackId(pNewTrack);
+    }
+    if (m_showCortinaMarks) {
+        observeTangoStartCueTrack(group, pNewTrack);
+    }
+}
+
+void BaseTrackTableModel::slotTrackCuesUpdated() {
+    if (!m_showCortinaMarks) {
+        return;
+    }
+    Track* pTrack = qobject_cast<Track*>(sender());
+    if (!pTrack) {
+        return;
+    }
+    const TrackId trackId = pTrack->getId();
+    if (!trackId.isValid()) {
+        return;
+    }
+    const int titleColumn = fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE);
+    VERIFY_OR_DEBUG_ASSERT(titleColumn >= 0) {
+        return;
+    }
+    const auto rows = getTrackRows(trackId);
+    for (int row : rows) {
+        if (row >= rowCount()) {
+            continue;
+        }
+        const QModelIndex titleIndex = index(row, titleColumn);
+        emit dataChanged(titleIndex, titleIndex, {Qt::DisplayRole});
     }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QHash>
 #include <QList>
 #include <QPointer>
 
@@ -76,9 +77,8 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // the Auto DJ view in Tango DJ mode; pass an invalid TrackId to clear.
     void setNowPlayingTrack(TrackId trackId);
 
-    // Enables the Tango cortina styling (blue text + "[--CORTINA--]" title
-    // prefix) for tracks tagged in the CortinaRegistry. Only the Auto DJ model
-    // turns this on, so other track tables are unaffected.
+    // Enables the Tango Auto DJ styling (row colors + display-only title marks).
+    // Only the Auto DJ model turns this on, so other track tables are unaffected.
     void setShowCortinaMarks(bool enable);
     // True only for the Auto DJ model (see setShowCortinaMarks). Used to scope the
     // cortina context-menu action to the Auto DJ list.
@@ -279,6 +279,7 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
             const QString& group,
             TrackPointer pNewTrack,
             TrackPointer pOldTrack);
+    void slotTrackCuesUpdated();
 
     void slotRefreshCoverRows(
             const QList<int>& rows);
@@ -306,6 +307,12 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     /// so each mark is re-resolved to the occurrence of its remembered track
     /// nearest its old row - the same disambiguation the Tango cursor uses.
     void reanchorPauseAfterRows();
+    QString tangoStartTimeMark(const QModelIndex& index) const;
+    void refreshTangoStartCueObservers();
+    void observeTangoStartCueTrack(
+            const QString& group,
+            const TrackPointer& pTrack);
+    void stopObservingTangoStartCueTrack(const QString& group);
 
     // Track models may reference tracks by an external id
     // TODO: TrackId should only be used for tracks from
@@ -338,10 +345,9 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
 
     TrackId m_previewDeckTrackId;
     TrackId m_nowPlayingTrackId;
-    // When true, render CortinaRegistry-tagged tracks with blue text and a
-    // "[--CORTINA--]" title prefix, and repeated tracks amber with a
-    // "[--DUPLICATE--]" prefix (Auto DJ Tango mode only).
+    // When true, render Tango Auto DJ row colors and display-only title marks.
     bool m_showCortinaMarks = false;
+    QHash<QString, TrackPointer> m_tangoStartCueTracksByGroup;
 
     // Ids appearing on more than one row, excluding cortinas. Scanning every row
     // per cell would be quadratic, so it is computed once per queue edit and

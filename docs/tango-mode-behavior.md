@@ -29,6 +29,13 @@ Resetting S is different from clearing S. Reset sets S to `00:00`, which means
 the DJ intentionally wants the track or cortina to begin at the physical start of
 the file, including any leading silence.
 
+The Auto DJ list title may show a display-only start-time mark when S exists and
+differs from FAS, for example `[-- 00:15 --] El Choclo` or
+`[-- CORTINA -- 00:15 --] Crawling`. This is a heuristic until Tango Mode has
+its own authorship storage: if S and FAS are identical, the list omits the time
+mark because it cannot distinguish an analyzer-created default from a DJ-created
+marker at the same position. A reset to `00:00` is shown when FAS is elsewhere.
+
 Summary:
 
 - Set Start: set S to the chosen timestamp.
