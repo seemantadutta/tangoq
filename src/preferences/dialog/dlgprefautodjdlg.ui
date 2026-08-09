@@ -40,7 +40,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>Plays the Auto DJ list in order, keeps played tracks, and stops at the end. Locks shuffle, skip, random, re-queue and list sorting. Trims silence and adds a 2-second gap between tracks by default — you can still change the fade mode and gap in the Auto DJ toolbar. Can only be changed while Auto DJ is stopped.</string>
+          <string>Plays the Auto DJ list in order, keeps played tracks, and stops at the end. Locks shuffle, skip, random, re-queue and list sorting. Trims silence and adds a 3-second gap between tracks by default — you can still change the fade mode and gap in the Auto DJ toolbar. Can only be changed while Auto DJ is stopped.</string>
          </property>
         </widget>
        </item>
@@ -249,64 +249,6 @@
          </item>
          <item>
           <spacer name="horizontalSpacerCortinaFadeOut">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
-             <horstretch>1</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="CortinaGapLayout">
-         <item>
-          <widget class="QLabel" name="CortinaGapLabel">
-           <property name="text">
-            <string>Cortina gap</string>
-           </property>
-           <property name="buddy">
-            <cstring>CortinaGapSpinBox</cstring>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="CortinaGapSpinBox">
-           <property name="toolTip">
-            <string>Silent gap inserted before and after the cortina (Nc). Only used in &quot;Cortina Fade&quot; mode; intra-tanda gaps still use the Auto DJ transition time. Can only be changed while Auto DJ is stopped.</string>
-           </property>
-           <property name="suffix">
-            <string> s</string>
-           </property>
-           <property name="minimum">
-            <number>0</number>
-           </property>
-           <property name="maximum">
-            <number>60</number>
-           </property>
-           <property name="value">
-            <number>2</number>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>70</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>90</width>
-             <height>16777215</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacerCortinaGap">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>

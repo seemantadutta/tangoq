@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -91,6 +92,14 @@ class DeckAttributes : public QObject {
         return mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(m_trackSamples.get());
     }
 
+    void setAutoDJFadeGain(double gain) {
+        m_autoDJFadeGain.set(gain);
+    }
+
+    void resetAutoDJFadeGain() {
+        setAutoDJFadeGain(1.0);
+    }
+
     double rateRatio() const {
         return m_rateRatio.get();
     }
@@ -142,6 +151,7 @@ class DeckAttributes : public QObject {
     ControlProxy m_trackSamples;
     ControlProxy m_sampleRate;
     ControlProxy m_rateRatio;
+    ControlProxy m_autoDJFadeGain;
     BaseTrackPlayer* m_pPlayer;
 };
 
@@ -291,6 +301,7 @@ class AutoDJProcessor : public QObject {
     // Fires when a Tanda Transition gap has elapsed: starts the cued incoming
     // deck at the contract entry point and loads the next queue item behind it.
     void slotTandaGapElapsed();
+    void slotTandaGapProgress();
     void slotNumberOfDecksChanged(int decks);
 
   protected:
@@ -309,6 +320,13 @@ class AutoDJProcessor : public QObject {
     // every time)
     double getCrossfader() const;
     void setCrossfader(double value);
+    void setAutoDJFadeGain(DeckAttributes* pDeck, double gain);
+    void resetAllAutoDJFadeGains();
+    void startTandaCrossfaderAnimation(DeckAttributes* pFromDeck,
+            DeckAttributes* pToDeck,
+            int gapMs);
+    void updateTandaCrossfaderAnimation();
+    void stopTandaCrossfaderAnimation();
 
     // Following functions return seconds computed from samples or -1 if
     // track in deck has invalid sample rate (<= 0)
@@ -501,8 +519,9 @@ class AutoDJProcessor : public QObject {
     // Cortina Fade transition settings (Tango mode), snapshot from [Auto DJ] by
     // loadCortinaFadeSettings(). When m_cortinaFadeEnabled is true the engine
     // fades a cortina in over m_cortinaFadeInSeconds (X) and out over
-    // m_cortinaFadeOutSeconds (Z); m_cortinaGapSeconds (Nc) is the silent gap
-    // before and after the cortina. The hold time Y = cortina length - X - Z is
+    // m_cortinaFadeOutSeconds (Z); m_cortinaGapSeconds mirrors the unified
+    // Tanda gap for the silent gaps before/after the cortina. The hold time Y =
+    // cortina length - X - Z is
     // derived. When false, cortinas keep the legacy hard-in / manual fade-out.
     bool m_cortinaFadeEnabled;
     int m_cortinaFadeInSeconds;
@@ -515,7 +534,7 @@ class AutoDJProcessor : public QObject {
     enum class CortinaFadePhase {
         None,      // inactive; normal transition machinery in charge
         BeforeGap, // cortina paused at its first sound, gap timer running
-        Envelope,  // cortina playing; crossfader driven by elapsed time
+        Envelope,  // cortina playing; internal gain driven by elapsed time
         AfterGap,  // cortina stopped after fade-out, gap timer running
     };
     CortinaFadePhase m_cortinaFadePhase;
@@ -524,6 +543,11 @@ class AutoDJProcessor : public QObject {
     DeckAttributes* m_pCortinaDeck;
     TrackId m_cortinaTrackId;
     QTimer m_tandaGapTimer;
+    QTimer m_tandaGapCrossfaderTimer;
+    QElapsedTimer m_tandaGapCrossfaderClock;
+    double m_tandaGapCrossfaderStart;
+    double m_tandaGapCrossfaderTarget;
+    int m_tandaGapCrossfaderDurationMs;
     DeckAttributes* m_pTandaFromDeck;
     DeckAttributes* m_pTandaToDeck;
     TrackId m_tandaToTrackId;

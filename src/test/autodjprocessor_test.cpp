@@ -60,12 +60,14 @@ class FakeDeck : public BaseTrackPlayer {
               introEndPos(ConfigKey(group, "intro_end_position")),
               outroStartPos(ConfigKey(group, "outro_start_position")),
               outroEndPos(ConfigKey(group, "outro_end_position")),
-              orientation(ConfigKey(group, "orientation")) {
+              orientation(ConfigKey(group, "orientation")),
+              autodjFadeGain(ConfigKey(group, "autodj_fade_gain")) {
         play.setButtonMode(ControlPushButton::TOGGLE);
         repeat.setButtonMode(ControlPushButton::TOGGLE);
         outroStartPos.set(Cue::kNoPosition);
         outroEndPos.set(Cue::kNoPosition);
         orientation.set(orient);
+        autodjFadeGain.set(1.0);
     }
 
     void fakeTrackLoadedEvent(TrackPointer pTrack) {
@@ -127,6 +129,7 @@ class FakeDeck : public BaseTrackPlayer {
     ControlObject outroStartPos;
     ControlObject outroEndPos;
     ControlObject orientation;
+    ControlObject autodjFadeGain;
 };
 
 class MockPlayerManager : public PlayerManagerInterface {
@@ -479,12 +482,16 @@ TEST_F(AutoDJProcessorTest, TandaTransition_MarkedCortinaFadeStartsEnvelopeAtMar
     deck1.playposition.set(1.0);
 
     ASSERT_TRUE(deck2.play.toBool());
+    EXPECT_DOUBLE_EQ(0.0, deck2.autodjFadeGain.get());
+    EXPECT_DOUBLE_EQ(1.0, mixer.crossfader.get());
     ASSERT_DOUBLE_EQ(0.56, deck2.playposition.get());
 
     // This callback is just after the marker. The cortina envelope must treat
     // the marker as elapsed=0, not subtract first sound and conclude that the
     // cortina budget has already expired.
     deck2.playposition.set(0.561);
+    EXPECT_GT(deck2.autodjFadeGain.get(), 0.0);
+    EXPECT_LT(deck2.autodjFadeGain.get(), 1.0);
     EXPECT_TRUE(deck2.play.toBool());
     EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
 
@@ -804,7 +811,6 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_LastCortinaKeepsFading) {
     // Its before-gap also stops the cortina deck on purpose and resumes it when
     // the gap elapses - a pause that must not be mistaken for the end of the set.
     config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
-    config()->set(ConfigKey("[Auto DJ]", "CortinaGap"), QString("2"));
 
     // Creating a new MockAutoDJProcessor will get each player from player
     // manager. Reset first so the new instance can recreate its COs.

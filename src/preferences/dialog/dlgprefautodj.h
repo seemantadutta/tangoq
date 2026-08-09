@@ -24,7 +24,6 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void slotSetCortinaFadeMode(int);
     void slotSetCortinaFadeIn(int);
     void slotSetCortinaFadeOut(int);
-    void slotSetCortinaGap(int);
     void slotSetMinimumAvailable(int);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRequeueIgnore(Qt::CheckState state);
@@ -44,7 +43,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     // Refreshes the read-only "Cortina hold time" (Y = cortina length - fade-in
     // - fade-out) label from the current buffered fade-in/out and cortina length.
     void updateCortinaHoldLabel();
-    // Enables/disables the cortina fade-in/out/gap inputs depending on whether
+    // Enables/disables the cortina fade-in/out inputs depending on whether
     // the Cortina Fade transition mode is selected.
     void updateCortinaFadeEnabled();
 

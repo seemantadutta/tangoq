@@ -103,6 +103,7 @@ DeckAttributes::DeckAttributes(int index,
           m_trackSamples(group, "track_samples"),
           m_sampleRate(group, "track_samplerate"),
           m_rateRatio(group, "rate_ratio"),
+          m_autoDJFadeGain(group, "autodj_fade_gain"),
           m_pPlayer(pPlayer) {
     connect(m_pPlayer, &BaseTrackPlayer::newTrackLoaded,
             this, &DeckAttributes::slotTrackLoaded);
@@ -202,7 +203,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_cortinaFadeEnabled(false),
           m_cortinaFadeInSeconds(5),
           m_cortinaFadeOutSeconds(5),
-          m_cortinaGapSeconds(2),
+          m_cortinaGapSeconds(kTandaGapPreferenceDefault),
           m_cortinaFadePhase(CortinaFadePhase::None),
           m_cortinaEnvelopeStartSecond(kKeepPosition),
           m_pCortinaDeck(nullptr),
@@ -211,6 +212,9 @@ AutoDJProcessor::AutoDJProcessor(
           m_pTandaToDeck(nullptr),
           m_tandaToTrackId(),
           m_tandaEntrySecond(0.0),
+          m_tandaGapCrossfaderStart(0.0),
+          m_tandaGapCrossfaderTarget(0.0),
+          m_tandaGapCrossfaderDurationMs(0),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
           m_coCrossfaderReverse(QStringLiteral("[Mixer Profile]"), QStringLiteral("xFaderReverse")),
@@ -379,6 +383,12 @@ AutoDJProcessor::AutoDJProcessor(
             &QTimer::timeout,
             this,
             &AutoDJProcessor::slotTandaGapElapsed);
+    m_tandaGapCrossfaderTimer.setSingleShot(false);
+    m_tandaGapCrossfaderTimer.setInterval(50);
+    connect(&m_tandaGapCrossfaderTimer,
+            &QTimer::timeout,
+            this,
+            &AutoDJProcessor::slotTandaGapProgress);
 
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
@@ -434,6 +444,69 @@ void AutoDJProcessor::setCrossfader(double value) {
         value *= -1.0;
     }
     m_coCrossfader.set(value);
+}
+
+void AutoDJProcessor::setAutoDJFadeGain(DeckAttributes* pDeck, double gain) {
+    if (!pDeck) {
+        return;
+    }
+    pDeck->setAutoDJFadeGain(std::clamp(gain, 0.0, 1.0));
+}
+
+void AutoDJProcessor::resetAllAutoDJFadeGains() {
+    for (const auto& pDeck : m_decks) {
+        if (pDeck) {
+            pDeck->resetAutoDJFadeGain();
+        }
+    }
+}
+
+void AutoDJProcessor::startTandaCrossfaderAnimation(
+        DeckAttributes* pFromDeck,
+        DeckAttributes* pToDeck,
+        int gapMs) {
+    Q_UNUSED(pFromDeck);
+    stopTandaCrossfaderAnimation();
+    if (!pToDeck) {
+        return;
+    }
+    m_tandaGapCrossfaderStart = getCrossfader();
+    m_tandaGapCrossfaderTarget = pToDeck->isLeft() ? -1.0 : 1.0;
+    m_tandaGapCrossfaderDurationMs = std::max(0, gapMs);
+    if (m_tandaGapCrossfaderDurationMs == 0) {
+        setCrossfader(m_tandaGapCrossfaderTarget);
+        return;
+    }
+    m_tandaGapCrossfaderClock.restart();
+    m_tandaGapCrossfaderTimer.start();
+    updateTandaCrossfaderAnimation();
+}
+
+void AutoDJProcessor::updateTandaCrossfaderAnimation() {
+    if (m_tandaGapCrossfaderDurationMs <= 0) {
+        setCrossfader(m_tandaGapCrossfaderTarget);
+        stopTandaCrossfaderAnimation();
+        return;
+    }
+    const double progress = std::clamp(
+            static_cast<double>(m_tandaGapCrossfaderClock.elapsed()) /
+                    static_cast<double>(m_tandaGapCrossfaderDurationMs),
+            0.0,
+            1.0);
+    setCrossfader(m_tandaGapCrossfaderStart +
+            (m_tandaGapCrossfaderTarget - m_tandaGapCrossfaderStart) * progress);
+    if (progress >= 1.0) {
+        stopTandaCrossfaderAnimation();
+    }
+}
+
+void AutoDJProcessor::stopTandaCrossfaderAnimation() {
+    m_tandaGapCrossfaderTimer.stop();
+    m_tandaGapCrossfaderDurationMs = 0;
+}
+
+void AutoDJProcessor::slotTandaGapProgress() {
+    updateTandaCrossfaderAnimation();
 }
 
 AutoDJProcessor::AutoDJError AutoDJProcessor::shufflePlaylist(
@@ -653,6 +726,9 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             emit autoDJError(ADJ_NOT_TWO_DECKS);
             return ADJ_NOT_TWO_DECKS;
         }
+
+        resetAllAutoDJFadeGains();
+        stopTandaCrossfaderAnimation();
 
         bool leftDeckPlaying = pLeftDeck->isPlaying();
         bool rightDeckPlaying = pRightDeck->isPlaying();
@@ -902,7 +978,9 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         m_eState = ADJ_DISABLED;
         // Cancel any running cortina gap/envelope so a pending gap timer can't
         // start a deck after Auto DJ has been turned off.
+        cancelTandaGap();
         cancelCortinaFade();
+        resetAllAutoDJFadeGains();
         disconnect(&m_coCrossfader,
                 &ControlProxy::valueChanged,
                 this,
@@ -944,6 +1022,11 @@ void AutoDJProcessor::controlAddRandomTrack(double value) {
 }
 
 void AutoDJProcessor::crossfaderChanged(double value) {
+    if (isTandaGapPending() || m_tandaGapCrossfaderTimer.isActive() ||
+            m_cortinaFadePhase != CortinaFadePhase::None) {
+        return;
+    }
+
     if (m_eState == ADJ_IDLE) {
         // The user is changing the crossfader manually. If the user has
         // moved it all the way to the other side, make the deck faded away
@@ -1580,8 +1663,8 @@ void AutoDJProcessor::refreshSetDurationCacheIfNeeded() {
     // The Cortina Fade settings feed both the engine and the estimate. While a
     // set is running they stay frozen at the toggleAutoDJ() snapshot; while
     // stopped, pick up preference edits here so the Set Length preview follows
-    // the prefs dialog. Fade mode and gap are baked into the cached sums, so a
-    // change to them re-dirties the cache.
+    // the prefs dialog. Fade mode and the unified Tanda gap are baked into the
+    // cached sums, so a change to them re-dirties the cache.
     if (m_eState == ADJ_DISABLED) {
         const bool fadeEnabled = m_cortinaFadeEnabled;
         const int gapSeconds = m_cortinaGapSeconds;
@@ -1614,10 +1697,9 @@ void AutoDJProcessor::loadCortinaFadeSettings() {
             m_pConfig->getValue(ConfigKey(kPreferenceGroup,
                                         QStringLiteral("CortinaFadeOut")),
                     5);
-    m_cortinaGapSeconds =
-            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
-                                        QStringLiteral("CortinaGap")),
-                    2);
+    // Tanda Transition exposes a single gap value. Keep the internal cortina-gap
+    // member as the future split point, but drive it from that unified setting.
+    m_cortinaGapSeconds = m_tandaGapSeconds;
 }
 
 bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
@@ -1679,13 +1761,15 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
             // Order matters to keep this inaudible: stop and silence the
             // cortina before seeking it onto its first audible sample.
             thisDeck->stop();
-            setCrossfader(thisDeck->isLeft() ? 1.0 : -1.0);
+            setCrossfader(thisDeck->isLeft() ? -1.0 : 1.0);
+            setAutoDJFadeGain(thisDeck, 0.0);
             thisDeck->setPlayPosition(firstSound / duration);
             m_cortinaGapTimer.start(gapSeconds * 1000);
             return true;
         }
         m_cortinaFadePhase = CortinaFadePhase::Envelope;
         m_cortinaEnvelopeStartSecond = firstSound;
+        setCrossfader(thisDeck->isLeft() ? -1.0 : 1.0);
         TT_TRACE() << "cortina phase=Envelope deck=" << thisDeck->group
                    << " reason=already-audible";
         // Fall through to the envelope below.
@@ -1714,8 +1798,8 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         }
     }
 
-    // Envelope: drive the crossfader as a pure function of the seconds elapsed
-    // since the cortina's first audible sample.
+    // Envelope: drive the internal Auto DJ gain as a pure function of the seconds elapsed
+    // since the cortina envelope entry point.
     const double duration = getEndSecond(thisDeck);
     const double firstSound = getFirstSoundSecond(thisDeck);
     const double envelopeStart = m_cortinaEnvelopeStartSecond >= 0.0
@@ -1755,33 +1839,33 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         return false;
     }
 
-    // The cortina plays at full on its own crossfader side; the opposite end is
-    // silent because the partner deck is stopped there.
-    const double cortinaSide = thisDeck->isLeft() ? -1.0 : 1.0;
-    const double silentSide = -cortinaSide;
+    // The crossfader stays parked on the cortina side. The audible cortina
+    // envelope is an internal Auto DJ gain so silent-gap crossfader movement can
+    // be used consistently as handoff progress feedback.
+    setCrossfader(thisDeck->isLeft() ? -1.0 : 1.0);
 
-    double crossfader;
+    double gain;
     if (elapsed < 0.0) {
         // Still inside the silent lead-in.
-        crossfader = silentSide;
+        gain = 0.0;
     } else if (elapsed < x) {
         // Fade in.
-        crossfader = silentSide + (cortinaSide - silentSide) * (elapsed / x);
+        gain = x > 0.0 ? elapsed / x : 1.0;
     } else if (elapsed < cl - z) {
         // Hold at full.
-        crossfader = cortinaSide;
+        gain = 1.0;
     } else if (elapsed < cl) {
         // Fade out.
-        crossfader = cortinaSide +
-                (silentSide - cortinaSide) * ((elapsed - (cl - z)) / z);
+        gain = z > 0.0 ? 1.0 - ((elapsed - (cl - z)) / z) : 0.0;
     } else {
         // Fade-out complete: enter the Nc after-gap.
         TT_TRACE() << "cortina phase=AfterGap deck=" << thisDeck->group
                    << " reason=envelope-complete";
+        setAutoDJFadeGain(thisDeck, 0.0);
         startCortinaAfterGap(thisDeck);
         return true;
     }
-    setCrossfader(crossfader);
+    setAutoDJFadeGain(thisDeck, gain);
     return true;
 }
 
@@ -1792,20 +1876,30 @@ void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
     TT_TRACE() << "cortina startAfterGap deck=" << pCortinaDeck->group
                << " gapMs=" << (gapSeconds * 1000);
     m_cortinaFadePhase = CortinaFadePhase::AfterGap;
-    // Park the crossfader on the next deck's side so the upcoming hard start
-    // comes in at full volume, and stop the (now inaudible) cortina. The gap is
-    // wall-clock, so it doesn't depend on the cortina file having a silent tail.
-    setCrossfader(pCortinaDeck->isLeft() ? 1.0 : -1.0);
+    // Stop the now-inaudible cortina and restore its internal gain while it is
+    // silent, so the deck is safe if the DJ takes over or the track is reloaded.
     pCortinaDeck->stop();
-    m_cortinaGapTimer.start(gapSeconds * 1000);
+    setAutoDJFadeGain(pCortinaDeck, 1.0);
+    const int gapMs = gapSeconds * 1000;
+    if (m_transitionMode == TransitionMode::TandaTransition) {
+        startTandaCrossfaderAnimation(pCortinaDeck, getOtherDeck(pCortinaDeck), gapMs);
+    } else {
+        setCrossfader(pCortinaDeck->isLeft() ? 1.0 : -1.0);
+    }
+    m_cortinaGapTimer.start(gapMs);
 }
 
 void AutoDJProcessor::cancelCortinaFade() {
     TT_TRACE() << "cortina cancel phase=" << static_cast<int>(m_cortinaFadePhase);
     m_cortinaGapTimer.stop();
+    stopTandaCrossfaderAnimation();
+    if (m_pCortinaDeck) {
+        setAutoDJFadeGain(m_pCortinaDeck, 1.0);
+    }
     m_cortinaFadePhase = CortinaFadePhase::None;
     m_cortinaEnvelopeStartSecond = kKeepPosition;
-    m_pCortinaDeck = nullptr;m_cortinaTrackId = TrackId();
+    m_pCortinaDeck = nullptr;
+    m_cortinaTrackId = TrackId();
 }
 
 void AutoDJProcessor::slotCortinaGapElapsed() {
@@ -1826,7 +1920,7 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             return;
         }
         // The before-gap has elapsed; resume the cortina. The position handler
-        // then ramps the crossfader in from silence.
+        // then ramps the internal Auto DJ gain in from silence.
         m_cortinaFadePhase = CortinaFadePhase::Envelope;
         pCortinaDeck->play();
         return;
@@ -2099,6 +2193,8 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
 
 void AutoDJProcessor::controlKeepQueue(double value) {
     const bool enabled = value > 0.0;
+    resetAllAutoDJFadeGains();
+    stopTandaCrossfaderAnimation();
     const ConfigKey keepQueueKey(kPreferenceGroup, QStringLiteral("KeepQueue"));
     const bool wasEnabled = m_pConfig->getValue(keepQueueKey, false);
     if (m_eState == ADJ_DISABLED) {
@@ -2128,6 +2224,8 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
         return;
     }
     const bool enabled = value > 0.0;
+    resetAllAutoDJFadeGains();
+    stopTandaCrossfaderAnimation();
     if (enabled) {
         setTransitionMode(TransitionMode::TandaTransition);
     } else if (isTandaTransition(m_transitionMode)) {
@@ -3023,6 +3121,7 @@ void AutoDJProcessor::startTandaGap(DeckAttributes* pFromDeck, DeckAttributes* p
     pToDeck->setPlayPosition(m_tandaEntrySecond / toDuration);
 
     const int gapMs = std::max(0, tandaGapSecondsFor(pFromDeck, pToDeck)) * 1000;
+    startTandaCrossfaderAnimation(pFromDeck, pToDeck, gapMs);
     if (gapMs == 0) {
         slotTandaGapElapsed();
         return;
@@ -3035,6 +3134,7 @@ void AutoDJProcessor::cancelTandaGap() {
         TT_TRACE() << "tanda gap cancel";
     }
     m_tandaGapTimer.stop();
+    stopTandaCrossfaderAnimation();
     m_pTandaFromDeck = nullptr;
     m_pTandaToDeck = nullptr;
     m_tandaToTrackId = TrackId();
@@ -3070,12 +3170,13 @@ void AutoDJProcessor::slotTandaGapElapsed() {
         m_cortinaTrackId = toTrackId;
         m_cortinaFadePhase = CortinaFadePhase::Envelope;
         m_cortinaEnvelopeStartSecond = entrySecond;
-        // Start the cortina faded out. maybeHandleCortinaFade() will ramp it in
-        // as callbacks arrive from the cortina deck.
-        setCrossfader(pToDeck->isLeft() ? 1.0 : -1.0);
+        // Start the cortina faded out. maybeHandleCortinaFade() will ramp the
+        // internal Auto DJ gain in as callbacks arrive from the cortina deck.
+        setAutoDJFadeGain(pToDeck, 0.0);
     } else {
-        setCrossfader(pToDeck->isLeft() ? -1.0 : 1.0);
+        setAutoDJFadeGain(pToDeck, 1.0);
     }
+    setCrossfader(pToDeck->isLeft() ? -1.0 : 1.0);
 
     pToDeck->setPlayPosition(entrySecond / toDuration);
     pToDeck->play();
@@ -3346,6 +3447,7 @@ void AutoDJProcessor::setTandaGapSeconds(int seconds) {
         return;
     }
     m_tandaGapSeconds = boundedSeconds;
+    m_cortinaGapSeconds = boundedSeconds;
     invalidateRemainingSetDuration();
 
     if (m_eState != ADJ_IDLE || isTandaGapPending()) {
