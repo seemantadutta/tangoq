@@ -77,12 +77,13 @@ void applyFirstRunDefaults(const UserSettingsPointer& config) {
         config->set(ConfigKey("[Skin]", key), ConfigValue(QString::fromLatin1(value)));
     }
 
-    // Tandas are separated by cortinas, not beatmatched into each other, so the
-    // useful default is to trim the silence between tracks rather than crossfade
-    // over an outro. "3" is TransitionMode::FixedSkipSilence (see the enum in
-    // autodjprocessor.h, which is 0-indexed); -3 overlaps by three seconds.
-    config->set(ConfigKey("[Auto DJ]", "TransitionMode"), ConfigValue("3"));
+    // Tandas need silence between trimmed track boundaries. "4" is
+    // TransitionMode::TandaTransition (see the enum in autodjprocessor.h, which
+    // is 0-indexed); TandaGap is positive silence in seconds. Keep the stock
+    // Transition value available for DJs who switch back to a stock mode.
+    config->set(ConfigKey("[Auto DJ]", "TransitionMode"), ConfigValue("4"));
     config->set(ConfigKey("[Auto DJ]", "Transition"), ConfigValue("-3"));
+    config->set(ConfigKey("[Auto DJ]", "TandaGap"), ConfigValue("3"));
 }
 
 } // namespace

@@ -1723,6 +1723,10 @@ if(WARNINGS_FATAL)
   endif()
 endif()
 
+option(TANGO_TRANSITION_TRACE "Enable Tango transition trace logging" OFF)
+if(TANGO_TRANSITION_TRACE)
+  target_compile_definitions(mixxx-lib PUBLIC TANGO_TRANSITION_TRACE)
+endif()
 target_compile_definitions(mixxx-lib PUBLIC
   "${CMAKE_SYSTEM_PROCESSOR}"
   $<$<CONFIG:Debug>:MIXXX_BUILD_DEBUG>
@@ -4151,3 +4155,4 @@ if(APPLE AND MACOS_BUNDLE)
     configure_file(cmake/modules/BundleInstall.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake" @ONLY)
     install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake")
 endif()
+

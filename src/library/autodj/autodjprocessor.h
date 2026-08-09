@@ -170,7 +170,8 @@ class AutoDJProcessor : public QObject {
         FullIntroOutro,
         FadeAtOutroStart,
         FixedFullTrack,
-        FixedSkipSilence
+        FixedSkipSilence,
+        TandaTransition
     };
 
     AutoDJProcessor(QObject* pParent,
@@ -397,6 +398,12 @@ class AutoDJProcessor : public QObject {
     // duplicates), or -1 if pTrack is not in the queue.
     int keepQueueRowForTrack(TrackPointer pTrack, int rowGuess);
     int keepQueueRowForTrackId(TrackId trackId, int rowGuess);
+
+    // Last stock transition mode selected by the DJ. Tanda Transition is Tango-only,
+    // so leaving Tango restores this mode instead of leaving a hidden option active.
+    TransitionMode lastStockTransitionMode() const;
+    void rememberStockTransitionMode(TransitionMode mode);
+    void restoreLastStockTransitionMode();
 
     // Set-duration cache (see getRemainingSetDuration). Recomputes the upcoming
     // tracks' total play time only when something that affects it changes.

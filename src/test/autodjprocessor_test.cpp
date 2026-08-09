@@ -390,6 +390,20 @@ TEST_F(AutoDJProcessorTest, TangoMode_KeepQueueOffIsTheInverseOfKeepQueue) {
     EXPECT_TRUE(keepQueueOff->toBool());
 }
 
+TEST_F(AutoDJProcessorTest, TangoMode_EnableSelectsTandaTransitionAndRestoresStockMode) {
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FixedFullTrack);
+    EXPECT_EQ(AutoDJProcessor::TransitionMode::FixedFullTrack,
+            pProcessor->getTransitionMode());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    EXPECT_EQ(AutoDJProcessor::TransitionMode::TandaTransition,
+            pProcessor->getTransitionMode());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+    EXPECT_EQ(AutoDJProcessor::TransitionMode::FixedFullTrack,
+            pProcessor->getTransitionMode());
+}
+
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
     // stop has to pre-empt the transition: waiting for the track to end would be

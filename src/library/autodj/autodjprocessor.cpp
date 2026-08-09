@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include <QDebug>
+
 #include "engine/channels/enginedeck.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/basetracktablemodel.h"
@@ -22,6 +24,7 @@ const QString kPreferenceGroup = QStringLiteral("[Auto DJ]");
 const QString kControlGroup = QStringLiteral("[AutoDJ]");
 const char* kTransitionPreferenceName = "Transition";
 const char* kTransitionModePreferenceName = "TransitionMode";
+const char* kLastStockTransitionModePreferenceName = "LastStockTransitionMode";
 constexpr double kTransitionPreferenceDefault = 10.0;
 constexpr double kKeepPosition = -1.0;
 
@@ -29,6 +32,53 @@ constexpr double kKeepPosition = -1.0;
 constexpr double kMinimumTrackDurationSec = 0.2;
 
 constexpr bool sDebug = false;
+
+const char* transitionModeName(AutoDJProcessor::TransitionMode mode) {
+    switch (mode) {
+    case AutoDJProcessor::TransitionMode::FullIntroOutro:
+        return "FullIntroOutro";
+    case AutoDJProcessor::TransitionMode::FadeAtOutroStart:
+        return "FadeAtOutroStart";
+    case AutoDJProcessor::TransitionMode::FixedFullTrack:
+        return "FixedFullTrack";
+    case AutoDJProcessor::TransitionMode::FixedSkipSilence:
+        return "FixedSkipSilence";
+    case AutoDJProcessor::TransitionMode::TandaTransition:
+        return "TandaTransition";
+    }
+    return "Unknown";
+}
+
+const char* yesNo(bool value) {
+    return value ? "yes" : "no";
+}
+
+bool isTandaTransition(AutoDJProcessor::TransitionMode mode) {
+    return mode == AutoDJProcessor::TransitionMode::TandaTransition;
+}
+
+bool isStockTransitionMode(AutoDJProcessor::TransitionMode mode) {
+    return !isTandaTransition(mode);
+}
+
+AutoDJProcessor::TransitionMode validStockTransitionMode(int mode) {
+    switch (static_cast<AutoDJProcessor::TransitionMode>(mode)) {
+    case AutoDJProcessor::TransitionMode::FullIntroOutro:
+    case AutoDJProcessor::TransitionMode::FadeAtOutroStart:
+    case AutoDJProcessor::TransitionMode::FixedFullTrack:
+    case AutoDJProcessor::TransitionMode::FixedSkipSilence:
+        return static_cast<AutoDJProcessor::TransitionMode>(mode);
+    case AutoDJProcessor::TransitionMode::TandaTransition:
+        break;
+    }
+    return AutoDJProcessor::TransitionMode::FixedSkipSilence;
+}
+
+#if defined(TANGO_TRANSITION_TRACE)
+#define TT_TRACE() qInfo().nospace() << "[TT] "
+#else
+#define TT_TRACE() if constexpr (false) qInfo().nospace()
+#endif
 } // anonymous namespace
 
 DeckAttributes::DeckAttributes(int index,
@@ -330,6 +380,11 @@ AutoDJProcessor::AutoDJProcessor(
     m_transitionMode = m_pConfig->getValue(
             ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             TransitionMode::FullIntroOutro);
+    if (!keepQueueEnabled() && isTandaTransition(m_transitionMode)) {
+        restoreLastStockTransitionMode();
+    } else if (isStockTransitionMode(m_transitionMode)) {
+        rememberStockTransitionMode(m_transitionMode);
+    }
 
     loadCortinaFadeSettings();
 }
@@ -1455,7 +1510,8 @@ mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {
     // use a deterministic transition time; the intro/outro modes depend on
     // per-track cues we cannot know in advance, so the adjustment is skipped there.
     if (m_transitionMode == TransitionMode::FixedFullTrack ||
-            m_transitionMode == TransitionMode::FixedSkipSilence) {
+            m_transitionMode == TransitionMode::FixedSkipSilence ||
+            m_transitionMode == TransitionMode::TandaTransition) {
         int transitions = remainingTracks > 1 ? remainingTracks - 1 : 0;
         transitions -= cortinaBoundaries;
         if (transitions < 0) {
@@ -1561,8 +1617,15 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         // cortina - a pause/seek-back would be an audible stutter, so skip the
         // gap and run the envelope from the current position instead.
         const double firstSound = getFirstSoundSecond(thisDeck);
+        TT_TRACE() << "cortina phase decision deck=" << thisDeck->group
+                   << " playSecond=" << (thisPlayPosition * duration)
+                   << " firstSound=" << firstSound
+                   << " gap=" << m_cortinaGapSeconds;
         if (thisPlayPosition * duration <= firstSound + 0.1) {
             m_cortinaFadePhase = CortinaFadePhase::BeforeGap;
+            TT_TRACE() << "cortina phase=BeforeGap deck=" << thisDeck->group
+                       << " seekSecond=" << firstSound
+                       << " gapMs=" << (m_cortinaGapSeconds * 1000);
             // Order matters to keep this inaudible: stop and silence the
             // cortina before seeking it onto its first audible sample.
             thisDeck->stop();
@@ -1572,6 +1635,8 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
             return true;
         }
         m_cortinaFadePhase = CortinaFadePhase::Envelope;
+        TT_TRACE() << "cortina phase=Envelope deck=" << thisDeck->group
+                   << " reason=already-audible";
         // Fall through to the envelope below.
     } else {
         // An active phase owns the cortina deck's callbacks outright, so the
@@ -1585,6 +1650,8 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
                 TrackId(pTrack->getId()) != m_cortinaTrackId) {
             // The world changed under us (state change, eject, manual load):
             // relinquish control instead of driving the wrong track.
+            TT_TRACE() << "cortina cancel deck=" << thisDeck->group
+                       << " reason=state-or-track-changed";
             cancelCortinaFade();
             return false;
         }
@@ -1622,10 +1689,14 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
             // The file ended before the envelope + after-gap completed (short
             // cortina / no silent tail). Go straight to the after-gap so the
             // handoff to the next tanda still happens.
+            TT_TRACE() << "cortina phase=AfterGap deck=" << thisDeck->group
+                       << " reason=file-ended";
             startCortinaAfterGap(thisDeck);
             return true;
         }
         // Paused mid-envelope by the DJ: they are taking over.
+        TT_TRACE() << "cortina cancel deck=" << thisDeck->group
+                   << " reason=paused-mid-envelope";
         cancelCortinaFade();
         return false;
     }
@@ -1651,6 +1722,8 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
                 (silentSide - cortinaSide) * ((elapsed - (cl - z)) / z);
     } else {
         // Fade-out complete: enter the Nc after-gap.
+        TT_TRACE() << "cortina phase=AfterGap deck=" << thisDeck->group
+                   << " reason=envelope-complete";
         startCortinaAfterGap(thisDeck);
         return true;
     }
@@ -1659,6 +1732,8 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
 }
 
 void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
+    TT_TRACE() << "cortina startAfterGap deck=" << pCortinaDeck->group
+               << " gapMs=" << (m_cortinaGapSeconds * 1000);
     m_cortinaFadePhase = CortinaFadePhase::AfterGap;
     // Park the crossfader on the next deck's side so the upcoming hard start
     // comes in at full volume, and stop the (now inaudible) cortina. The gap is
@@ -1669,6 +1744,7 @@ void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
 }
 
 void AutoDJProcessor::cancelCortinaFade() {
+    TT_TRACE() << "cortina cancel phase=" << static_cast<int>(m_cortinaFadePhase);
     m_cortinaGapTimer.stop();
     m_cortinaFadePhase = CortinaFadePhase::None;
     m_pCortinaDeck = nullptr;
@@ -1676,6 +1752,7 @@ void AutoDJProcessor::cancelCortinaFade() {
 }
 
 void AutoDJProcessor::slotCortinaGapElapsed() {
+    TT_TRACE() << "cortina gap elapsed phase=" << static_cast<int>(m_cortinaFadePhase);
     DeckAttributes* pCortinaDeck = m_pCortinaDeck;
     if (!pCortinaDeck || m_eState != ADJ_IDLE) {
         cancelCortinaFade();
@@ -1717,6 +1794,7 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             // The next track is still loading (e.g. Auto DJ was only just
             // enabled): extend the gap slightly rather than stalling the set
             // with both decks stopped.
+            TT_TRACE() << "cortina gap extend reason=next-loading gapMs=500";
             m_cortinaGapTimer.start(500);
             return;
         }
@@ -1755,6 +1833,9 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             startSecond = math_max(
                     startSecond - static_cast<double>(m_cortinaGapSeconds), 0.0);
         }
+        TT_TRACE() << "cortina next start deck=" << pNextDeck->group
+                   << " startSecond=" << startSecond
+                   << " nextIsCortina=" << yesNo(isCortina(pNextTrack));
         pNextDeck->setPlayPosition(startSecond / nextDuration);
         pNextDeck->play();
         removeLoadedTrackFromTopOfQueue(*pNextDeck);
@@ -1801,7 +1882,8 @@ void AutoDJProcessor::recomputeKeepQueueUpcomingDuration() {
                 // cortina, so the queue costs both gaps on top of the budget.
                 seconds += 2.0 * m_cortinaGapSeconds;
             }
-        } else if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+        } else if (m_transitionMode == TransitionMode::FixedSkipSilence ||
+                m_transitionMode == TransitionMode::TandaTransition) {
             // The audible-range refinement needs the analysed N60dBSound cue,
             // which only exists on a loaded Track. Consult one only if it is
             // already in memory -- loading it here is exactly the cost this loop
@@ -1847,7 +1929,8 @@ mixxx::Duration AutoDJProcessor::getTotalSetDuration() {
     // time. In Cortina Fade mode the boundaries around each cortina use the Nc
     // gaps (counted per cortina in the sums) instead of Nt, so exclude them.
     if (m_transitionMode == TransitionMode::FixedFullTrack ||
-            m_transitionMode == TransitionMode::FixedSkipSilence) {
+            m_transitionMode == TransitionMode::FixedSkipSilence ||
+            m_transitionMode == TransitionMode::TandaTransition) {
         int transitions =
                 m_keepQueueTotalTracks > 1 ? m_keepQueueTotalTracks - 1 : 0;
         if (m_cortinaFadeEnabled) {
@@ -1902,7 +1985,8 @@ double AutoDJProcessor::keepQueueTrackPlaySeconds(const TrackPointer& pTrack) co
     // In Skip Silence mode the engine plays only the audible range, so subtract the
     // trimmed leading/trailing silence using the analyzed N60dBSound cue. Tracks
     // not yet analyzed have no such cue, so fall back to the full file duration.
-    if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+    if (m_transitionMode == TransitionMode::FixedSkipSilence ||
+            m_transitionMode == TransitionMode::TandaTransition) {
         const double audible = keepQueueAudibleSeconds(pTrack);
         if (audible > 0.0) {
             return audible;
@@ -1934,7 +2018,8 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
     }
     // In Skip Silence mode the current track fades out at its last audible sample,
     // not the end of the file, so count the remainder up to that point.
-    if (m_transitionMode == TransitionMode::FixedSkipSilence) {
+    if (m_transitionMode == TransitionMode::FixedSkipSilence ||
+            m_transitionMode == TransitionMode::TandaTransition) {
         CuePointer pCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
         const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
         if (pCue && sampleRate.isValid() && pCue->getEndPosition().isValid()) {
@@ -1949,11 +2034,20 @@ double AutoDJProcessor::keepQueueCurrentTrackRemainingSeconds(
 }
 
 void AutoDJProcessor::controlKeepQueue(double value) {
+    const bool enabled = value > 0.0;
+    const ConfigKey keepQueueKey(kPreferenceGroup, QStringLiteral("KeepQueue"));
+    const bool wasEnabled = m_pConfig->getValue(keepQueueKey, false);
+    if (m_eState == ADJ_DISABLED) {
+        if (enabled && !wasEnabled) {
+            setTransitionMode(TransitionMode::TandaTransition);
+        } else if (!enabled && wasEnabled && isTandaTransition(m_transitionMode)) {
+            restoreLastStockTransitionMode();
+        }
+    }
     // Persist the live Tango DJ mode control to the user setting.
-    m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")),
-            value > 0.0);
+    m_pConfig->setValue(keepQueueKey, enabled);
     // Kept in lockstep here so skins never see the two disagree.
-    m_keepQueueOff.set(value > 0.0 ? 0.0 : 1.0);
+    m_keepQueueOff.set(enabled ? 0.0 : 1.0);
     // Leaving Tango mode has to clear the deck warning with everything else.
     updatePauseAfterDeckControl();
 }
@@ -1970,6 +2064,11 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
         return;
     }
     const bool enabled = value > 0.0;
+    if (enabled) {
+        setTransitionMode(TransitionMode::TandaTransition);
+    } else if (isTandaTransition(m_transitionMode)) {
+        restoreLastStockTransitionMode();
+    }
     m_keepQueue.setAndConfirm(enabled ? 1.0 : 0.0);
     // The mirror has to be updated here, not only in controlKeepQueue(): a
     // ControlObject does not emit valueChanged for a change it made itself, so
@@ -2555,6 +2654,21 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
         toDeckStartSeconds = introStart;
     }
 
+    const double toIntroCueSecond = framePositionToSeconds(pToDeck->introStartPosition(), pToDeck);
+    TT_TRACE() << "calculate boundary from=" << pFromDeck->group
+               << " to=" << pToDeck->group
+               << " mode=" << transitionModeName(m_transitionMode)
+               << " keepQueue=" << yesNo(keepQueueEnabled())
+               << " cortinaFade=" << yesNo(m_cortinaFadeEnabled)
+               << " fromCortina=" << yesNo(isCortina(pFromDeck->getLoadedTrack()))
+               << " toCortina=" << yesNo(isCortina(pToDeck->getLoadedTrack()))
+               << " seekToStartPoint=" << yesNo(seekToStartPoint)
+               << " transitionTime=" << m_transitionTime
+               << " cortinaGap=" << m_cortinaGapSeconds
+               << " fromLastSound=" << getLastSoundSecond(pFromDeck)
+               << " toFirstSound=" << getFirstSoundSecond(pToDeck)
+               << " toIntroCue=" << toIntroCueSecond;
+
     double introLength = 0;
 
     // introEnd is equal introStart in case it has not yet been set
@@ -2674,6 +2788,7 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
             useFixedFadeTime(pFromDeck, pToDeck, fromDeckPosition, outroEnd, toDeckStartSeconds);
         }
     } break;
+    case TransitionMode::TandaTransition:
     case TransitionMode::FixedSkipSilence: {
         double toDeckStartSecond;
         pToDeck->fadeBeginPos = getLastSoundSecond(pToDeck);
@@ -2683,8 +2798,10 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
             // the fade after the next.
             // In this case we recue the track just before the transition.
             toDeckStartSecond = getFirstSoundSecond(pToDeck);
+            TT_TRACE() << "fixedSkipSilence recue toStartSecond=" << toDeckStartSecond;
         } else {
             toDeckStartSecond = toDeckPositionSeconds;
+            TT_TRACE() << "fixedSkipSilence keepPosition toStartSecond=" << toDeckStartSecond;
         }
         useFixedFadeTime(
                 pFromDeck,
@@ -2727,11 +2844,20 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
     // crossfader (which is the "pop on hot-start cortinas" this avoids).
     if (m_cortinaFadeEnabled && keepQueueEnabled() &&
             isCortina(pToDeck->getLoadedTrack())) {
+        TT_TRACE() << "cortina override incoming fromLastSound=" << getLastSoundSecond(pFromDeck)
+                   << " toFirstSound=" << getFirstSoundSecond(pToDeck)
+                   << " gap=" << m_cortinaGapSeconds;
         pFromDeck->fadeBeginPos = getLastSoundSecond(pFromDeck);
         pFromDeck->fadeEndPos = pFromDeck->fadeBeginPos;
         pToDeck->startPos = getFirstSoundSecond(pToDeck) -
                 static_cast<double>(m_cortinaGapSeconds);
     }
+
+    TT_TRACE() << "calculate result-seconds fromFadeBegin=" << pFromDeck->fadeBeginPos
+               << " fromFadeEnd=" << pFromDeck->fadeEndPos
+               << " toStart=" << pToDeck->startPos
+               << " toFadeBegin=" << pToDeck->fadeBeginPos
+               << " toFadeEnd=" << pToDeck->fadeEndPos;
 
     // These are expected to be a fraction of the track length.
     pFromDeck->fadeBeginPos /= fromDeckDuration;
@@ -2760,6 +2886,12 @@ void AutoDJProcessor::useFixedFadeTime(
         double fromDeckSecond,
         double fadeEndSecond,
         double toDeckStartSecond) {
+    TT_TRACE() << "useFixedFadeTime from=" << pFromDeck->group
+               << " to=" << pToDeck->group
+               << " transitionTime=" << m_transitionTime
+               << " fromSecond=" << fromDeckSecond
+               << " fadeEndSecond=" << fadeEndSecond
+               << " toDeckStartSecond=" << toDeckStartSecond;
     if (m_transitionTime > 0.0) {
         // Guard against the next track being too short. This transition must finish
         // before the next transition starts.
@@ -2800,6 +2932,9 @@ void AutoDJProcessor::useFixedFadeTime(
         pFromDeck->fadeEndPos = fadeEndSecond;
         pToDeck->startPos = toDeckStartSecond + m_transitionTime;
     }
+    TT_TRACE() << "useFixedFadeTime result fromFadeBegin=" << pFromDeck->fadeBeginPos
+               << " fromFadeEnd=" << pFromDeck->fadeEndPos
+               << " toStart=" << pToDeck->startPos;
 }
 
 void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTrack) {
@@ -2946,6 +3081,24 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
     }
 }
 
+AutoDJProcessor::TransitionMode AutoDJProcessor::lastStockTransitionMode() const {
+    return validStockTransitionMode(m_pConfig->getValue(
+            ConfigKey(kPreferenceGroup, kLastStockTransitionModePreferenceName),
+            static_cast<int>(TransitionMode::FixedSkipSilence)));
+}
+
+void AutoDJProcessor::rememberStockTransitionMode(TransitionMode mode) {
+    if (!isStockTransitionMode(mode)) {
+        return;
+    }
+    m_pConfig->set(ConfigKey(kPreferenceGroup, kLastStockTransitionModePreferenceName),
+            ConfigValue(static_cast<int>(mode)));
+}
+
+void AutoDJProcessor::restoreLastStockTransitionMode() {
+    setTransitionMode(lastStockTransitionMode());
+}
+
 void AutoDJProcessor::setTransitionTime(int time) {
     if constexpr (sDebug) {
         qDebug() << this << "setTransitionTime" << time;
@@ -2976,6 +3129,9 @@ void AutoDJProcessor::setTransitionTime(int time) {
 }
 
 void AutoDJProcessor::setTransitionMode(TransitionMode newMode) {
+    if (isStockTransitionMode(newMode)) {
+        rememberStockTransitionMode(newMode);
+    }
     m_pConfig->set(ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             ConfigValue(static_cast<int>(newMode)));
     m_transitionMode = newMode;
@@ -3088,3 +3244,5 @@ bool AutoDJProcessor::nextTrackLoaded() {
 
     return loadedTrack == getNextTrackFromQueue();
 }
+
+
