@@ -203,11 +203,122 @@ cortina gets synthetic silence pre-rolled before 0:00, which is what stops the
 onset reaching the output at full crossfader. With a cue 11 s in there is plenty
 of room and the value stays positive, but both cases still have to work.
 
+### Setting the cue: a Tango-only "Set Start" button — decided
+
+The DJ needs a way to place that cue. Stock Mixxx already has one, but it is the
+group of four intro/outro cue buttons, which is four buttons and a mental model
+(intro start, intro end, outro start, outro end) to learn for a feature that
+needs exactly one point. **Tango gets a single button instead.**
+
+**What it binds to.** The existing `intro_start_set` control — *not*
+`intro_start_activate`. `_set` unconditionally places the intro-start cue at the
+playhead; `_activate` seeks to the cue if one already exists, so pressing it
+twice would move the deck instead of moving the mark. One button, one meaning:
+*start here*.
+
+Binding to the stock intro-start cue rather than inventing a Tango-private one
+is what makes the whole design cheap: it persists in the database already, it
+survives Tango being turned off, and `audibleStartSecond()` below reads it with
+no new storage.
+
+**Naming.** Label it for its effect, not its mechanism — "Set Start" or
+"Start Here". Not "Cue": the deck already has a big red CUE button doing
+something else entirely, and reusing the word is the one thing guaranteed to
+confuse.
+
+**Visibility: Tango mode alone.** `[AutoDJ],keep_queue > 0`. Not
+`show_intro_outro_cues` — it is not part of that group and must not depend on it.
+
+**Both the group of four and the settings menu entry are hidden in Tango —
+decided.** Gating only the menu entry is not enough: a DJ who had already enabled
+"Intro & Outro Cues" would keep the four buttons *and* lose the toggle that hides
+them. Gating both gives a clean round trip, because **neither gate writes
+`[Skin],show_intro_outro_cues`** — the setting keeps its value, so turning Tango
+off restores exactly what the DJ had.
+
+| | Tango off | Tango on |
+|---|---|---|
+| Group of four | per `show_intro_outro_cues` | **hidden** |
+| "Intro & Outro Cues" menu entry | shown | **hidden** |
+| "Set Start" | hidden | **shown** |
+
+The group of four is at
+`res/skins/LateNight/decks/row_5_transportLoopJump.xml:185-223` and already has a
+`visible` connection on `show_intro_outro_cues`. It now needs
+`show_intro_outro_cues AND NOT tango`, and **two `<Connection>` blocks binding the
+same property do not AND — they fight.** Get the AND from **nesting**: leave the
+existing group untouched and wrap it in an outer group carrying the negation.
+Same wrapper idiom for the menu entry at
+`res/skins/LateNight/helpers/skin_settings_full_deck.xml:60-65`, following
+`mic_unit_unconfigured.xml:49-53`:
+
+```xml
+<WidgetGroup>
+  <SizePolicy>me,min</SizePolicy>
+  <Layout>vertical</Layout>
+  <Children>
+    <!-- existing template / group, unchanged -->
+  </Children>
+  <Connection>
+    <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+    <Transform><Not/></Transform>
+    <BindProperty>visible</BindProperty>
+  </Connection>
+</WidgetGroup>
+```
+
+Four skins carry the same entry — LateNight, Tango, Shade, Deere. **LateNight is
+the release skin; do that one and leave the others stock** rather than
+maintaining the gate in four places.
+
+**The start marker ships with the button — not deferred.** `intro_start_position`
+is gated on `show_intro_outro_cues` in *both* `waveform.xml:94-102` and
+`decks/overview.xml:80-86`, and that setting **defaults to off**. So without this,
+pressing "Set Start" changes nothing anywhere on screen: no way to see where the
+mark landed, whether it landed, or that a second press moved it. For a feature
+whose whole job is "skip the first 11 seconds", that is not optional.
+
+`VisibilityControl` parses a **single bare ConfigKey**
+(`src/waveform/renderers/waveformmark.cpp:129-133`) — no `<Transform>`, no OR — so
+add a **second** `<Mark>` node for `intro_start_position` in each file gated on
+`[AutoDJ],keep_queue`, leaving the stock node alone. Do not duplicate the
+`MarkRange` or any outro node. The button itself also carries a 2-state icon
+driven by `intro_start_enabled` (as the stock button does), so it reads *set* vs
+*unset* independently of the marker.
+
+Accepted cosmetic edge: the stock marks stay gated on `show_intro_outro_cues`
+alone, so a DJ who had it enabled sees the intro/outro marks in Tango with the
+new mark drawn over the stock one at the identical position. Exact overdraw —
+indistinguishable from a single mark.
+
+### Where the start point comes from — resolved
+
+The earlier open question ("how is *no cue set* represented?") is settled, and
+the first answer was wrong. `getIntroStartSecond()` (`autodjprocessor.cpp:2317`)
+looks like the right helper but has a middle branch: when intro *start* is
+invalid and intro *end* is set, it returns `introEndSecond - m_transitionTime`.
+Under Tanda, `m_transitionTime` is a **gap**, so routing through it would leak
+the gap length into a start-point calculation. Tanda needs its own helper:
+
+```cpp
+// The DJ's cue wins over analysis: they know the track.
+double AutoDJProcessor::audibleStartSecond(DeckAttributes* pDeck) {
+    const mixxx::audio::FramePos introStart = pDeck->introStartPosition();
+    if (introStart.isValid() && introStart <= pDeck->trackEndPosition()) {
+        return framePositionToSeconds(introStart, pDeck);
+    }
+    return getFirstSoundSecond(pDeck);
+}
+```
+
+No `cueIsSet()` predicate is needed — validity *is* the test. And note
+`AnalyzerSilence::setupMainAndIntroCue()` already places the intro cue at first
+sound during analysis, so for an analysed track with no manual cue the two
+branches agree by construction. The distinction that worried us ("cue at 0:00"
+versus "no cue") does not arise.
+
 ### Open decisions
 
-- **How is "no cue set" represented?** `getIntroStartSecond()` may return 0, the
-  track start, or an invalid position. Confirm before writing `cueIsSet()` — the
-  whole design rests on distinguishing "cue at 0:00" from "no cue".
 - **Re-check the cortina envelope under the new mode.** Cortina Fade currently
   has to work across whichever transition mode is selected. Once Tango pins the
   mode, its interaction is with Tanda Transition only — a simplification, but the
