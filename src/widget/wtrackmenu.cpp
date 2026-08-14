@@ -399,19 +399,26 @@ void WTrackMenu::createActions() {
     // "Set start here" captures the preview deck's playhead, for finding it by
     // ear. Clearing is deliberately left to the stock Clear Metadata > Intro,
     // which already does exactly that and stays visible in Tango.
-    m_pSetStartPointAct = make_parented<QAction>(tr("Set start point..."), this);
+    m_pSetStartPointAct = make_parented<QAction>(tr("Set DJ start..."), this);
     m_pSetStartPointAct->setVisible(false);
     connect(m_pSetStartPointAct,
             &QAction::triggered,
             this,
             &WTrackMenu::slotSetStartPoint);
 
-    m_pSetStartPointHereAct = make_parented<QAction>(tr("Set start here"), this);
+    m_pSetStartPointHereAct = make_parented<QAction>(tr("Set DJ start here"), this);
     m_pSetStartPointHereAct->setVisible(false);
     connect(m_pSetStartPointHereAct,
             &QAction::triggered,
             this,
             &WTrackMenu::slotSetStartPointHere);
+
+    m_pStartAtBeginningAct = make_parented<QAction>(tr("Start at file beginning"), this);
+    m_pStartAtBeginningAct->setVisible(false);
+    connect(m_pStartAtBeginningAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotStartAtBeginning);
 
     // Reset the Tango set state (mark all unplayed + restart from the top). Like
     // the cortina toggle it lives on the Auto DJ queue list, so create it
@@ -817,6 +824,7 @@ void WTrackMenu::setupActions() {
     addAction(m_pDisplayNameAct);
     addAction(m_pSetStartPointAct);
     addAction(m_pSetStartPointHereAct);
+    addAction(m_pStartAtBeginningAct);
 
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
@@ -1154,6 +1162,7 @@ void WTrackMenu::updateMenus() {
         const bool showStart = tangoMode && singleRow;
         m_pSetStartPointAct->setVisible(showStart);
         m_pSetStartPointHereAct->setVisible(showStart);
+        m_pStartAtBeginningAct->setVisible(showStart);
         if (showStart) {
             // Shown but disabled when nothing is previewing, rather than hidden:
             // a DJ who has never used the preview button would otherwise never
@@ -1193,7 +1202,7 @@ void WTrackMenu::updateMenus() {
                                        QStringLiteral("keep_queue"))) > 0.0;
         if (m_pClearIntroCueAction) {
             m_pClearIntroCueAction->setText(
-                    tangoMode ? tr("Starting point") : tr("Intro"));
+                    tangoMode ? tr("Clear DJ start (use FAS)") : tr("Intro"));
         }
         if (m_pClearOutroCueAction) {
             m_pClearOutroCueAction->setVisible(!tangoMode);
@@ -2405,6 +2414,25 @@ class ResetIntroTrackPointerOperation : public mixxx::TrackPointerOperation {
     UserSettingsPointer m_pConfig;
 };
 
+class ClearTangoStartTrackPointerOperation : public mixxx::TrackPointerOperation {
+  private:
+    void doApply(const TrackPointer& pTrack) const override {
+        CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+        if (!pCue) {
+            pCue = pTrack->createAndAddCue(
+                    mixxx::CueType::Intro,
+                    Cue::kNoHotCue,
+                    mixxx::audio::kInvalidFramePos,
+                    mixxx::audio::kInvalidFramePos);
+        } else {
+            pCue->setStartPosition(mixxx::audio::kInvalidFramePos);
+        }
+        if (pCue) {
+            pCue->setLabel(QString());
+        }
+    }
+};
+
 class ResetOutroTrackPointerOperation : public mixxx::TrackPointerOperation {
   public:
     explicit ResetOutroTrackPointerOperation() {
@@ -2580,6 +2608,19 @@ void WTrackMenu::slotSetStartPointHere() {
 }
 
 void WTrackMenu::slotResetIntroCue() {
+    const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+    if (tangoMode) {
+        const auto progressLabelText =
+                tr("Clearing DJ start from %n track(s)", "", getTrackCount());
+        const auto trackOperator = ClearTangoStartTrackPointerOperation();
+        applyTrackPointerOperation(
+                progressLabelText,
+                &trackOperator,
+                mixxx::ModalTrackBatchOperationProcessor::Mode::ApplyAndSave);
+        return;
+    }
     const auto progressLabelText =
             tr("Removing intro cue from %n track(s)", "", getTrackCount());
     const auto trackOperator =
@@ -3391,6 +3432,10 @@ bool WTrackMenu::isCortinaList() const {
     // that flag to scope the cortina toggle to the Auto DJ list.
     const auto* pTableModel = baseTableModel(m_pTrackModel);
     return pTableModel && pTableModel->showCortinaMarks();
+}
+
+void WTrackMenu::slotStartAtBeginning() {
+    applyStartPointSeconds(0.0);
 }
 
 bool WTrackMenu::selectionContainsPlayingTrack() const {

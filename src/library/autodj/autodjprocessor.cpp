@@ -17,6 +17,7 @@
 #include "track/cueinfo.h"
 #include "track/globaltrackcache.h"
 #include "track/track.h"
+#include "track/tangostartcue.h"
 #include "util/math.h"
 
 namespace {
@@ -2794,6 +2795,32 @@ void AutoDJProcessor::playerOutroEndChanged(DeckAttributes* pAttributes, double 
 }
 
 double AutoDJProcessor::getIntroStartSecond(DeckAttributes* pDeck) {
+    if (m_keepQueue.toBool()) {
+        const TrackPointer pTrack = pDeck ? pDeck->getLoadedTrack() : TrackPointer();
+        if (pTrack) {
+            const CuePointer pIntroCue = pTrack->findCueByType(mixxx::CueType::Intro);
+            const CuePointer pFasCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
+            const auto classification = mixxx::tango::classifyStartCue(
+                    pIntroCue ? pIntroCue->getPosition() : mixxx::audio::FramePos(),
+                    pIntroCue ? pIntroCue->getLabel() : QString(),
+                    pFasCue ? pFasCue->getPosition() : mixxx::audio::FramePos());
+            if (!classification.hasExplicitStart() && !classification.hasFas() &&
+                    pDeck->introStartPosition().isValid()) {
+                return framePositionToSeconds(pDeck->introStartPosition(), pDeck);
+            }
+            const auto startPosition = mixxx::tango::tangoPlaybackStart(classification);
+            if (startPosition.isValid()) {
+                return framePositionToSeconds(startPosition, pDeck);
+            }
+        }
+        // Some deck integrations expose controls without retaining a Track
+        // pointer. Preserve their existing start signal as a last-resort
+        // fallback; loaded tracks always take the classified path above.
+        if (pDeck && pDeck->introStartPosition().isValid()) {
+            return framePositionToSeconds(pDeck->introStartPosition(), pDeck);
+        }
+        return 0.0;
+    }
     const mixxx::audio::FramePos trackEndPosition = pDeck->trackEndPosition();
     const mixxx::audio::FramePos introStartPosition = pDeck->introStartPosition();
     const mixxx::audio::FramePos introEndPosition = pDeck->introEndPosition();
@@ -3260,6 +3287,9 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
 double AutoDJProcessor::tandaEntryPointSecond(DeckAttributes* pDeck) {
     if (!pDeck) {
         return 0.0;
+    }
+    if (m_keepQueue.toBool()) {
+        return getIntroStartSecond(pDeck);
     }
     const mixxx::audio::FramePos trackEndPosition = pDeck->trackEndPosition();
     const mixxx::audio::FramePos introStartPosition = pDeck->introStartPosition();

@@ -139,6 +139,7 @@ class WTrackMenu : public QMenu {
     void slotResetMainCue();
     void slotClearHotCues();
     void slotResetIntroCue();
+    void slotStartAtBeginning();
     void slotResetOutroCue();
     void slotClearLoops();
     void slotClearKey();
@@ -319,6 +320,7 @@ class WTrackMenu : public QMenu {
     // applying one value across a selection would be wrong rather than useful.
     parented_ptr<QAction> m_pSetStartPointAct;
     parented_ptr<QAction> m_pSetStartPointHereAct;
+    parented_ptr<QAction> m_pStartAtBeginningAct;
     // Tango DJ mode only: greyed, non-clickable info line above the Auto DJ /
     // cortina actions showing the total duration of the selected tracks, plus its
     // trailing separator (owned by the menu).

@@ -13,21 +13,40 @@
 #include "moc_wpushbutton.cpp"
 #include "util/debug.h"
 #include "widget/controlwidgetconnection.h"
+#include "widget/wcountdownoverlay.h"
 #include "widget/wpixmapstore.h"
 
 WPushButton::WPushButton(QWidget* pParent)
         : WWidget(pParent),
           m_leftButtonMode(ControlPushButton::PUSH),
-          m_rightButtonMode(ControlPushButton::PUSH) {
+          m_rightButtonMode(ControlPushButton::PUSH),
+          m_pLiveStopCountdown(nullptr),
+          m_liveStopGuardArmed(false),
+          m_bypassNextLiveStopGuard(false) {
     setStates(0);
+    m_liveStopGuardTimer.setSingleShot(true);
+    m_liveStopGuardTimer.setInterval(3000);
+    connect(&m_liveStopGuardTimer,
+            &QTimer::timeout,
+            this,
+            &WPushButton::disarmLiveStopGuard);
 }
 
 WPushButton::WPushButton(QWidget* pParent, ControlPushButton::ButtonMode leftButtonMode,
                          ControlPushButton::ButtonMode rightButtonMode)
         : WWidget(pParent),
           m_leftButtonMode(leftButtonMode),
-          m_rightButtonMode(rightButtonMode) {
+          m_rightButtonMode(rightButtonMode),
+          m_pLiveStopCountdown(nullptr),
+          m_liveStopGuardArmed(false),
+          m_bypassNextLiveStopGuard(false) {
     setStates(0);
+    m_liveStopGuardTimer.setSingleShot(true);
+    m_liveStopGuardTimer.setInterval(3000);
+    connect(&m_liveStopGuardTimer,
+            &QTimer::timeout,
+            this,
+            &WPushButton::disarmLiveStopGuard);
 }
 
 void WPushButton::setup(const QDomNode& node, const SkinContext& context) {
@@ -376,6 +395,23 @@ void WPushButton::mousePressEvent(QMouseEvent * e) {
     const bool leftClick = e->button() == Qt::LeftButton;
     const bool rightClick = e->button() == Qt::RightButton;
 
+    const bool guardLivePlayChange = leftClick && shouldGuardLiveStop();
+    if (guardLivePlayChange && m_bypassNextLiveStopGuard) {
+        m_bypassNextLiveStopGuard = false;
+    } else if (guardLivePlayChange) {
+        if (m_liveStopGuardArmed) {
+            disarmLiveStopGuard();
+            // The immediately reversed action is recovery, not a new accidental
+            // transport command, so allow it once without another countdown.
+            m_bypassNextLiveStopGuard = true;
+        } else {
+            armLiveStopGuard();
+            return;
+        }
+    } else if (leftClick && m_liveStopGuardArmed) {
+        disarmLiveStopGuard();
+    }
+
     if (m_leftButtonMode == ControlPushButton::POWERWINDOW
             && m_iNoStates == 2) {
         if (leftClick) {
@@ -546,6 +582,44 @@ void WPushButton::fillDebugTooltip(QStringList* debug) {
             .arg(ControlPushButton::buttonModeToString(m_leftButtonMode))
            << QString("RightButtonMode: %1")
             .arg(ControlPushButton::buttonModeToString(m_rightButtonMode));
+}
+
+bool WPushButton::shouldGuardLiveStop() const {
+    const auto& leftConnections = this->leftConnections();
+    const auto& connections = this->connections();
+    const ControlParameterWidgetConnection* pConnection =
+            !leftConnections.isEmpty() ? leftConnections.constFirst() :
+            (!connections.isEmpty() ? connections.constFirst() : nullptr);
+    if (!pConnection) {
+        return false;
+    }
+
+    const ConfigKey& key = pConnection->getKey();
+    return key.item == QStringLiteral("play") &&
+            key.group.startsWith(QStringLiteral("[Channel")) &&
+            ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                    QStringLiteral("live_mode"))) > 0.0 &&
+            ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                    QStringLiteral("keep_queue"))) > 0.0;
+}
+
+void WPushButton::armLiveStopGuard() {
+    m_liveStopGuardArmed = true;
+    m_liveStopGuardTimer.start();
+    if (!m_pLiveStopCountdown) {
+        m_pLiveStopCountdown = new WCountdownOverlay(this);
+    }
+    const QPixmap background = grab(rect());
+    m_pLiveStopCountdown->setGeometry(rect());
+    m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval(), background);
+}
+
+void WPushButton::disarmLiveStopGuard() {
+    m_liveStopGuardTimer.stop();
+    m_liveStopGuardArmed = false;
+    if (m_pLiveStopCountdown) {
+        m_pLiveStopCountdown->stop();
+    }
 }
 
 void WPushButton::updateSlot() {

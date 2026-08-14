@@ -151,6 +151,16 @@ void CueControl::createControls() {
             ConfigKey(m_group, "intro_start_position"));
     m_pTangoStartPosition = std::make_unique<ControlObject>(
             ConfigKey(m_group, "tango_start_position"));
+    m_pTangoFasPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_fas_position"));
+    m_pTangoLasPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_las_position"));
+    m_pTangoFileStartPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_file_start_position"));
+    m_pTangoStartPosition->set(Cue::kNoPosition);
+    m_pTangoFasPosition->set(Cue::kNoPosition);
+    m_pTangoLasPosition->set(Cue::kNoPosition);
+    m_pTangoFileStartPosition->set(Cue::kNoPosition);
     setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
     m_pIntroStartEnabled = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_enabled"));
@@ -498,6 +508,9 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
         m_pCueIndicator->setBlinkValue(ControlIndicator::OFF);
         m_pCuePoint->set(Cue::kNoPosition);
         setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
+        m_pTangoStartPosition->set(Cue::kNoPosition);
+        m_pTangoFasPosition->set(Cue::kNoPosition);
+        m_pTangoFileStartPosition->set(Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -505,6 +518,7 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
         m_pOutroStartEnabled->forceSet(0.0);
         m_pOutroEndPosition->set(Cue::kNoPosition);
         m_pOutroEndEnabled->forceSet(0.0);
+        m_pTangoLasPosition->set(Cue::kNoPosition);
         m_n60dBSoundStartPosition.setValue(Cue::kNoPosition);
         setHotcueFocusIndex(Cue::kNoHotCue);
         m_pLoadedTrack.reset();
@@ -709,6 +723,19 @@ void CueControl::loadCuesFromTrack() {
         }
     }
 
+    mixxx::audio::FramePos fasPosition;
+    mixxx::audio::FramePos lasPosition;
+    if (const CuePointer pN60dBSound = m_pLoadedTrack->findCueByType(
+                mixxx::CueType::N60dBSound)) {
+        fasPosition = pN60dBSound->getPosition();
+        lasPosition = pN60dBSound->getEndPosition();
+    }
+    const auto classification = mixxx::tango::classifyStartCue(
+            pIntroCue ? pIntroCue->getPosition() : mixxx::audio::FramePos(),
+            pIntroCue ? pIntroCue->getLabel() : QString(),
+            fasPosition);
+    const auto effectiveStart = mixxx::tango::tangoEffectiveStart(classification);
+
     if (pIntroCue) {
         const auto startPosition = quantizeCuePoint(pIntroCue->getPosition());
         const auto endPosition = quantizeCuePoint(pIntroCue->getEndPosition());
@@ -727,6 +754,20 @@ void CueControl::loadCuesFromTrack() {
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
     }
+
+    m_pTangoStartPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::ExplicitStart
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
+    m_pTangoFasPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::FirstAudibleSound
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
+    m_pTangoLasPosition->set(lasPosition.toEngineSamplePosMaybeInvalid());
+    m_pTangoFileStartPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::FileStart
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
 
     if (pOutroCue) {
         const auto startPosition = quantizeCuePoint(pOutroCue->getPosition());
@@ -1641,7 +1682,7 @@ void CueControl::introStartSetExact(double value) {
 
 void CueControl::setIntroStartPositionValue(double quantizedPos, double exactPos) {
     m_pIntroStartPosition->set(quantizedPos);
-    m_pTangoStartPosition->set(exactPos);
+    Q_UNUSED(exactPos);
 }
 
 void CueControl::introStartReset(double value) {

@@ -78,3 +78,70 @@ TEST_F(WPushButtonTest, LongPressLatchTest) {
 
     ASSERT_EQ(1.0, m_pButton->getControlParameterLeft());
 }
+
+TEST_F(WPushButtonTest, LiveModeRequiresSecondPressAndAllowsImmediateRecovery) {
+    QScopedPointer<ControlPushButton> pPlayControl(
+            new ControlPushButton(ConfigKey(m_pGroup, "play")));
+    pPlayControl->setButtonMode(ControlPushButton::TOGGLE);
+    pPlayControl->set(1.0);
+    QScopedPointer<ControlObject> pLiveMode(
+            new ControlObject(ConfigKey("[AutoDJ]", "live_mode")));
+    QScopedPointer<ControlObject> pKeepQueue(
+            new ControlObject(ConfigKey("[AutoDJ]", "keep_queue")));
+    pLiveMode->set(1.0);
+    pKeepQueue->set(1.0);
+
+    m_pButton.reset(new WPushButton(
+            nullptr, ControlPushButton::TOGGLE, ControlPushButton::PUSH));
+    m_pButton->setStates(2);
+    m_pButton->addLeftConnection(new ControlParameterWidgetConnection(
+            m_pButton.data(),
+            pPlayControl->getKey(),
+            nullptr,
+            ControlParameterWidgetConnection::DIR_FROM_AND_TO_WIDGET,
+            ControlParameterWidgetConnection::EMIT_ON_PRESS));
+
+    QTestEventList firstClick;
+    firstClick.addMouseClick(Qt::LeftButton);
+    firstClick.simulate(m_pButton.data());
+    EXPECT_EQ(1.0, pPlayControl->get());
+
+    QTestEventList secondClick;
+    secondClick.addMouseClick(Qt::LeftButton);
+    secondClick.simulate(m_pButton.data());
+    EXPECT_EQ(0.0, pPlayControl->get());
+
+    QTestEventList thirdClick;
+    thirdClick.addMouseClick(Qt::LeftButton);
+    thirdClick.simulate(m_pButton.data());
+    EXPECT_EQ(1.0, pPlayControl->get());
+
+    QScopedPointer<ControlPushButton> pInactivePlayControl(
+            new ControlPushButton(ConfigKey("[Channel2]", "play")));
+    pInactivePlayControl->setButtonMode(ControlPushButton::TOGGLE);
+    pInactivePlayControl->set(0.0);
+    QScopedPointer<WPushButton> pInactiveButton(new WPushButton(
+            nullptr, ControlPushButton::TOGGLE, ControlPushButton::PUSH));
+    pInactiveButton->setStates(2);
+    pInactiveButton->addLeftConnection(new ControlParameterWidgetConnection(
+            pInactiveButton.data(),
+            pInactivePlayControl->getKey(),
+            nullptr,
+            ControlParameterWidgetConnection::DIR_FROM_AND_TO_WIDGET,
+            ControlParameterWidgetConnection::EMIT_ON_PRESS));
+
+    QTestEventList inactiveFirstClick;
+    inactiveFirstClick.addMouseClick(Qt::LeftButton);
+    inactiveFirstClick.simulate(pInactiveButton.data());
+    EXPECT_EQ(0.0, pInactivePlayControl->get());
+
+    QTestEventList inactiveSecondClick;
+    inactiveSecondClick.addMouseClick(Qt::LeftButton);
+    inactiveSecondClick.simulate(pInactiveButton.data());
+    EXPECT_EQ(1.0, pInactivePlayControl->get());
+
+    QTestEventList inactiveRecoveryClick;
+    inactiveRecoveryClick.addMouseClick(Qt::LeftButton);
+    inactiveRecoveryClick.simulate(pInactiveButton.data());
+    EXPECT_EQ(0.0, pInactivePlayControl->get());
+}

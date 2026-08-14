@@ -106,6 +106,30 @@
       <Color><Variable name="IntroOutroColor"/></Color>
       <TextColor>#FFFFFF</TextColor>
     </Mark>
+    <Mark>
+      <Control>tango_fas_position</Control>
+      <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+      <Text>FAS</Text>
+      <Align>top|right</Align>
+      <Color>#666666</Color>
+      <TextColor>#DDDDDD</TextColor>
+    </Mark>
+    <Mark>
+      <Control>tango_las_position</Control>
+      <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+      <Text>LAS</Text>
+      <Align>top|left</Align>
+      <Color>#666666</Color>
+      <TextColor>#DDDDDD</TextColor>
+    </Mark>
+    <Mark>
+      <Control>tango_file_start_position</Control>
+      <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+      <Text>0:0</Text>
+      <Align>top|right</Align>
+      <Color>#666666</Color>
+      <TextColor>#DDDDDD</TextColor>
+    </Mark>
     <!-- Outro -->
     <MarkRange>
       <StartControl>outro_start_position</StartControl>

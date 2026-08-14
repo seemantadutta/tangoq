@@ -72,20 +72,42 @@ Variables:
     </Mark>
     <!-- Intro -->
     <MarkRange>
-      <StartControl>intro_start_position</StartControl>
+      <StartControl>tango_start_position</StartControl>
       <EndControl>intro_end_position</EndControl>
       <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
-      <Color>#0000FF</Color>
+      <Color>#E6B800</Color>
       <Opacity>0.6</Opacity>
       <DurationTextColor>#ffffff</DurationTextColor>
       <DurationTextLocation>after</DurationTextLocation>
     </MarkRange>
     <Mark>
-      <Control>intro_start_position</Control>
+      <Control>tango_start_position</Control>
       <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
       <Align>top|right</Align>
-      <Color>#0000FF</Color>
+      <Color>#FFCC00</Color>
+      <Text>S</Text>
       <TextColor>#FFFFFF</TextColor>
+    </Mark>
+    <Mark>
+      <Control>tango_fas_position</Control>
+      <Text>FAS</Text>
+      <Align>top|right</Align>
+      <Color>#777777</Color>
+      <TextColor>#BBBBBB</TextColor>
+    </Mark>
+    <Mark>
+      <Control>tango_las_position</Control>
+      <Text>LAS</Text>
+      <Align>top|left</Align>
+      <Color>#777777</Color>
+      <TextColor>#BBBBBB</TextColor>
+    </Mark>
+    <Mark>
+      <Control>tango_file_start_position</Control>
+      <Text>0:0</Text>
+      <Align>top|right</Align>
+      <Color>#777777</Color>
+      <TextColor>#BBBBBB</TextColor>
     </Mark>
     <Mark>
       <Control>intro_end_position</Control>

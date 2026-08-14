@@ -74,6 +74,11 @@ WOverview::WOverview(
           m_playpositionControl(
                   m_group,
                   QStringLiteral("playposition")) {
+    m_pLiveModeControl = make_parented<ControlProxy>(
+            QStringLiteral("[AutoDJ]"),
+            QStringLiteral("live_mode"),
+            this,
+            ControlFlag::NoAssertIfMissing);
     m_endOfTrackControl = make_parented<ControlProxy>(
             m_group, QStringLiteral("end_of_track"), this, ControlFlag::NoAssertIfMissing);
     m_endOfTrackControl->connectValueChanged(this, &WOverview::onEndOfTrackChange);
@@ -529,6 +534,14 @@ void WOverview::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void WOverview::mouseReleaseEvent(QMouseEvent* e) {
+    // LIVE mode is a performance lock: never commit an overview seek while it
+    // is active, including a drag that was started just before LIVE was enabled.
+    if (e->button() == Qt::LeftButton && m_pLiveModeControl->toBool()) {
+        m_bLeftClickDragging = false;
+        m_bTimeRulerActive = false;
+        unsetCursor();
+        return;
+    }
     mouseMoveEvent(e);
     if (m_bPassthroughEnabled) {
         m_bLeftClickDragging = false;
@@ -566,6 +579,12 @@ void WOverview::mouseReleaseEvent(QMouseEvent* e) {
 void WOverview::mousePressEvent(QMouseEvent* e) {
     //qDebug() << "WOverview::mousePressEvent" << e->pos();
     mouseMoveEvent(e);
+    if (e->button() == Qt::LeftButton && m_pLiveModeControl->toBool()) {
+        m_bLeftClickDragging = false;
+        m_bTimeRulerActive = false;
+        unsetCursor();
+        return;
+    }
     if (m_bPassthroughEnabled) {
         m_bLeftClickDragging = false;
         unsetCursor();

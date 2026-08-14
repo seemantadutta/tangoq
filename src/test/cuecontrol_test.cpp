@@ -3,6 +3,59 @@
 #include "test/signalpathtest.h"
 #include "track/tangostartcue.h"
 
+TEST(TangoStartCueTest, ClassifiesAnalyzerAuthoredAndLegacyStarts) {
+    constexpr auto fasPosition = mixxx::audio::FramePos(10000);
+    constexpr auto otherPosition = mixxx::audio::FramePos(20000);
+
+    auto classification = mixxx::tango::classifyStartCue(
+            fasPosition, QString(), fasPosition);
+    EXPECT_FALSE(classification.hasExplicitStart());
+    EXPECT_EQ(fasPosition, classification.fas);
+    EXPECT_EQ(fasPosition, mixxx::tango::tangoPlaybackStart(classification));
+    EXPECT_EQ(mixxx::tango::EffectiveStartSource::FirstAudibleSound,
+            mixxx::tango::tangoEffectiveStart(classification).source);
+
+    classification = mixxx::tango::classifyStartCue(
+            fasPosition,
+            mixxx::tango::authoredStartCueLabel(),
+            fasPosition);
+    EXPECT_EQ(fasPosition, classification.explicitStart);
+    EXPECT_EQ(fasPosition, mixxx::tango::tangoPlaybackStart(classification));
+    EXPECT_EQ(mixxx::tango::EffectiveStartSource::ExplicitStart,
+            mixxx::tango::tangoEffectiveStart(classification).source);
+
+    classification = mixxx::tango::classifyStartCue(
+            otherPosition, QString(), fasPosition);
+    EXPECT_EQ(otherPosition, classification.explicitStart);
+    EXPECT_EQ(otherPosition, mixxx::tango::tangoPlaybackStart(classification));
+
+    classification = mixxx::tango::classifyStartCue(
+            otherPosition, QString(), mixxx::audio::kInvalidFramePos);
+    EXPECT_EQ(otherPosition, classification.explicitStart);
+
+    classification = mixxx::tango::classifyStartCue(
+            mixxx::audio::kInvalidFramePos, QString(), fasPosition);
+    EXPECT_FALSE(classification.hasExplicitStart());
+    EXPECT_EQ(fasPosition, mixxx::tango::tangoPlaybackStart(classification));
+
+    classification = mixxx::tango::classifyStartCue(
+            mixxx::audio::kStartFramePos,
+            mixxx::tango::authoredStartCueLabel(),
+            fasPosition);
+    EXPECT_EQ(mixxx::audio::kStartFramePos, classification.explicitStart);
+    EXPECT_EQ(mixxx::audio::kStartFramePos,
+            mixxx::tango::tangoPlaybackStart(classification));
+
+    classification = mixxx::tango::classifyStartCue(
+            mixxx::audio::kInvalidFramePos,
+            QString(),
+            mixxx::audio::kInvalidFramePos);
+    EXPECT_EQ(mixxx::audio::kStartFramePos,
+            mixxx::tango::tangoPlaybackStart(classification));
+    EXPECT_EQ(mixxx::tango::EffectiveStartSource::FileStart,
+            mixxx::tango::tangoEffectiveStart(classification).source);
+}
+
 class CueControlTest : public BaseSignalPathTest {
   protected:
     void SetUp() override {
@@ -17,6 +70,12 @@ class CueControlTest : public BaseSignalPathTest {
                 std::make_unique<ControlProxy>(m_sGroup1, "intro_start_set_exact");
         m_pTangoStartPosition =
                 std::make_unique<ControlProxy>(m_sGroup1, "tango_start_position");
+        m_pTangoFasPosition =
+                std::make_unique<ControlProxy>(m_sGroup1, "tango_fas_position");
+        m_pTangoLasPosition =
+                std::make_unique<ControlProxy>(m_sGroup1, "tango_las_position");
+        m_pTangoFileStartPosition =
+                std::make_unique<ControlProxy>(m_sGroup1, "tango_file_start_position");
         m_pIntroStartReset = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_reset");
         m_pIntroStartClear = std::make_unique<ControlProxy>(m_sGroup1, "intro_start_clear");
         m_pIntroEndPosition = std::make_unique<ControlProxy>(m_sGroup1, "intro_end_position");
@@ -74,6 +133,9 @@ class CueControlTest : public BaseSignalPathTest {
     std::unique_ptr<ControlProxy> m_pIntroStartSet;
     std::unique_ptr<ControlProxy> m_pIntroStartSetExact;
     std::unique_ptr<ControlProxy> m_pTangoStartPosition;
+    std::unique_ptr<ControlProxy> m_pTangoFasPosition;
+    std::unique_ptr<ControlProxy> m_pTangoLasPosition;
+    std::unique_ptr<ControlProxy> m_pTangoFileStartPosition;
     std::unique_ptr<ControlProxy> m_pIntroStartReset;
     std::unique_ptr<ControlProxy> m_pIntroStartClear;
     std::unique_ptr<ControlProxy> m_pIntroEndPosition;
@@ -91,14 +153,19 @@ class CueControlTest : public BaseSignalPathTest {
 };
 
 TEST_F(CueControlTest, LoadUnloadTrack) {
-    constexpr auto kCuePosition = mixxx::audio::FramePos(100);
-    constexpr auto kIntroStartPosition = mixxx::audio::FramePos(150);
-    constexpr auto kIntroEndPosition = mixxx::audio::FramePos(200);
-    constexpr auto kOutroStartPosition = mixxx::audio::FramePos(250);
-    constexpr auto kOutroEndPosition = mixxx::audio::FramePos(300);
+    constexpr auto kCuePosition = mixxx::audio::FramePos(50);
+    constexpr auto kFasPosition = mixxx::audio::FramePos(100);
+    constexpr auto kIntroStartPosition = mixxx::audio::FramePos(5000);
+    constexpr auto kIntroEndPosition = mixxx::audio::FramePos(6000);
+    constexpr auto kOutroStartPosition = mixxx::audio::FramePos(7000);
+    constexpr auto kOutroEndPosition = mixxx::audio::FramePos(8000);
 
     TrackPointer pTrack = createTestTrack();
     pTrack->setMainCuePosition(kCuePosition);
+    pTrack->createAndAddCue(mixxx::CueType::N60dBSound,
+            Cue::kNoHotCue,
+            kFasPosition,
+            kOutroEndPosition);
     auto pIntro = pTrack->createAndAddCue(
             mixxx::CueType::Intro,
             Cue::kNoHotCue,
@@ -113,6 +180,10 @@ TEST_F(CueControlTest, LoadUnloadTrack) {
     loadTrack(pTrack);
 
     EXPECT_FRAMEPOS_EQ_CONTROL(kCuePosition, m_pCuePoint);
+    EXPECT_FRAMEPOS_EQ_CONTROL(kIntroStartPosition, m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(kOutroEndPosition, m_pTangoLasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFileStartPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(kIntroStartPosition, m_pIntroStartPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(kIntroEndPosition, m_pIntroEndPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(kOutroStartPosition, m_pOutroStartPosition);
@@ -125,6 +196,10 @@ TEST_F(CueControlTest, LoadUnloadTrack) {
     unloadTrack();
 
     EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pCuePoint);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoLasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFileStartPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pIntroStartPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pIntroEndPosition);
     EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pOutroStartPosition);
@@ -163,6 +238,36 @@ TEST_F(CueControlTest, LoadTrackWithDetectedCues) {
     EXPECT_FALSE(m_pIntroEndEnabled->toBool());
     EXPECT_FALSE(m_pOutroStartEnabled->toBool());
     EXPECT_TRUE(m_pOutroEndEnabled->toBool());
+}
+
+TEST_F(CueControlTest, TangoStartClassificationUsesAuthorshipAndFas) {
+    const auto fasPosition = mixxx::audio::FramePos(1000);
+    const auto lasPosition = mixxx::audio::FramePos(2000);
+    const auto pTrack = createTestTrack();
+    pTrack->createAndAddCue(mixxx::CueType::N60dBSound,
+            Cue::kNoHotCue, fasPosition, lasPosition);
+    const auto pIntro = pTrack->createAndAddCue(mixxx::CueType::Intro,
+            Cue::kNoHotCue, fasPosition, mixxx::audio::kInvalidFramePos);
+
+    loadTrack(pTrack);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(fasPosition, m_pTangoFasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(lasPosition, m_pTangoLasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFileStartPosition);
+
+    pIntro->setLabel(mixxx::tango::authoredStartCueLabel());
+    ProcessBuffer();
+    EXPECT_FRAMEPOS_EQ_CONTROL(fasPosition, m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(lasPosition, m_pTangoLasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFileStartPosition);
+
+    pIntro->setStartPosition(mixxx::audio::FramePos(0));
+    ProcessBuffer();
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::FramePos(0), m_pTangoStartPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(lasPosition, m_pTangoLasPosition);
+    EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoFileStartPosition);
 }
 
 TEST_F(CueControlTest, LoadTrackWithIntroEndAndOutroStart) {

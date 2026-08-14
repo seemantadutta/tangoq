@@ -294,10 +294,8 @@ class CueControl : public EngineControl {
     // Shared body of introStartSet()/introStartSetExact(); the two differ only
     // in whether the play position is snapped to the beatgrid.
     void introStartSetInternal(bool quantize);
-    // The only place intro_start_position is written, so its Tango mirror
-    // cannot drift away from it. See m_pTangoStartPosition. The two values
-    // differ by design: stock quantizes the cue on the way to the control,
-    // Tango does not.
+    // Updates the stock Intro control. loadCuesFromTrack() then publishes the
+    // classified Tango marker whose source matches the playback entry point.
     void setIntroStartPositionValue(double quantizedPos, double exactPos);
     TrackAt getTrackAt() const;
     void seekOnLoad(mixxx::audio::FramePos seekOnLoadPosition);
@@ -349,6 +347,9 @@ class CueControl : public EngineControl {
     // and the beatgrid over such an intro is unreliable, so it must stay where
     // the DJ put it whether or not quantize is enabled.
     std::unique_ptr<ControlObject> m_pTangoStartPosition;
+    std::unique_ptr<ControlObject> m_pTangoFasPosition;
+    std::unique_ptr<ControlObject> m_pTangoLasPosition;
+    std::unique_ptr<ControlObject> m_pTangoFileStartPosition;
     std::unique_ptr<ControlObject> m_pIntroStartEnabled;
     std::unique_ptr<ControlPushButton> m_pIntroStartSet;
     std::unique_ptr<ControlPushButton> m_pIntroStartSetExact;

@@ -634,35 +634,20 @@ QString BaseTrackTableModel::tangoStartTimeMark(const QModelIndex& index) const 
     }
 
     const CuePointer pStartCue = pTrack->findCueByType(mixxx::CueType::Intro);
-    if (!pStartCue) {
-        return QString();
-    }
-    const auto startPosition = pStartCue->getPosition();
-    if (!startPosition.isValid()) {
-        return QString();
-    }
-    if (mixxx::tango::isAuthoredStartCueLabel(pStartCue->getLabel())) {
-        const auto sampleRate = pTrack->getSampleRate();
-        if (!sampleRate.isValid()) {
-            return QString();
-        }
-        return formatTangoStartTime(startPosition.value() / sampleRate);
-    }
-
     const CuePointer pFirstSoundCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
-    if (pFirstSoundCue) {
-        const auto firstSoundPosition = pFirstSoundCue->getPosition();
-        if (firstSoundPosition.isValid() &&
-                startPosition == firstSoundPosition) {
-            return QString();
-        }
+    const auto classification = mixxx::tango::classifyStartCue(
+            pStartCue ? pStartCue->getPosition() : mixxx::audio::FramePos(),
+            pStartCue ? pStartCue->getLabel() : QString(),
+            pFirstSoundCue ? pFirstSoundCue->getPosition() : mixxx::audio::FramePos());
+    if (!classification.hasExplicitStart()) {
+        return QString();
     }
 
     const auto sampleRate = pTrack->getSampleRate();
     if (!sampleRate.isValid()) {
         return QString();
     }
-    return formatTangoStartTime(startPosition.value() / sampleRate);
+    return formatTangoStartTime(classification.explicitStart.value() / sampleRate);
 }
 
 void BaseTrackTableModel::refreshTangoStartCueObservers() {
