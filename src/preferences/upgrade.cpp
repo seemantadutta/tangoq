@@ -24,7 +24,7 @@
 
 namespace {
 
-// Defaults for a brand new install. TangoMode targets tango DJs, for whom the
+// Defaults for a brand new install. TangoQ targets tango DJs, for whom the
 // stock club layout -- four decks, samplers, effect racks, spinnies -- is mostly
 // noise. Upstream's defaults are applied when a key is absent, so a fresh install
 // lands on the full layout and every new user has to pare it back by hand through
@@ -323,10 +323,10 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     QString configVersion = config->getValueString(ConfigKey("[Config]","Version"));
 
     if (configVersion.isEmpty()) {
-        // TangoMode fork: upstream adopts settings here from two pre-move
+        // TangoQ fork: upstream adopts settings here from two pre-move
         // locations - ~/.mixxx on macOS (pre-1.9.0) and
         // ~/Local Settings/Application Data/Mixxx on Windows (pre-1.12.0) -
-        // reading their mixxx.cfg and then redirecting the whole settings path
+        // reading their config file and then redirecting the whole settings path
         // there. Both are removed, because in a fork they can only ever adopt
         // *upstream Mixxx's* settings: this application has never had a
         // pre-1.9.0 or pre-1.12.0 install of its own to migrate from.
@@ -335,8 +335,8 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
         // junction to AppData\Local on current Windows, so that "legacy" path
         // resolves to %LOCALAPPDATA%\Mixxx - which is where a *stock Mixxx*
         // install keeps its data. Any machine with Mixxx installed handed
-        // TangoMode its mixxx.cfg on first run, and from then on both
-        // applications shared one settings directory and one mixxxdb.sqlite,
+        // TangoQ its config file on first run, and from then on both
+        // applications shared one settings directory and one database,
         // taking turns migrating the schema. The two paths look unrelated as
         // strings, which is what made this hard to spot.
         //

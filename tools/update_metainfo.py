@@ -101,7 +101,7 @@ def parse_changelog(content, development_release_date):
 def main(argv=None):
     rootpath = os.path.join(os.path.dirname(__file__), "..")
     metainfo_path = os.path.join(
-        rootpath, "res/linux/org.mixxx.Mixxx.metainfo.xml"
+        rootpath, "res/linux/io.github.seemantadutta.tangoq.metainfo.xml"
     )
     parser = etree.XMLParser(remove_blank_text=True, remove_comments=False)
     tree = etree.parse(metainfo_path, parser)

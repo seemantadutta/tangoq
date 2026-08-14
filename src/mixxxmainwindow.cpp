@@ -831,13 +831,13 @@ void MixxxMainWindow::slotUpdateWindowTitle(TrackPointer pTrack) {
     QString appTitle = VersionStore::applicationName();
     QString filePath;
 
-    // The app is TangoMode whether or not Tango DJ mode is engaged -- the name
+    // The app is TangoQ whether or not Tango DJ mode is engaged -- the name
     // says what the software is, this suffix says how it is behaving. Deliberately
     // not swapping in upstream's name and logo when the mode is off: this build is
     // still this fork, and claiming otherwise would be both untrue and a misuse of
     // their branding.
     if (m_pTangoModeControl && !m_pTangoModeControl->toBool()) {
-        appTitle = tr("%1 — Off").arg(appTitle);
+        appTitle = tr("%1 - Off").arg(appTitle);
     }
 
     // If we have a track, use getInfo() to format a summary string and prepend

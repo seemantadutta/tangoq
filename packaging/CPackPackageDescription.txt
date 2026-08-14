@@ -1,7 +1,6 @@
-Mixxx is a digital DJ system, where Wave, Ogg, FLAC and MP3 files can be
-mixed on a computer for use in live performances. Filters, crossfader, and
-speed control are provided. Mixxx can sync the 4 decks automatically, using
-an algorithm to detect the beat.
+TangoQ is Argentine Tango DJ Software based on Mixxx. It provides a familiar
+deck-based DJ interface with tango-focused queue, cortina, timing, and live-mode
+workflow.
 
-Mixxx works with ALSA or Jack, can be controlled from the GUI or from external
+TangoQ works with ALSA or Jack, can be controlled from the GUI or from external
 controllers, including MIDI devices and joysticks, and supports skins.

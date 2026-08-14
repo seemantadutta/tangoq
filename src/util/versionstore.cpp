@@ -31,11 +31,11 @@ namespace {
 const QVersionNumber kMixxxVersionNumber = QVersionNumber(
         MIXXX_VERSION_MAJOR, MIXXX_VERSION_MINOR, MIXXX_VERSION_PATCH);
 const QString kMixxxVersionSuffix = QString(MIXXX_VERSION_SUFFIX);
-// TangoMode fork: this name is also what Qt derives the settings directory from
+// TangoQ fork: this name is also what Qt derives the settings directory from
 // (QStandardPaths::AppLocalDataLocation -> ~/Library/Application Support/<name>),
 // so changing it keeps our config and database separate from an upstream Mixxx
 // install on the same machine. See CmdlineArgs' m_settingsPath.
-const QString kMixxx = QStringLiteral("TangoMode");
+const QString kMixxx = QStringLiteral("TangoQ");
 const QString kBuildFlags = QString(MIXXX_BUILD_FLAGS);
 
 } // namespace
@@ -225,7 +225,7 @@ void VersionStore::logBuildDetails() {
     }
     QString buildInfoFormatted = QString("(%1)").arg(buildInfo.join("; "));
 
-    // This is the first line in mixxx.log
+    // This is the first line in tangoq.log
     qDebug().noquote() << applicationName() << version << buildInfoFormatted << "is starting...";
 
     QStringList depVersions = dependencyVersions();

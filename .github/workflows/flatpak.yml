@@ -127,9 +127,9 @@ jobs:
           ostree --repo=repo remote add upstream https://downloads.mixxx.org/flatpak/
 
           for arch in "x86_64" "aarch64"; do
-            import_to_repo "bundles/Mixxx-${VERSION}-${arch}.flatpak" org.mixxx.Mixxx ${arch} app
-            if [ -f "bundles/Mixxx-${VERSION}-${arch}.Debug.flatpak" ]; then
-              import_to_repo "bundles/Mixxx-${VERSION}-${arch}.Debug.flatpak" org.mixxx.Mixxx.Debug ${arch} runtime
+            import_to_repo "bundles/TangoQ-${VERSION}-${arch}.flatpak" io.github.seemantadutta.tangoq ${arch} app
+            if [ -f "bundles/TangoQ-${VERSION}-${arch}.Debug.flatpak" ]; then
+              import_to_repo "bundles/TangoQ-${VERSION}-${arch}.Debug.flatpak" io.github.seemantadutta.tangoq.Debug ${arch} runtime
             else
               echo "No debug extension for ${arch}"
             fi

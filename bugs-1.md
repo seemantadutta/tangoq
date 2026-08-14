@@ -47,7 +47,6 @@
 
 -
 
-* Add fade now button
+
 * Show and hide different parts in the toolbar like timing information
-* Should not be able to set a playing track as cortina and vice versa
-* disambiguate S and FAS ; That distinction is technically useful, but visually confusing. A better Tango UX may be to show S only for an explicit DJ-set/reset start, not for the analyzer’s default FAS.
+* In LIVE MODE clicking the waveform should be a NOP

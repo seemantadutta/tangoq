@@ -11,9 +11,9 @@ if(NOT GIT_DESCRIBE)
 else()
   set(PACKAGE_VERSION "${GIT_DESCRIBE}")
 endif()
-# TangoMode fork: names the downloadable installer, so users can tell this build
+# TangoQ fork: names the downloadable installer, so users can tell this build
 # apart from an official Mixxx release sitting in the same Downloads folder.
-set(CPACK_PACKAGE_FILE_NAME "tangomode-${PACKAGE_VERSION}-${CPACK_SYSTEM_PROCESSOR}")
+set(CPACK_PACKAGE_FILE_NAME "tangoq-${PACKAGE_VERSION}-${CPACK_SYSTEM_PROCESSOR}")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-source")
 
 # The upstream version must not contain hyphen

@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>About TangoMode</string>
+   <string>About TangoQ</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -182,7 +182,7 @@
    <item>
     <widget class="QLabel" name="fork_maintainer_label">
      <property name="text">
-      <string>TangoMode Fork Maintainer: Seemanta Dutta</string>
+      <string>TangoQ Maintainer: Seemanta Dutta</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

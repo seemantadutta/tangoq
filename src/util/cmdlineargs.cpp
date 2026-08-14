@@ -67,7 +67,7 @@ CmdlineArgs::CmdlineArgs()
           m_logLevel(mixxx::kLogLevelDefault),
           m_logFlushLevel(mixxx::kLogFlushLevelDefault),
           m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault),
-// We are not ready to switch to XDG folders under Linux, so keeping $HOME/.mixxx as preferences folder. see #8090
+// Keep TangoQ preferences in a fork-specific hidden directory on Linux.
 #ifdef MIXXX_SETTINGS_PATH
           m_settingsPath(QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH))
 #elif defined(__LINUX__)
@@ -317,7 +317,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
     const QCommandLineOption logFlushLevel(QStringLiteral("log-flush-level"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Sets the the logging level at which the log buffer is "
-                                      "flushed to mixxx.log. <level> is one of the values defined "
+                                      "flushed to tangoq.log. <level> is one of the values defined "
                                       "at --log-level above.")
                             : QString(),
             QStringLiteral("level"));
@@ -331,7 +331,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
     const QCommandLineOption logMaxFileSize(QStringLiteral("log-max-file-size"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Sets the maximum file size of the "
-                                      "mixxx.log file in bytes. "
+                                      "tangoq.log file in bytes. "
                                       "Use -1 for unlimited. The default is "
                                       "100 MB as 1e5 or 100000000.")
                             : QString(),

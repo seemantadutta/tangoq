@@ -196,7 +196,7 @@ int main(int argc, char * argv[]) {
 
 #ifdef __LINUX__
     // Needed by Wayland compositors to set proper app_id and window icon
-    QGuiApplication::setDesktopFileName(QStringLiteral("org.mixxx.Mixxx"));
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.seemantadutta.tangoq"));
 #endif
 
     // Setting the organization name results in a QDesktopStorage::DataLocation

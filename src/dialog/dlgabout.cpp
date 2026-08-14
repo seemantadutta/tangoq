@@ -29,7 +29,7 @@ DlgAbout::DlgAbout()
     // Let the wordmark act as a link to the project's own site, the way an About
     // box logo usually does.
     mixxx_logo->setCursor(Qt::PointingHandCursor);
-    mixxx_logo->setToolTip(TANGOMODE_SUPPORT_URL);
+    mixxx_logo->setToolTip(TANGOQ_SUPPORT_URL);
     mixxx_logo->installEventFilter(this);
 
     version_label->setText(VersionStore::applicationName() +
@@ -458,23 +458,23 @@ DlgAbout::DlgAbout()
     QString sectionTemplate = QString(
         "<p align=\"center\"><b>%1</b></p><p align=\"center\">%2</p>");
     QStringList sections;
-    // TangoMode is a fork. Say so before Mixxx's own credits, so it is never
-    // mistaken for the official application and nobody brings TangoMode's bugs
+    // TangoQ is a fork. Say so before Mixxx's own credits, so it is never
+    // mistaken for the official application and nobody brings TangoQ's bugs
     // to the Mixxx project. The disclaimer matters more than the attribution:
     // the GPL lets us ship modified Mixxx, it does not let us imply endorsement.
     // Everything below this section is upstream's, listed unaltered.
     sections << QString("<p align=\"center\"><b>%1</b></p>"
                         "<p align=\"center\">%2</p>")
                         .arg(tr("About this build"),
-                                tr("TangoMode is a modified version of Mixxx for "
-                                   "tango DJs. It is not affiliated with, "
+                                tr("TangoQ is Argentine Tango DJ Software based "
+                                   "on Mixxx. It is not affiliated with, "
                                    "supported by, or endorsed by the Mixxx "
                                    "project.<br>"
-                                   "Please report problems with TangoMode to its "
+                                   "Please report problems with TangoQ to its "
                                    "own issue tracker rather than to Mixxx.<br>"
                                    "The original application is at "
                                    "<a href=\"%1\">mixxx.org</a>.<br><br>"
-                                   "TangoMode is built on the work of everyone "
+                                   "TangoQ is built on the work of everyone "
                                    "credited below.")
                                         .arg(MIXXX_WEBSITE_URL))
              << sectionTemplate.arg(s_devTeam,
@@ -494,7 +494,7 @@ DlgAbout::DlgAbout()
     fork_maintainer_label->setTextFormat(Qt::RichText);
     fork_maintainer_label->setOpenExternalLinks(true);
     fork_maintainer_label->setText(
-            tr("TangoMode Fork Maintainer: "
+            tr("TangoQ Maintainer: "
                "<a style=\"color:%1;\" href=\"mailto:seemanta@gmail.com\">Seemanta Dutta</a>")
                     .arg(Color::blendColors(palette().link().color(),
                                  palette().text().color())
@@ -525,9 +525,9 @@ DlgAbout::DlgAbout()
     // "Donate" in a dialog full of Mixxx's credits means to support Mixxx, and
     // quietly redirecting that would take a donation given in good faith to
     // someone else. Two buttons, clearly labelled, lets people choose.
-    btnSupportFork->setText(tr("Support TangoMode"));
+    btnSupportFork->setText(tr("Support TangoQ"));
     connect(btnSupportFork, &QPushButton::clicked, this, [] {
-        mixxx::DesktopHelper::openUrl(QUrl(TANGOMODE_SUPPORT_URL));
+        mixxx::DesktopHelper::openUrl(QUrl(TANGOQ_SUPPORT_URL));
     });
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &DlgAbout::accept);
@@ -541,7 +541,7 @@ bool DlgAbout::eventFilter(QObject* pObject, QEvent* pEvent) {
         const auto* pMouseEvent = static_cast<QMouseEvent*>(pEvent);
         if (pMouseEvent->button() == Qt::LeftButton &&
                 mixxx_logo->rect().contains(pMouseEvent->pos())) {
-            mixxx::DesktopHelper::openUrl(QUrl(TANGOMODE_SUPPORT_URL));
+            mixxx::DesktopHelper::openUrl(QUrl(TANGOQ_SUPPORT_URL));
             return true;
         }
     }

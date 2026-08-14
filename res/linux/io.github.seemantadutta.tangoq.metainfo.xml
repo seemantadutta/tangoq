@@ -1,20 +1,19 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <component type="desktop-application">
-  <id>org.mixxx.Mixxx</id>
-  <launchable type="desktop-id">org.mixxx.Mixxx.desktop</launchable>
+  <id>io.github.seemantadutta.tangoq</id>
+  <launchable type="desktop-id">io.github.seemantadutta.tangoq.desktop</launchable>
   <metadata_license>CC-BY-SA-3.0</metadata_license>
   <project_license>GPL-2.0</project_license>
-  <name>Mixxx DJ Software</name>
-  <summary>Everything you need to perform live DJ mixes</summary>
+  <name>TangoQ</name>
+  <summary>Argentine Tango DJ Software</summary>
   <description>
     <p>
-      Mixxx is free DJ software that gives you everything you need to perform
-      live DJ mixes. Blend songs together with automatic BPM matching and
-      remix on-the-fly with looping and hot cues.
-      Whether you're a pro DJ or just getting started, Mixxx has you covered.
+      TangoQ is DJ software for Argentine tango events, based on Mixxx.
+      It keeps a familiar deck-based workflow while focusing the experience on
+      tanda, cortina, and live tango DJing.
     </p>
     <p>
-      Mixxx works with ALSA, JACK, OSS and supports many popular DJ
+      TangoQ works with ALSA, JACK, OSS and supports many popular DJ
       controllers. Key features include:
     </p>
     <ul>
@@ -58,31 +57,31 @@
   <screenshots>
     <screenshot type="default">
       <image>https://mixxx.org/theme/images/2.3/screenshots/latenight-palemoon-3840x2160.png</image>
-      <caption>Mixxx with the default LateNight PaleMoon skin</caption>
+      <caption>TangoQ with the default LateNight PaleMoon skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/latenight-classic-3840x2160.png</image>
-      <caption>Mixxx with the LateNight Classic skin</caption>
+      <caption>TangoQ with the LateNight Classic skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/deere-3840x2160.png</image>
-      <caption>Mixxx with the Deere skin</caption>
+      <caption>TangoQ with the Deere skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/shade-classic-3840x2160.png</image>
-      <caption>Mixxx with the Shade Classic skin</caption>
+      <caption>TangoQ with the Shade Classic skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/shade-dark-3840x2160.png</image>
-      <caption>Mixxx with the Shade Dark skin</caption>
+      <caption>TangoQ with the Shade Dark skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/shade-summersunset-3840x2160.png</image>
-      <caption>Mixxx with the Shade Summer Sunset skin</caption>
+      <caption>TangoQ with the Shade Summer Sunset skin</caption>
     </screenshot>
     <screenshot>
       <image>https://mixxx.org/theme/images/2.3/screenshots/tango-3840x2160.png</image>
-      <caption>Mixxx with the Tango skin</caption>
+      <caption>TangoQ with the Tango skin</caption>
     </screenshot>
   </screenshots>
   <url type="homepage">https://mixxx.org</url>
@@ -1695,7 +1694,7 @@
    #11861
   </li>
   <li>
-   Logging: Limit mixxx.log size to 100 MB or via --log-max-file-size
+   Logging: Limit tangoq.log size to 100 MB or via --log-max-file-size
    #13684
    #13660
   </li>

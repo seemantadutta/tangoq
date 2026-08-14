@@ -507,7 +507,7 @@ jobs:
           archive: "false"
           path: ${{ matrix.artifacts_path }}
 
-  # TangoMode fork: the Flatpak jobs are deliberately removed, not broken.
+  # TangoQ fork: the Flatpak jobs are deliberately removed, not broken.
   #
   # This fork ships a Windows .msi and a macOS .dmg (see INSTALL.md), and the
   # Ubuntu job above already produces a .deb, so Flatpak reached no user who

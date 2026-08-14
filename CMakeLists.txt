@@ -233,7 +233,7 @@ enable_language(C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
 
-set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
+set(CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
 set(CMAKE_PROJECT_DESCRIPTION "Mixxx is Free DJ software that gives you everything you need to perform live mixes.")
 
 # Used for force control of color output
@@ -1608,7 +1608,7 @@ set_target_properties(mixxx-lib PROPERTIES AUTOMOC ON AUTOUIC ON CXX_CLANG_TIDY 
 target_include_directories(mixxx-lib PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src")
 if(UNIX AND NOT APPLE)
   target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
-  set(MIXXX_SETTINGS_PATH ".mixxx/")
+  set(MIXXX_SETTINGS_PATH ".tangoq/")
 endif()
 
 if(APPLE)
@@ -1767,14 +1767,14 @@ set(MIXXX_INSTALL_DOCDIR "./doc")
 set(MIXXX_INSTALL_LICENSEDIR "./doc")
 if (APPLE AND MACOS_BUNDLE)
   set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  # TangoMode fork: brand the macOS bundle by default, so every build path agrees
-  # -- CI, a plain `cmake ..`, and tools/tangomode_build_macos.sh alike. Upstream
+  # TangoQ fork: brand the macOS bundle by default, so every build path agrees
+  # -- CI, a plain `cmake ..`, and tools/tangoq_build_macos.sh alike. Upstream
   # defaults these to Mixxx / org.mixxx.mixxx; leaving them there meant CI shipped
   # a DMG containing "Mixxx.app", which could replace a real Mixxx in
   # /Applications and, via the identifier below, shared its settings container and
   # library database. Still CACHE, so -DMACOS_BUNDLE_NAME=... can override.
-  set(MACOS_BUNDLE_NAME TangoMode CACHE STRING "The macOS app bundle and executable name")
-  set(MACOS_BUNDLE_IDENTIFIER io.github.seemantadutta.tangomode CACHE STRING "The macOS app bundle identifier")
+  set(MACOS_BUNDLE_NAME TangoQ CACHE STRING "The macOS app bundle and executable name")
+  set(MACOS_BUNDLE_IDENTIFIER io.github.seemantadutta.tangoq CACHE STRING "The macOS app bundle identifier")
   # Sandbox::migrateOldSettings() builds the settings path from these. Deriving them
   # from the bundle identity keeps a fork's library separate from an upstream install
   # on the same machine; leaving the bundle vars at their defaults reproduces the
@@ -1856,17 +1856,17 @@ endif()
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
 target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 
-# TangoMode fork: ship the Windows executable under the product name. Only the
+# TangoQ fork: ship the Windows executable under the product name. Only the
 # final binary is renamed -- the CMake target, the libraries and the bundled
 # DLLs keep their upstream names, so this stays a one-line difference from
 # upstream.
 #
 # macOS is handled separately, further up: its executable name comes from
-# MACOS_BUNDLE_NAME, which this fork defaults to TangoMode, so the bundle, the
+# MACOS_BUNDLE_NAME, which this fork defaults to TangoQ, so the bundle, the
 # binary inside it and the settings container are all branded without anyone
 # having to pass a flag.
-if(WIN32)
-  set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangomode")
+if(WIN32 OR (UNIX AND NOT APPLE))
+  set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangoq")
 endif()
 
 #
@@ -2027,7 +2027,7 @@ if(UNIX AND NOT APPLE)
   # .desktop file for KDE/GNOME menu
   install(
     FILES
-      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
+      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/io.github.seemantadutta.tangoq.desktop"
     DESTINATION
       "${CMAKE_INSTALL_DATADIR}/applications"
   )
@@ -2045,7 +2045,7 @@ if(UNIX AND NOT APPLE)
   # .metainfo.xml file for KDE/GNOME AppStream initiative
   install(
     FILES
-      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.metainfo.xml"
+      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/io.github.seemantadutta.tangoq.metainfo.xml"
     DESTINATION
       "${CMAKE_INSTALL_DATAROOTDIR}/metainfo"
   )
@@ -3998,25 +3998,25 @@ file(RELATIVE_PATH MIXXX_INSTALL_DOCDIR_RELATIVE_TO_DATADIR "${CMAKE_INSTALL_PRE
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/src/config.h" @ONLY)
 
 # Packaging
-# TangoMode fork: this block is the externally visible branding -- it names the
+# TangoQ fork: this block is the externally visible branding -- it names the
 # installer, the Windows install directory and Start menu entry, and is who
 # users are told to contact. It must not point at the upstream Mixxx project,
 # which neither builds nor supports these packages.
-set(CPACK_PACKAGE_NAME "TangoMode")
-set(CPACK_PACKAGE_VENDOR "TangoMode")
-set(CPACK_PACKAGE_CONTACT "TangoMode <https://github.com/seemantadutta/mixxx/issues>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Digital DJ Application for tango")
+set(CPACK_PACKAGE_NAME "TangoQ")
+set(CPACK_PACKAGE_VENDOR "TangoQ")
+set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/mixxx/issues>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Argentine Tango DJ Software")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoMode")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoQ")
 # Must match the OUTPUT_NAME set on the mixxx target above: this names the
 # executable the Start menu and desktop shortcuts point at.
-set(CPACK_PACKAGE_EXECUTABLES "tangomode;TangoMode")
+set(CPACK_PACKAGE_EXECUTABLES "tangoq;TangoQ")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
-set(CPACK_CREATE_DESKTOP_LINKS "tangomode")
+set(CPACK_CREATE_DESKTOP_LINKS "tangoq")
 set(CPACK_MIXXX_VERSION "${MIXXX_VERSION}")
 # Save GIT values just in case they have been set manual via cmake
 set(CPACK_GIT_DESCRIBE "${GIT_DESCRIBE}")

@@ -9,7 +9,7 @@
     "." TO_STR(minor)
 
 // Icons used for the main window and dialogs
-#define MIXXX_ICON_PATH ":/images/icons/scalable/apps/mixxx.svg"
+#define MIXXX_ICON_PATH ":/images/icons/scalable/apps/tangoq.svg"
 #define MIXXX_LOGO_PATH ":/images/mixxx_logo.svg"
 // Variant with a dark "Tango" wordmark for light dialog backgrounds. The default
 // logo above uses a near-white "Tango" tuned for the dark toolbar, which washes
@@ -28,10 +28,9 @@
 // landing page rather than a payment provider directly: a bare payment link
 // opening out of an app looks like something to be suspicious of, and a page we
 // control can offer several ways to help without another release to change them.
-// TODO: point "Support TangoMode" at a dedicated support/donate page once
-// tangomode.app has one, rather than the site root. Both the button and the
-// About dialog wordmark currently use this same URL.
-#define TANGOMODE_SUPPORT_URL "https://tangomode.app"
+// Support page for the TangoQ fork. Keep this on the project issue tracker until
+// a dedicated product domain is available.
+#define TANGOQ_SUPPORT_URL "https://github.com/seemantadutta/mixxx/issues"
 
 #define MIXXX_CONTROLLER_FORUMS_URL \
     "https://mixxx.discourse.group/c/controller-mappings/10"

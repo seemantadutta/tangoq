@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Build the Tango DJ (tangomode) fork of Mixxx locally on macOS.
+# Build TangoQ locally on macOS.
 #
-#   ./tools/tangomode_build_macos.sh            configure if needed, then build
-#   ./tools/tangomode_build_macos.sh configure  force a fresh configure
-#   ./tools/tangomode_build_macos.sh build      build only (the usual dev loop)
-#   ./tools/tangomode_build_macos.sh run        launch the built app
-#   ./tools/tangomode_build_macos.sh install    install a complete .app bundle
-#   ./tools/tangomode_build_macos.sh clean      remove the build directory
+#   ./tools/tangoq_build_macos.sh            configure if needed, then build
+#   ./tools/tangoq_build_macos.sh configure  force a fresh configure
+#   ./tools/tangoq_build_macos.sh build      build only (the usual dev loop)
+#   ./tools/tangoq_build_macos.sh run        launch the built app
+#   ./tools/tangoq_build_macos.sh install    install a complete .app bundle
+#   ./tools/tangoq_build_macos.sh clean      remove the build directory
 #
 # 'build' produces a runnable but incomplete bundle: the binary only, with no
 # icon, and resources read from the source tree. That is fine for development.
@@ -41,8 +41,8 @@ DEPLOYMENT_TARGET="11.0"
 # redundant for an ordinary build. Kept deliberately: the script still works if
 # the defaults change, it documents which values it expects, and it lets you
 # build a differently-named bundle by exporting BUNDLE_NAME.
-BUNDLE_NAME="${BUNDLE_NAME:-TangoMode}"
-BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-io.github.seemantadutta.tangomode}"
+BUNDLE_NAME="${BUNDLE_NAME:-TangoQ}"
+BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-io.github.seemantadutta.tangoq}"
 
 die() { echo "error: $*" >&2; exit 1; }
 

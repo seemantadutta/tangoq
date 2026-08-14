@@ -1,7 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 24" width="74" height="24" role="img" aria-label="TangoMode">
-  <text x="37" y="17" text-anchor="middle"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 24" width="74" height="24" role="img" aria-label="TangoQ">
+  <text x="24" y="17" text-anchor="middle"
         font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="13" letter-spacing="0.1">
-    <tspan fill="#e8ecf8" font-weight="300">Tango</tspan><tspan fill="#6f9bff" font-weight="600">Mode</tspan>
+        font-size="13" letter-spacing="0">
+    <tspan fill="#e8ecf8" font-weight="300">Tango</tspan>
   </text>
+  <g transform="translate(58,12)">
+    <circle cx="0" cy="0" r="9" fill="#0c1122"/>
+    <circle cx="0" cy="0" r="9" fill="none" stroke="#6f9bff" stroke-width="1"/>
+    <circle cx="0" cy="0" r="7" fill="none" stroke="#2a3357" stroke-width="0.7"/>
+    <circle cx="0" cy="0" r="2" fill="#e6314e"/>
+    <path d="M6.1 6.1 L10.8 10.8" fill="none" stroke="#6f9bff" stroke-width="2" stroke-linecap="round"/>
+  </g>
 </svg>
