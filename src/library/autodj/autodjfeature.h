@@ -5,6 +5,8 @@
 #include <QPointer>
 #include <QUrl>
 #include <QVariant>
+#include <QUuid>
+#include <QVector>
 #include <memory>
 
 #include "control/controlpushbutton.h"
@@ -26,6 +28,8 @@ class WLibrarySidebar;
 class QAction;
 class QModelIndex;
 class QPoint;
+class TandaQueueState;
+enum class TandaType;
 
 class AutoDJFeature : public LibraryFeature {
     Q_OBJECT
@@ -55,6 +59,21 @@ class AutoDJFeature : public LibraryFeature {
 
     TreeItemModel* sidebarModel() const override;
 
+    TandaQueueState* tandaQueueState() const {
+        return m_pTandaQueueState.get();
+    }
+    QUuid makeTanda(const QVector<int>& oneBasedPositions,
+            TandaType type,
+            QString* pError = nullptr);
+    bool ungroupTanda(const QUuid& id);
+    bool changeTandaType(const QUuid& id, TandaType type);
+    bool setTandaCollapsed(const QUuid& id, bool collapsed);
+    bool moveTanda(const QUuid& id,
+            int newAnchorPosition,
+            QString* pError = nullptr);
+    bool moveTandaUp(const QUuid& id, QString* pError = nullptr);
+    bool moveTandaDown(const QUuid& id, QString* pError = nullptr);
+
     bool hasTrackTable() override {
         return true;
     }
@@ -73,6 +92,8 @@ class AutoDJFeature : public LibraryFeature {
     // The id of the AutoDJ playlist.
     int m_iAutoDJPlaylistId;
     AutoDJProcessor* m_pAutoDJProcessor;
+    std::unique_ptr<TandaQueueState> m_pTandaQueueState;
+    bool m_tandaMoveInProgress{false};
     parented_ptr<TreeItemModel> m_pSidebarModel;
     DlgAutoDJ* m_pAutoDJView;
 

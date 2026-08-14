@@ -75,6 +75,8 @@ class PlaylistDAO : public QObject, public virtual DAO {
     // stored in the database.
     int getPlaylistId(const int index) const;
     QList<TrackId> getTrackIds(const int playlistId) const;
+    // Includes duplicate occurrences and follows PlaylistTracks.position.
+    QVector<TrackId> getTrackIdsInPlaylistOrder(const int playlistId) const;
     // Returns true if the playlist with playlistId is hidden
     bool isHidden(const int playlistId) const;
     // Returns the HiddenType of playlistId
@@ -112,6 +114,12 @@ class PlaylistDAO : public QObject, public virtual DAO {
     // moved Track to a new position
     void moveTrack(const int playlistId,
             const int oldPosition, const int newPosition);
+    // Atomically moves the inclusive range to its final one-based start
+    // position and emits exactly one tracksMoved notification.
+    bool moveTrackRange(const int playlistId,
+            int firstPosition,
+            int lastPosition,
+            int newFirstPosition);
     // shuffles all tracks in the position List
     void shuffleTracks(const int playlistId, const QList<int>& positions, const QHash<int,TrackId>& allIds);
     bool isTrackInPlaylist(TrackId trackId, const int playlistId) const;

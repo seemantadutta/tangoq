@@ -16,6 +16,9 @@
 #include <QTimer>
 
 #include "controllers/keyboard/keyboardeventfilter.h"
+#include "library/autodj/autodjfeature.h"
+#include "library/autodj/tandaqueuemodel.h"
+#include "library/autodj/wtandaqueueview.h"
 #include "library/library.h"
 #include "library/playlisttablemodel.h"
 #include "mixer/playerinfo.h"
@@ -52,18 +55,21 @@ QString formatSetDuration(const mixxx::Duration& duration) {
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         UserSettingsPointer pConfig,
         Library* pLibrary,
+        AutoDJFeature* pAutoDJFeature,
         AutoDJProcessor* pProcessor,
         KeyboardEventFilter* pKeyboard)
         : QWidget(parent),
           Ui::DlgAutoDJ(),
           m_pConfig(pConfig),
           m_pAutoDJProcessor(pProcessor),
-          m_pTrackTableView(new WTrackTableView(this,
+          m_pTrackTableView(new WTandaQueueView(this,
                   m_pConfig,
                   pLibrary,
-                  parent->getTrackTableBackgroundColorOpacity())),
+                  parent->getTrackTableBackgroundColorOpacity(),
+                  pAutoDJFeature)),
           m_bShowButtonText(parent->getShowButtonText()),
           m_pAutoDJTableModel(nullptr),
+          m_pTandaQueueModel(nullptr),
           m_pKeepQueueControl(nullptr),
           m_pCortinaLengthControl(nullptr),
           m_pKeyboard(pKeyboard),
@@ -115,6 +121,10 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.
     m_pAutoDJTableModel = m_pAutoDJProcessor->getTableModel();
+    m_pTandaQueueModel = new TandaQueueModel(m_pAutoDJTableModel,
+            pAutoDJFeature->tandaQueueState(),
+            m_pAutoDJProcessor,
+            this);
     // The Tango cortina styling (blue + "[--CORTINA--]" prefix) belongs to the
     // Auto DJ list only, and only while Tango mode is on - refreshTangoModeUi()
     // keeps it in step from here on, so outside Tango the list is stock Mixxx.
@@ -524,6 +534,12 @@ void DlgAutoDJ::slotRepeatPlaylistChanged(bool checked) {
 
 void DlgAutoDJ::refreshTangoModeUi() {
     const bool tango = m_pKeepQueueControl->toBool();
+    QAbstractItemModel* pDesiredModel =
+            tango ? static_cast<QAbstractItemModel*>(m_pTandaQueueModel)
+                  : static_cast<QAbstractItemModel*>(m_pAutoDJTableModel);
+    if (m_pTrackTableView->model() != pDesiredModel) {
+        m_pTrackTableView->loadTrackModel(pDesiredModel, true);
+    }
     // Update the read-only toolbar indicator. It is hidden outside Tango mode
     // rather than shown in an "off" state, so plain Mixxx carries no trace of
     // the fork's Tango UI.
@@ -827,6 +843,10 @@ void DlgAutoDJ::refreshTransitionControls() {
 
 void DlgAutoDJ::updateSelectionInfo() {
     QModelIndexList indices = m_pTrackTableView->selectionModel()->selectedRows();
+
+    if (m_pTrackTableView->model() == m_pTandaQueueModel) {
+        indices = m_pTandaQueueModel->mapSelectionToSource(indices);
+    }
 
     // Derive total duration from the table model. This is much faster than
     // getting the duration from individual track objects.

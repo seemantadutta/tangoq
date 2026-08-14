@@ -12,6 +12,8 @@
 #include "track/track_decl.h"
 
 class PlaylistTableModel;
+class AutoDJFeature;
+class TandaQueueModel;
 class WLibrary;
 class WTrackTableView;
 class Library;
@@ -25,6 +27,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     DlgAutoDJ(WLibrary* parent,
             UserSettingsPointer pConfig,
             Library* pLibrary,
+            AutoDJFeature* pAutoDJFeature,
             AutoDJProcessor* pProcessor,
             KeyboardEventFilter* pKeyboard);
     ~DlgAutoDJ() override;
@@ -99,6 +102,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     const bool m_bShowButtonText;
 
     PlaylistTableModel* m_pAutoDJTableModel;
+    TandaQueueModel* m_pTandaQueueModel;
 
     // Observes [AutoDJ],keep_queue (Tango DJ mode) so the toolbar refreshes
     // immediately when it is toggled in Preferences.

@@ -620,11 +620,18 @@ void WTrackTableView::showTrackMenu(const QPoint pos, const QModelIndex& index) 
     }
     m_pTrackMenu->loadTrackModelIndices(indices);
     m_pTrackMenu->setTrackPropertyName(columnNameOfIndex(index));
+    prepareTrackMenu(m_pTrackMenu.get(), indices);
 
     saveCurrentIndex();
 
     m_pTrackMenu->popup(pos);
     // WTrackmenu emits restoreCurrentViewStateOrIndex() on hide if required
+}
+
+void WTrackTableView::prepareTrackMenu(
+        WTrackMenu* pTrackMenu, const QModelIndexList& indices) {
+    Q_UNUSED(pTrackMenu);
+    Q_UNUSED(indices);
 }
 
 QString WTrackTableView::columnNameOfIndex(const QModelIndex& index) const {

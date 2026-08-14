@@ -462,8 +462,27 @@ void BaseTrackTableModel::clearPauseAfterRow(int row) {
     }
 }
 
+void BaseTrackTableModel::setActivePauseAfterRow(int row) {
+    if (m_activePauseAfterRow == row) {
+        return;
+    }
+    m_activePauseAfterRow = row;
+    emit pauseAfterRowsChanged();
+}
+
+void BaseTrackTableModel::clearActivePauseAfterRow() {
+    if (m_activePauseAfterRow < 0) {
+        return;
+    }
+    m_activePauseAfterRow = -1;
+    emit pauseAfterRowsChanged();
+}
+
 void BaseTrackTableModel::reanchorPauseAfterRows() {
     if (m_pauseAfterRows.isEmpty()) {
+        if (m_activePauseAfterRow >= rowCount()) {
+            clearActivePauseAfterRow();
+        }
         return;
     }
     const int rows = rowCount();
@@ -505,9 +524,15 @@ void BaseTrackTableModel::reanchorPauseAfterRows() {
         reanchored.insert(bestRow, trackId);
     }
     if (reanchored == m_pauseAfterRows) {
+        if (m_activePauseAfterRow >= rowCount()) {
+            clearActivePauseAfterRow();
+        }
         return;
     }
     m_pauseAfterRows = reanchored;
+    if (m_activePauseAfterRow >= rowCount()) {
+        m_activePauseAfterRow = -1;
+    }
     emit pauseAfterRowsChanged();
     // The tag moved to a different row, and rows that did not otherwise change
     // are not repainted on their own.

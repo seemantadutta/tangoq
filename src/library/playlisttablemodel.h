@@ -3,6 +3,8 @@
 #include "library/trackset/tracksettablemodel.h"
 #include "util/duration.h"
 
+class TandaQueueState;
+
 class PlaylistTableModel final : public TrackSetTableModel {
     Q_OBJECT
 
@@ -19,6 +21,9 @@ class PlaylistTableModel final : public TrackSetTableModel {
     }
 
     bool appendTrack(TrackId trackId);
+    void setTandaQueueState(TandaQueueState* pState) {
+        m_pTandaQueueState = pState;
+    }
     void moveTrack(const QModelIndex& sourceIndex, const QModelIndex& destIndex) override;
     void removeTrack(const QModelIndex& index);
     void shuffleTracks(const QModelIndexList& shuffle, const QModelIndex& exclude);
@@ -53,4 +58,6 @@ class PlaylistTableModel final : public TrackSetTableModel {
     int m_iPlaylistId;
     bool m_keepHiddenTracks;
     QHash<int, QString> m_searchTexts;
+    // Non-owning; AutoDJFeature owns this and clears it after the processor.
+    TandaQueueState* m_pTandaQueueState{nullptr};
 };

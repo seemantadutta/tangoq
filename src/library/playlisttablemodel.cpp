@@ -1,5 +1,6 @@
 #include "library/playlisttablemodel.h"
 
+#include "library/autodj/tandaqueuestate.h"
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
 #include "library/queryutil.h"
@@ -220,6 +221,10 @@ int PlaylistTableModel::addTracksWithTrackIds(const QModelIndex& insertionIndex,
         *pOutInsertionPos = position;
     }
 
+    if (m_pTandaQueueState && position <= rowCount()) {
+        m_pTandaQueueState->dissolveForInsertion(position);
+    }
+
     int tracksAdded = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().insertTracksIntoPlaylist(
             trackIds, m_iPlaylistId, position);
 
@@ -248,6 +253,9 @@ void PlaylistTableModel::removeTrack(const QModelIndex& index) {
 
     const int positionColumnIndex = fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION);
     int position = index.sibling(index.row(), positionColumnIndex).data().toInt();
+    if (m_pTandaQueueState) {
+        m_pTandaQueueState->dissolveForRemoval({position});
+    }
     m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().removeTrackFromPlaylist(m_iPlaylistId, position);
 }
 
@@ -262,6 +270,10 @@ void PlaylistTableModel::removeTracks(const QModelIndexList& indices) {
     foreach (QModelIndex index, indices) {
         int trackPosition = index.sibling(index.row(), positionColumnIndex).data().toInt();
         trackPositions.append(trackPosition);
+    }
+
+    if (m_pTandaQueueState) {
+        m_pTandaQueueState->dissolveForRemoval(trackPositions.toVector());
     }
 
     m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().removeTracksFromPlaylist(
@@ -293,6 +305,10 @@ void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
     } else if (newPosition == 0) {
         // Dragged out of bounds, which is past the end of the rows...
         newPosition = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().getMaxPosition(m_iPlaylistId);
+    }
+
+    if (m_pTandaQueueState) {
+        m_pTandaQueueState->dissolveForIndividualMove(oldPosition, newPosition);
     }
 
     m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().moveTrack(m_iPlaylistId, oldPosition, newPosition);
@@ -339,6 +355,9 @@ void PlaylistTableModel::shuffleTracks(const QModelIndexList& shuffle, const QMo
         int position = index(i, positionColumn).data().toInt();
         TrackId trackId(index(i, idColumn).data());
         allIds.insert(position, trackId);
+    }
+    if (m_pTandaQueueState) {
+        m_pTandaQueueState->dissolveForReorder(positions.toVector());
     }
     m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().shuffleTracks(m_iPlaylistId, positions, allIds);
 }

@@ -93,6 +93,14 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     bool isPauseAfterRow(int row) const;
     /// Drops the mark once it has fired, or when the track is skipped past.
     void clearPauseAfterRow(int row);
+    /// Transient UI marker for a pause-after rule that has fired. The original
+    /// rule is consumed so resume does not stop again; this keeps the paused row
+    /// visible while Auto DJ is waiting for the DJ to continue.
+    void setActivePauseAfterRow(int row);
+    void clearActivePauseAfterRow();
+    bool isActivePauseAfterRow(int row) const {
+        return row >= 0 && row == m_activePauseAfterRow;
+    }
 
   signals:
     /// The set of pause-after rows changed: repaint, and re-read it.
@@ -359,6 +367,7 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // mark can follow that track when the queue is edited (see
     // reanchorPauseAfterRows).
     QHash<int, TrackId> m_pauseAfterRows;
+    int m_activePauseAfterRow{-1};
 
     mutable QModelIndex m_toolTipIndex;
 

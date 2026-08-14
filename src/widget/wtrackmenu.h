@@ -104,6 +104,7 @@ class WTrackMenu : public QMenu {
     void setTrackPropertyName(const QString& property = QString()) {
         m_trackProperty = property;
     }
+    void setCortinaToggleAllowed(bool allowed);
 
     // WARNING: This function hides non-virtual QMenu::popup().
     // This has been done on purpose to ensure menu doesn't popup without loaded track(s).
@@ -410,6 +411,7 @@ class WTrackMenu : public QMenu {
     const Features m_eTrackModelFeatures;
 
     QString m_trackProperty;
+    bool m_cortinaToggleAllowed{true};
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(WTrackMenu::Features)

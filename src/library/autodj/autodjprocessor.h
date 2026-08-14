@@ -229,6 +229,15 @@ class AutoDJProcessor : public QObject {
 
     bool nextTrackLoaded();
 
+    /// One-based first queue position that is neither played/current nor
+    /// already loaded on a deck. Returns 1 while Auto DJ is stopped.
+    int firstUnloadedQueuePosition();
+
+    /// One-based queue position that represents the currently active set item in
+    /// Tango/keep-queue mode, including an in-progress Tanda Transition gap.
+    /// Returns 0 when no queue row should be considered active.
+    int activeKeepQueuePosition();
+
     /// Test seam for the stop decision. The two callers reach it from deep
     /// inside a transition or a gap timer, neither of which the fake decks can
     /// drive faithfully, so the rule itself is exercised directly.

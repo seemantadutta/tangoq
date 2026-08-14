@@ -933,6 +933,9 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/analysis/dlganalysis.ui
   src/library/autodj/autodjfeature.cpp
   src/library/autodj/autodjprocessor.cpp
+  src/library/autodj/tandaqueuemodel.cpp
+  src/library/autodj/tandaqueuestate.cpp
+  src/library/autodj/wtandaqueueview.cpp
   src/library/autodj/cortinaregistry.cpp
   src/library/autodj/tracklabelregistry.cpp
   src/library/autodj/dlgautodj.cpp
@@ -2253,6 +2256,7 @@ if(BUILD_TESTING)
     src/test/synccontroltest.cpp
     src/test/synctrackmetadatatest.cpp
     src/test/tableview_test.cpp
+    src/test/tandaqueuestate_test.cpp
     src/test/taglibtest.cpp
     src/test/trackdao_test.cpp
     src/test/trackexport_test.cpp

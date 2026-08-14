@@ -711,11 +711,16 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         disarmStopGuard();
     }
 
+    const bool pauseAfterStopPending = m_bPauseAfterPending;
+
     // Past the guard the toggle is going through, so the pending end-of-queue
     // stop has either just been carried out or been superseded by a deliberate
     // one. Either way it is spent.
     m_bStopWhenLastTrackEnds = false;
     m_bPauseAfterPending = false;
+    if (enable || !pauseAfterStopPending) {
+        m_pAutoDJTableModel->clearActivePauseAfterRow();
+    }
 
     if (enable) { // Enable Auto DJ
         DeckAttributes* pLeftDeck = getLeftDeck();
@@ -1524,6 +1529,7 @@ bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
     // Consume now, so resuming after the announcement plays on instead of
     // stopping again at the same place.
     m_pAutoDJTableModel->clearPauseAfterRow(row);
+    m_pAutoDJTableModel->setActivePauseAfterRow(row);
     m_bPauseAfterPending = true;
     // Let the track finish rather than cutting it: playerPlayChanged() stops
     // Auto DJ once it ends. Neutralise its fade so the transition machinery does
@@ -1962,6 +1968,7 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
         const int cortinaRow = keepQueueRowForDeck(pCortinaDeck);
         if (shouldStopAfterRow(cortinaRow)) {
             m_pAutoDJTableModel->clearPauseAfterRow(cortinaRow);
+            m_pAutoDJTableModel->setActivePauseAfterRow(cortinaRow);
             cancelCortinaFade();
             // Marks this as an automatic stop, so the LIVE guard lets it through
             // instead of waiting for a confirmation that will never come.
@@ -3574,6 +3581,69 @@ bool AutoDJProcessor::nextTrackLoaded() {
     }
 
     return loadedTrack == getNextTrackFromQueue();
+}
+
+int AutoDJProcessor::firstUnloadedQueuePosition() {
+    if (m_eState == ADJ_DISABLED) {
+        return 1;
+    }
+    // m_keepQueueRow is zero-based and names the next queue row. If that row is
+    // already cued on the idle deck, protection begins with the row after it.
+    return m_keepQueueRow + 1 + (nextTrackLoaded() ? 1 : 0);
+}
+
+int AutoDJProcessor::activeKeepQueuePosition() {
+    if (!keepQueueEnabled() || m_eState == ADJ_DISABLED) {
+        return 0;
+    }
+
+    auto positionForDeck = [this](DeckAttributes* pDeck, int rowGuess) {
+        if (!pDeck) {
+            return 0;
+        }
+        const int row = keepQueueRowForDeck(pDeck);
+        if (row >= 0) {
+            return row + 1;
+        }
+        const int fallbackRow =
+                keepQueueRowForTrack(pDeck->getLoadedTrack(), rowGuess);
+        return fallbackRow >= 0 ? fallbackRow + 1 : 0;
+    };
+
+    // During a Tanda Transition gap the outgoing deck has been stopped and the
+    // incoming deck has not started yet. Keep the active tanda anchored on the
+    // outgoing queue row until the next track actually starts.
+    if (isTandaGapPending()) {
+        const int position = positionForDeck(m_pTandaFromDeck, m_keepQueueRow - 1);
+        if (position > 0) {
+            return position;
+        }
+    }
+
+    if (DeckAttributes* pFromDeck = getFromDeck()) {
+        const int position = positionForDeck(pFromDeck, m_keepQueueRow - 1);
+        if (position > 0) {
+            return position;
+        }
+    }
+
+    for (const auto& pDeck : m_decks) {
+        if (pDeck && pDeck->isPlaying()) {
+            const int position = positionForDeck(pDeck.get(), m_keepQueueRow - 1);
+            if (position > 0) {
+                return position;
+            }
+        }
+    }
+
+    if (m_keepQueueAnchorId.isValid()) {
+        const int row = keepQueueRowForTrackId(m_keepQueueAnchorId, m_keepQueueRow - 1);
+        if (row >= 0) {
+            return row + 1;
+        }
+    }
+
+    return 0;
 }
 
 

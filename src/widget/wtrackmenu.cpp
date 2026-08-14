@@ -19,6 +19,7 @@
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/tracklabelregistry.h"
 #include "library/basetracktablemodel.h"
 #include "library/coverartutils.h"
@@ -29,6 +30,7 @@
 #include "library/dlgtrackmetadataexport.h"
 #include "library/externaltrackcollection.h"
 #include "library/library.h"
+#include "library/playlisttablemodel.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackmodel.h"
@@ -109,12 +111,11 @@ void storeActionTextAndScaleInProperties(QAction* pAction, const double scale) {
 // database access). Returns empty for a non-tabular model or empty selection.
 mixxx::Duration sumTracksDuration(
         TrackModel* pTrackModel, const QModelIndexList& indices) {
-    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(pTrackModel);
-    if (!pTableModel || indices.isEmpty()) {
+    if (!pTrackModel || indices.isEmpty()) {
         return mixxx::Duration::empty();
     }
     const int durationColumn =
-            pTableModel->fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION);
+            pTrackModel->fieldIndex(LIBRARYTABLE_DURATION);
     if (durationColumn < 0) {
         return mixxx::Duration::empty();
     }
@@ -125,6 +126,28 @@ mixxx::Duration sumTracksDuration(
                                 .toDouble();
     }
     return mixxx::Duration::fromSeconds(totalSeconds);
+}
+
+BaseTrackTableModel* baseTableModel(TrackModel* pTrackModel) {
+    if (auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(pTrackModel)) {
+        return pTableModel;
+    }
+    if (auto* pTandaModel = dynamic_cast<TandaQueueModel*>(pTrackModel)) {
+        return pTandaModel->playlistModel();
+    }
+    return nullptr;
+}
+
+const BaseTrackTableModel* baseTableModel(const TrackModel* pTrackModel) {
+    return baseTableModel(const_cast<TrackModel*>(pTrackModel));
+}
+
+QModelIndex baseTableIndex(
+        TrackModel* pTrackModel, const QModelIndex& index) {
+    if (auto* pTandaModel = dynamic_cast<TandaQueueModel*>(pTrackModel)) {
+        return pTandaModel->mapToSource(index);
+    }
+    return index;
 }
 
 } // namespace
@@ -1084,7 +1107,7 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
-        const bool show = tangoMode && isCortinaList();
+        const bool show = tangoMode && isCortinaList() && m_cortinaToggleAllowed;
         m_pCortinaToggleAct->setVisible(show);
         if (show) {
             const TrackIdList trackIds = getTrackIds();
@@ -1107,9 +1130,13 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
-        auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(m_pTrackModel);
+        auto* pTableModel = baseTableModel(m_pTrackModel);
         const bool singleRow = m_trackIndexList.size() == 1;
-        const bool show = tangoMode && isCortinaList() && pTableModel && singleRow;
+        const QModelIndex baseIndex = singleRow
+                ? baseTableIndex(m_pTrackModel, m_trackIndexList.first())
+                : QModelIndex();
+        const bool show = tangoMode && isCortinaList() && pTableModel &&
+                baseIndex.isValid();
         m_pPauseAfterToggleAct->setVisible(show);
         m_pDisplayNameAct->setVisible(show);
         if (m_pPauseAfterSeparator) {
@@ -1144,7 +1171,7 @@ void WTrackMenu::updateMenus() {
         }
         if (show) {
             m_pPauseAfterToggleAct->setText(
-                    pTableModel->isPauseAfterRow(m_trackIndexList.first().row())
+                    pTableModel->isPauseAfterRow(baseIndex.row())
                             ? tr("Don't pause after this track")
                             : tr("Pause after this track"));
         }
@@ -1492,6 +1519,11 @@ void WTrackMenu::loadTrackModelIndices(
     clearTrackSelection();
 
     m_trackIndexList = trackIndexList;
+    updateMenus();
+}
+
+void WTrackMenu::setCortinaToggleAllowed(bool allowed) {
+    m_cortinaToggleAllowed = allowed;
     updateMenus();
 }
 
@@ -3102,11 +3134,15 @@ void WTrackMenu::slotTogglePauseAfter() {
     // The mark belongs to a row, not a track: the same cortina sits on many rows
     // and only one of them is where the set should stop. updateMenus() only
     // offers this for a single row, so there is exactly one to act on.
-    auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(m_pTrackModel);
+    auto* pTableModel = baseTableModel(m_pTrackModel);
     if (!pTableModel || m_trackIndexList.size() != 1) {
         return;
     }
-    pTableModel->togglePauseAfterRow(m_trackIndexList.first().row());
+    const QModelIndex baseIndex =
+            baseTableIndex(m_pTrackModel, m_trackIndexList.first());
+    if (baseIndex.isValid()) {
+        pTableModel->togglePauseAfterRow(baseIndex.row());
+    }
 }
 
 void WTrackMenu::slotSetDisplayName() {
@@ -3342,7 +3378,7 @@ void WTrackMenu::clearTrackSelection() {
 bool WTrackMenu::isCortinaList() const {
     // The Auto DJ queue model is the only one that shows cortina marks, so use
     // that flag to scope the cortina toggle to the Auto DJ list.
-    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(m_pTrackModel);
+    const auto* pTableModel = baseTableModel(m_pTrackModel);
     return pTableModel && pTableModel->showCortinaMarks();
 }
 

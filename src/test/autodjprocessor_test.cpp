@@ -407,6 +407,36 @@ TEST_F(AutoDJProcessorTest, TangoMode_EnableSelectsTandaTransitionAndRestoresSto
             pProcessor->getTransitionMode());
 }
 
+TEST_F(AutoDJProcessorTest, TandaMoveSafetyProtectsTheLoadedQueueRow) {
+    EXPECT_EQ(1, pProcessor->firstUnloadedQueuePosition());
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+    TrackPointer pTrack = trackCollectionManager()->getTrackById(testId);
+    ASSERT_TRUE(pTrack);
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    // The playing row is before the cursor and is never movable.
+    EXPECT_EQ(2, pProcessor->firstUnloadedQueuePosition());
+
+    deck2.slotLoadTrack(pTrack, false);
+    deck2.fakeTrackLoadedEvent(pTrack);
+    // Once cued, moves must begin after that row.
+    EXPECT_EQ(3, pProcessor->firstUnloadedQueuePosition());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, TandaTransition_ZeroGapStartsIncomingAtStartMarker) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
@@ -544,12 +574,14 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     EXPECT_TRUE(deck2.getLoadedTrack() != nullptr);
     // One-shot: consumed as soon as it is claimed.
     EXPECT_FALSE(pAutoDJTableModel->isPauseAfterRow(0));
+    EXPECT_TRUE(pAutoDJTableModel->isActivePauseAfterRow(0));
 
     // The marked track plays out, and only then does Auto DJ stop.
     EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
     deck1.playposition.set(1.0);
     deck1.play.set(0.0);
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+    EXPECT_TRUE(pAutoDJTableModel->isActivePauseAfterRow(0));
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
