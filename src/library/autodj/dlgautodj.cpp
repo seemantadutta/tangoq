@@ -39,6 +39,12 @@ constexpr int kDefaultTandaGapSeconds = 3;
 const QString kDefaultEndTime = QStringLiteral("23:30:00");
 const QString kEndTimeFormat = QStringLiteral("HH:mm:ss");
 
+void setEnabledIfChanged(QWidget* pWidget, bool enabled) {
+    if (pWidget && pWidget->isEnabled() != enabled) {
+        pWidget->setEnabled(enabled);
+    }
+}
+
 // Formats a set duration as HH:MM:SS, e.g. "2:03:47" or "0:47:12".
 QString formatSetDuration(const mixxx::Duration& duration) {
     const qint64 totalSeconds = duration.toIntegerSeconds();
@@ -50,6 +56,7 @@ QString formatSetDuration(const mixxx::Duration& duration) {
             .arg(minutes, 2, 10, QChar('0'))
             .arg(seconds, 2, 10, QChar('0'));
 }
+
 } // anonymous namespace
 
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
@@ -349,7 +356,10 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     connect(&PlayerInfo::instance(),
             &PlayerInfo::currentPlayingTrackChanged,
             this,
-            [this](TrackPointer) { updateNowPlaying(); });
+            [this](TrackPointer) {
+                updateNowPlaying();
+                refreshTangoModeUi();
+            });
 
     // Keep the Tango set end-time readout ticking so the projected end clock
     // slips while paused and the time-left counts down between track changes. The
@@ -450,7 +460,24 @@ void DlgAutoDJ::skipNextButton(bool) {
 
 void DlgAutoDJ::fadeNowButton(bool) {
     // Activate regardless of button being checked
-    m_pAutoDJProcessor->fadeNow();
+    const bool tango = m_pKeepQueueControl && m_pKeepQueueControl->toBool();
+    if (!tango) {
+        m_pAutoDJProcessor->fadeNow();
+        return;
+    }
+
+    const bool canFade = m_pAutoDJProcessor->canFadePlayingCortinaNow();
+    qInfo().nospace() << "[CORTINA_BUTTON] clicked enabled="
+                      << (pushButtonFadeNow->isEnabled() ? "yes" : "no")
+                      << " visible="
+                      << (pushButtonFadeNow->isVisible() ? "yes" : "no")
+                      << " tango=" << (tango ? "yes" : "no")
+                      << " canFade=" << (canFade ? "yes" : "no")
+                      << " state=" << static_cast<int>(m_pAutoDJProcessor->getState());
+    const bool faded = m_pAutoDJProcessor->fadePlayingCortinaNow();
+    qInfo().nospace() << "[CORTINA_BUTTON] processorResult="
+                      << (faded ? "yes" : "no");
+    refreshTangoModeUi();
 }
 
 void DlgAutoDJ::toggleAutoDJButton(bool enable) {
@@ -589,17 +616,25 @@ void DlgAutoDJ::refreshTangoModeUi() {
             pButton->setGraphicsEffect(nullptr);
         }
     }
-    // Skip is locked in Tango mode, and only available while Auto DJ is running.
-    // Skip and Fade Now are locked in Tango mode (advance deliberately with the
-    // crossfader); outside Tango mode they follow the Auto DJ state. Both have
-    // dedicated greyed disabled icons in the skins, so no opacity effect.
+    // The stock Fade Now button becomes Fade Cortina in Tango mode. Reusing the
+    // same widget preserves the skin's native hover, press, and disabled states.
     const AutoDJProcessor::AutoDJState state = m_pAutoDJProcessor->getState();
     const bool running = state != AutoDJProcessor::ADJ_DISABLED;
     const bool fading = state == AutoDJProcessor::ADJ_LEFT_FADING ||
             state == AutoDJProcessor::ADJ_RIGHT_FADING ||
             state == AutoDJProcessor::ADJ_ENABLE_P1LOADED;
     pushButtonSkipNext->setEnabled(running && !tango);
-    pushButtonFadeNow->setEnabled(running && !fading && !tango);
+    setEnabledIfChanged(pushButtonFadeNow,
+            tango ? m_pAutoDJProcessor->canFadePlayingCortinaNow()
+                  : running && !fading);
+    pushButtonFadeNow->setToolTip(tango
+                    ? tr("Fade out the currently playing cortina now, then "
+                         "continue with the configured gap and next tanda track.")
+                    : tr("Trigger the transition to the next track\n\n"
+                         "Shortcut: Shift+F11"));
+    if (m_bShowButtonText) {
+        pushButtonFadeNow->setText(tango ? tr("Fade Cortina") : tr("Fade"));
+    }
     // Prevent click-to-sort from reordering the queue out of its play order.
     QHeaderView* pHeader = m_pTrackTableView->horizontalHeader();
     pHeader->setSectionsClickable(!tango);
@@ -646,6 +681,10 @@ void DlgAutoDJ::updateNowPlaying() {
 void DlgAutoDJ::updateSetEndTime() {
     QString text;
     QString deltaText;
+    if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
+        setEnabledIfChanged(pushButtonFadeNow,
+                m_pAutoDJProcessor->canFadePlayingCortinaNow());
+    }
     // The readout is a Tango DJ mode feature only; otherwise it stays empty.
     if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
         // "Set Length" is the constant total of the whole set; it reads the same

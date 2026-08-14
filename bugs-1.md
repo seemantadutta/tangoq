@@ -31,3 +31,23 @@
 * Detect tracks with big gaps or audio cut outs
 * configurable tango mode toolbar so that I can choose what I want to see, like milonga under/over times etc.
 * Tanda suggestion window - needs more work and needs a well tagged library. Maybe add a system to tag tracks as popular/unpopular during a live gig and then build the data set over time which can then be used by AI/ML algorithms to generate tanda suggestions based on the expected dancer outcomes. The data set building can happen over several months to years. (Design notes live in the untracked `tanda-insights.md` - framing, the candidate insights, and the finding that the underlying data does not exist yet.)
+
+
+# New bugs
+* seeking cortina in the deck stops auto DJ
+* Tanda transition should not be visible when not in tango mode, i.e. if I select tanda transition, should I not reset it back to skip silence or whatever mode it was before turning on tango mode?
+* Skip silence in tango mode off changes to tanda transition when tango mode is turned on
+* If I change the spin box value while auto DJ is running, the new value does not take between transitions.
+
+--
+* what is this new mark in the waveform?
+* when do you enable 'set start here'?
+
+
+
+-
+
+* Add fade now button
+* Show and hide different parts in the toolbar like timing information
+* Should not be able to set a playing track as cortina and vice versa
+* disambiguate S and FAS ; That distinction is technically useful, but visually confusing. A better Tango UX may be to show S only for an explicit DJ-set/reset start, not for the analyzer’s default FAS.

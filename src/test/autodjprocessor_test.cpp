@@ -528,6 +528,106 @@ TEST_F(AutoDJProcessorTest, TandaTransition_MarkedCortinaFadeStartsEnvelopeAtMar
     CortinaRegistry::instance().unmark(cortinaId);
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
+
+TEST_F(AutoDJProcessorTest, FadePlayingCortinaNowStartsFadeOutImmediately) {
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(cortinaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(cortinaId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck2.slotLoadTrack(pCortina, false);
+    const double kSamplesPerSecond = kChannelCount * pCortina->getSampleRate();
+    deck2.introStartPos.set(56 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pCortina);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck1.playposition.set(1.0);
+    ASSERT_TRUE(deck2.play.toBool());
+
+    // The cortina is in its normal hold section here.
+    deck2.playposition.set(0.70);
+    EXPECT_DOUBLE_EQ(1.0, deck2.autodjFadeGain.get());
+    ASSERT_TRUE(pProcessor->canFadePlayingCortinaNow());
+
+    EXPECT_TRUE(pProcessor->fadePlayingCortinaNow());
+    EXPECT_FALSE(pProcessor->canFadePlayingCortinaNow());
+    EXPECT_DOUBLE_EQ(1.0, deck2.autodjFadeGain.get());
+    deck2.playposition.set(0.72);
+    EXPECT_LT(deck2.autodjFadeGain.get(), 0.7);
+    EXPECT_GT(deck2.autodjFadeGain.get(), 0.0);
+    EXPECT_TRUE(deck2.play.toBool());
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, FadePlayingCortinaNowDoesNotRequireAutomaticCortinaFadeMode) {
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(cortinaId.isValid());
+    ASSERT_TRUE(tandaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck1.slotLoadTrack(pCortina, true);
+    deck1.fakeTrackLoadedEvent(pCortina);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck2.slotLoadTrack(pTanda, false);
+    deck2.fakeTrackLoadedEvent(pTanda);
+
+    deck1.playposition.set(0.20);
+    deck1.autodjFadeGain.set(0.4);
+    ASSERT_TRUE(pProcessor->canFadePlayingCortinaNow());
+
+    EXPECT_TRUE(pProcessor->fadePlayingCortinaNow());
+    EXPECT_FALSE(pProcessor->canFadePlayingCortinaNow());
+    EXPECT_DOUBLE_EQ(0.4, deck1.autodjFadeGain.get());
+    deck1.playposition.set(0.22);
+    EXPECT_LT(deck1.autodjFadeGain.get(), 0.3);
+    EXPECT_GT(deck1.autodjFadeGain.get(), 0.0);
+    EXPECT_TRUE(deck1.play.toBool());
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
     // stop has to pre-empt the transition: waiting for the track to end would be

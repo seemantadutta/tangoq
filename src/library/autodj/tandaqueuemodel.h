@@ -8,6 +8,7 @@
 
 class PlaylistTableModel;
 class AutoDJProcessor;
+struct TandaSpan;
 class TandaQueueState;
 
 /// Tango-only presentation adapter for the flat Auto DJ playlist.
@@ -57,6 +58,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     int sourceRowForVisibleRow(int proxyRow) const;
     int disclosureColumn() const;
     int summaryColumn() const;
+    QString tandaProgressStatesForRow(int proxyRow) const;
     QModelIndexList mapSelectionToSource(const QModelIndexList& indices) const;
     PlaylistTableModel* playlistModel() const {
         return m_pPlaylistModel;
@@ -127,6 +129,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     bool isActiveTanda(const QUuid& id) const;
     QString tandaTypeLabel(const QUuid& id) const;
     QString tandaSummary(const QUuid& id) const;
+    QString tandaProgressStates(const TandaSpan& span) const;
     QString tandaDuration(const QUuid& id) const;
 
     PlaylistTableModel* const m_pPlaylistModel;

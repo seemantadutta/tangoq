@@ -206,6 +206,8 @@ AutoDJProcessor::AutoDJProcessor(
           m_cortinaGapSeconds(kTandaGapPreferenceDefault),
           m_cortinaFadePhase(CortinaFadePhase::None),
           m_cortinaEnvelopeStartSecond(kKeepPosition),
+          m_cortinaManualFadeOutStartSecond(kKeepPosition),
+          m_cortinaManualFadeOutStartGain(1.0),
           m_pCortinaDeck(nullptr),
           m_cortinaTrackId(),
           m_pTandaFromDeck(nullptr),
@@ -644,6 +646,91 @@ void AutoDJProcessor::fadeNow() {
     VERIFY_OR_DEBUG_ASSERT(pFromDeck->fadeBeginPos <= 1) {
         pFromDeck->fadeBeginPos = 1;
     }
+}
+
+bool AutoDJProcessor::canFadePlayingCortinaNow() const {
+    return keepQueueEnabled() &&
+            m_eState != ADJ_DISABLED &&
+            m_cortinaFadePhase != CortinaFadePhase::AfterGap &&
+            m_cortinaManualFadeOutStartSecond == kKeepPosition &&
+            playingCortinaDeck();
+}
+
+bool AutoDJProcessor::fadePlayingCortinaNow() {
+    DeckAttributes* pCortinaDeck = playingCortinaDeck();
+    qInfo().nospace() << "[CORTINA_FADE_NOW] entry keepQueue="
+                      << yesNo(keepQueueEnabled())
+                      << " state=" << static_cast<int>(m_eState)
+                      << " phase=" << static_cast<int>(m_cortinaFadePhase)
+                      << " fadeMode=" << yesNo(m_cortinaFadeEnabled)
+                      << " transitionMode=" << transitionModeName(m_transitionMode)
+                      << " playingCortinaDeck="
+                      << (pCortinaDeck ? pCortinaDeck->group : QStringLiteral("<none>"));
+    if (!pCortinaDeck) {
+        for (const auto& pDeck : m_decks) {
+            if (!pDeck) {
+                continue;
+            }
+            const TrackPointer pTrack = pDeck->getLoadedTrack();
+            const TrackId trackId = pTrack ? TrackId(pTrack->getId()) : TrackId();
+            qInfo().nospace() << "[CORTINA_FADE_NOW] deck group=" << pDeck->group
+                              << " playing=" << yesNo(pDeck->isPlaying())
+                              << " loading=" << yesNo(pDeck->loading)
+                              << " trackId=" << trackId.toString()
+                              << " isCortina=" << yesNo(isCortina(pTrack))
+                              << " playpos=" << pDeck->playPosition()
+                              << " fadeGain=" << pDeck->autoDJFadeGain();
+        }
+    }
+    if (!canFadePlayingCortinaNow() || !pCortinaDeck) {
+        qInfo().nospace() << "[CORTINA_FADE_NOW] reject reason=canFadeFalse";
+        return false;
+    }
+    const TrackPointer pCortina = pCortinaDeck->getLoadedTrack();
+    const double duration = getEndSecond(pCortinaDeck);
+    if (!pCortina || duration < kMinimumTrackDurationSec) {
+        qInfo().nospace() << "[CORTINA_FADE_NOW] reject reason=trackOrDuration"
+                          << " hasTrack=" << yesNo(static_cast<bool>(pCortina))
+                          << " duration=" << duration;
+        return false;
+    }
+
+    const double currentSecond = duration * pCortinaDeck->playPosition();
+    const double firstSound = getFirstSoundSecond(pCortinaDeck);
+    const double currentGain = std::clamp(
+            pCortinaDeck->autoDJFadeGain(),
+            0.0,
+            1.0);
+    const double targetZ = math_min(
+            static_cast<double>(m_cortinaFadeOutSeconds),
+            math_max(getLastSoundSecond(pCortinaDeck) - currentSecond, 0.0));
+    qInfo().nospace() << "[CORTINA_FADE_NOW] arm deck=" << pCortinaDeck->group
+                      << " trackId=" << TrackId(pCortina->getId()).toString()
+                      << " duration=" << duration
+                      << " currentSecond=" << currentSecond
+                      << " firstSound=" << firstSound
+                      << " currentGain=" << currentGain
+                      << " targetZ=" << targetZ
+                      << " deckFadeGainBefore="
+                      << pCortinaDeck->autoDJFadeGain()
+                      << " crossfaderBefore=" << getCrossfader();
+    m_pCortinaDeck = pCortinaDeck;
+    m_cortinaTrackId = TrackId(pCortina->getId());
+    m_cortinaFadePhase = CortinaFadePhase::Envelope;
+    // Manual fades start from the deck's actual current Auto DJ gain, not from a
+    // synthetic position in the automatic X/Y/Z envelope.
+    m_cortinaManualFadeOutStartSecond = currentSecond;
+    m_cortinaManualFadeOutStartGain = currentGain;
+    setCrossfader(pCortinaDeck->isLeft() ? -1.0 : 1.0);
+    const bool handled = maybeHandleCortinaFade(pCortinaDeck, pCortinaDeck->playPosition());
+    qInfo().nospace() << "[CORTINA_FADE_NOW] handled=" << yesNo(handled)
+                      << " phase=" << static_cast<int>(m_cortinaFadePhase)
+                      << " envelopeStart=" << m_cortinaEnvelopeStartSecond
+                      << " deckFadeGainAfter="
+                      << pCortinaDeck->autoDJFadeGain()
+                      << " crossfaderAfter=" << getCrossfader()
+                      << " deckPlaying=" << yesNo(pCortinaDeck->isPlaying());
+    return handled;
 }
 
 AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
@@ -1713,11 +1800,29 @@ bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
             CortinaRegistry::instance().contains(TrackId(pTrack->getId()));
 }
 
+DeckAttributes* AutoDJProcessor::playingCortinaDeck() const {
+    for (const auto& pDeck : m_decks) {
+        if (pDeck && pDeck->isPlaying() && isCortina(pDeck->getLoadedTrack())) {
+            return pDeck.get();
+        }
+    }
+    return nullptr;
+}
+
 bool AutoDJProcessor::maybeHandleCortinaFade(
         DeckAttributes* thisDeck, double thisPlayPosition) {
     // Cortina Fade is a Tango (Keep Queue) feature; normal Auto DJ must stay
     // completely unaffected even if cortina marks linger from a Tango session.
-    if (!m_cortinaFadeEnabled || !keepQueueEnabled()) {
+    if (!keepQueueEnabled() ||
+            (!m_cortinaFadeEnabled &&
+                    m_cortinaFadePhase == CortinaFadePhase::None)) {
+        if (m_cortinaFadePhase != CortinaFadePhase::None) {
+            qInfo().nospace() << "[CORTINA_ENVELOPE] reject reason=keepQueueOff"
+                              << " deck=" << thisDeck->group
+                              << " keepQueue=" << yesNo(keepQueueEnabled())
+                              << " fadeMode=" << yesNo(m_cortinaFadeEnabled)
+                              << " phase=" << static_cast<int>(m_cortinaFadePhase);
+        }
         return false;
     }
 
@@ -1784,15 +1889,30 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         // normal machinery can't reinterpret our own seeks and stops. The
         // other deck's callbacks are not claimed.
         if (thisDeck != m_pCortinaDeck) {
+            qInfo().nospace() << "[CORTINA_ENVELOPE] ignoreOtherDeck deck="
+                              << thisDeck->group
+                              << " owner="
+                              << (m_pCortinaDeck ? m_pCortinaDeck->group
+                                                : QStringLiteral("<none>"))
+                              << " phase=" << static_cast<int>(m_cortinaFadePhase);
             return false;
         }
         const TrackPointer pTrack = thisDeck->getLoadedTrack();
-        if (m_eState != ADJ_IDLE || !pTrack ||
+        if (m_eState == ADJ_DISABLED || !pTrack ||
                 TrackId(pTrack->getId()) != m_cortinaTrackId) {
             // The world changed under us (state change, eject, manual load):
             // relinquish control instead of driving the wrong track.
             TT_TRACE() << "cortina cancel deck=" << thisDeck->group
                        << " reason=state-or-track-changed";
+            qInfo().nospace() << "[CORTINA_ENVELOPE] cancel reason=stateOrTrackChanged"
+                              << " deck=" << thisDeck->group
+                              << " state=" << static_cast<int>(m_eState)
+                              << " hasTrack=" << yesNo(static_cast<bool>(pTrack))
+                              << " trackId="
+                              << (pTrack ? TrackId(pTrack->getId()).toString()
+                                         : QStringLiteral("<none>"))
+                              << " expectedTrackId=" << m_cortinaTrackId.toString()
+                              << " phase=" << static_cast<int>(m_cortinaFadePhase);
             cancelCortinaFade();
             return false;
         }
@@ -1808,7 +1928,7 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
     // since the cortina envelope entry point.
     const double duration = getEndSecond(thisDeck);
     const double firstSound = getFirstSoundSecond(thisDeck);
-    const double envelopeStart = m_cortinaEnvelopeStartSecond >= 0.0
+    const double envelopeStart = m_cortinaEnvelopeStartSecond != kKeepPosition
             ? m_cortinaEnvelopeStartSecond
             : firstSound;
     const double elapsed = thisPlayPosition * duration - envelopeStart;
@@ -1841,6 +1961,11 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         // Paused mid-envelope by the DJ: they are taking over.
         TT_TRACE() << "cortina cancel deck=" << thisDeck->group
                    << " reason=paused-mid-envelope";
+        qInfo().nospace() << "[CORTINA_ENVELOPE] cancel reason=pausedMidEnvelope"
+                          << " deck=" << thisDeck->group
+                          << " playpos=" << thisPlayPosition
+                          << " elapsed=" << elapsed
+                          << " cl=" << cl;
         cancelCortinaFade();
         return false;
     }
@@ -1849,6 +1974,54 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
     // envelope is an internal Auto DJ gain so silent-gap crossfader movement can
     // be used consistently as handoff progress feedback.
     setCrossfader(thisDeck->isLeft() ? -1.0 : 1.0);
+
+    if (m_cortinaManualFadeOutStartSecond != kKeepPosition) {
+        const double manualFadeOutElapsed =
+                thisPlayPosition * duration - m_cortinaManualFadeOutStartSecond;
+        const double manualFadeOutSeconds = math_min(
+                static_cast<double>(m_cortinaFadeOutSeconds),
+                math_max(getLastSoundSecond(thisDeck) -
+                                m_cortinaManualFadeOutStartSecond,
+                        0.0));
+        double gain = 0.0;
+        if (manualFadeOutElapsed < 0.0) {
+            gain = m_cortinaManualFadeOutStartGain;
+        } else if (manualFadeOutElapsed < manualFadeOutSeconds &&
+                manualFadeOutSeconds > 0.0) {
+            gain = m_cortinaManualFadeOutStartGain *
+                    (1.0 - (manualFadeOutElapsed / manualFadeOutSeconds));
+        } else {
+            // Fade-out complete: enter the Nc after-gap.
+            TT_TRACE() << "cortina phase=AfterGap deck=" << thisDeck->group
+                       << " reason=manual-envelope-complete";
+            setAutoDJFadeGain(thisDeck, 0.0);
+            qInfo().nospace()
+                    << "[CORTINA_ENVELOPE] complete deck=" << thisDeck->group
+                    << " reason=manual"
+                    << " playpos=" << thisPlayPosition
+                    << " duration=" << duration
+                    << " manualFadeOutElapsed=" << manualFadeOutElapsed
+                    << " manualFadeOutSeconds=" << manualFadeOutSeconds
+                    << " manualStartGain=" << m_cortinaManualFadeOutStartGain;
+            startCortinaAfterGap(thisDeck);
+            return true;
+        }
+        setAutoDJFadeGain(thisDeck, gain);
+        qInfo().nospace() << "[CORTINA_ENVELOPE] gain deck=" << thisDeck->group
+                          << " reason=manual"
+                          << " playpos=" << thisPlayPosition
+                          << " duration=" << duration
+                          << " manualFadeOutStartSecond="
+                          << m_cortinaManualFadeOutStartSecond
+                          << " manualFadeOutElapsed=" << manualFadeOutElapsed
+                          << " manualFadeOutSeconds=" << manualFadeOutSeconds
+                          << " manualStartGain="
+                          << m_cortinaManualFadeOutStartGain
+                          << " gain=" << gain
+                          << " phase=" << static_cast<int>(m_cortinaFadePhase)
+                          << " crossfader=" << getCrossfader();
+        return true;
+    }
 
     double gain;
     if (elapsed < 0.0) {
@@ -1868,10 +2041,28 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
         TT_TRACE() << "cortina phase=AfterGap deck=" << thisDeck->group
                    << " reason=envelope-complete";
         setAutoDJFadeGain(thisDeck, 0.0);
+        qInfo().nospace() << "[CORTINA_ENVELOPE] complete deck=" << thisDeck->group
+                          << " playpos=" << thisPlayPosition
+                          << " duration=" << duration
+                          << " elapsed=" << elapsed
+                          << " cl=" << cl
+                          << " x=" << x
+                          << " z=" << z;
         startCortinaAfterGap(thisDeck);
         return true;
     }
     setAutoDJFadeGain(thisDeck, gain);
+    qInfo().nospace() << "[CORTINA_ENVELOPE] gain deck=" << thisDeck->group
+                      << " playpos=" << thisPlayPosition
+                      << " duration=" << duration
+                      << " envelopeStart=" << envelopeStart
+                      << " elapsed=" << elapsed
+                      << " cl=" << cl
+                      << " x=" << x
+                      << " z=" << z
+                      << " gain=" << gain
+                      << " phase=" << static_cast<int>(m_cortinaFadePhase)
+                      << " crossfader=" << getCrossfader();
     return true;
 }
 
@@ -1882,6 +2073,8 @@ void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
     TT_TRACE() << "cortina startAfterGap deck=" << pCortinaDeck->group
                << " gapMs=" << (gapSeconds * 1000);
     m_cortinaFadePhase = CortinaFadePhase::AfterGap;
+    m_cortinaManualFadeOutStartSecond = kKeepPosition;
+    m_cortinaManualFadeOutStartGain = 1.0;
     // Stop the now-inaudible cortina and restore its internal gain while it is
     // silent, so the deck is safe if the DJ takes over or the track is reloaded.
     pCortinaDeck->stop();
@@ -1904,6 +2097,8 @@ void AutoDJProcessor::cancelCortinaFade() {
     }
     m_cortinaFadePhase = CortinaFadePhase::None;
     m_cortinaEnvelopeStartSecond = kKeepPosition;
+    m_cortinaManualFadeOutStartSecond = kKeepPosition;
+    m_cortinaManualFadeOutStartGain = 1.0;
     m_pCortinaDeck = nullptr;
     m_cortinaTrackId = TrackId();
 }

@@ -96,6 +96,10 @@ class DeckAttributes : public QObject {
         m_autoDJFadeGain.set(gain);
     }
 
+    double autoDJFadeGain() const {
+        return m_autoDJFadeGain.get();
+    }
+
     void resetAutoDJFadeGain() {
         setAutoDJFadeGain(1.0);
     }
@@ -259,6 +263,8 @@ class AutoDJProcessor : public QObject {
     AutoDJError shufflePlaylist(const QModelIndexList& selectedIndices);
     AutoDJError skipNext();
     void fadeNow();
+    bool canFadePlayingCortinaNow() const;
+    bool fadePlayingCortinaNow();
     AutoDJError toggleAutoDJ(bool enable);
 
   signals:
@@ -456,6 +462,7 @@ class AutoDJProcessor : public QObject {
     // True if the track is tagged as a cortina (faded out manually, so the set
     // estimate budgets only the configured cortina length for it).
     bool isCortina(const TrackPointer& pTrack) const;
+    DeckAttributes* playingCortinaDeck() const;
     // Cortina Fade transition driver (Tango mode only). When Cortina Fade mode
     // is on and a cortina plays solo in ADJ_IDLE, it runs a small phase machine:
     // Nc silent before-gap (cortina paused at its first sound), then a crossfader
@@ -548,6 +555,8 @@ class AutoDJProcessor : public QObject {
     };
     CortinaFadePhase m_cortinaFadePhase;
     double m_cortinaEnvelopeStartSecond;
+    double m_cortinaManualFadeOutStartSecond;
+    double m_cortinaManualFadeOutStartGain;
     QTimer m_cortinaGapTimer;
     DeckAttributes* m_pCortinaDeck;
     TrackId m_cortinaTrackId;

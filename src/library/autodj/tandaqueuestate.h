@@ -23,7 +23,7 @@ struct TandaSpan {
     QVector<TrackId> members;
     // One-based position in the underlying Auto DJ playlist.
     int anchorPosition{0};
-    bool collapsed{false};
+    bool collapsed{true};
 };
 
 /// Optional grouping metadata for the otherwise-flat Auto DJ queue.

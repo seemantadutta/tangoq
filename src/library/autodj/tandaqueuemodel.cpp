@@ -232,6 +232,15 @@ int TandaQueueModel::summaryColumn() const {
     return disclosureColumn();
 }
 
+QString TandaQueueModel::tandaProgressStatesForRow(int proxyRow) const {
+    const VisibleRow* pRow = visibleRow(proxyRow);
+    if (!pRow || pRow->kind != RowKind::TandaHeader) {
+        return {};
+    }
+    const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
+    return pSpan ? tandaProgressStates(*pSpan) : QString();
+}
+
 QModelIndexList TandaQueueModel::mapSelectionToSource(
         const QModelIndexList& indices) const {
     QModelIndexList sourceIndices;
@@ -599,6 +608,26 @@ QString TandaQueueModel::tandaSummary(const QUuid& id) const {
     QString label = pSpan->name.isEmpty() ? tandaTypeLabel(id)
                                           : pSpan->name;
     return tr("%1 — %n track(s)", nullptr, pSpan->members.size()).arg(label);
+}
+
+QString TandaQueueModel::tandaProgressStates(const TandaSpan& span) const {
+    if (!m_pProcessor || span.members.isEmpty()) {
+        return {};
+    }
+    const int activePosition = m_pProcessor->activeKeepQueuePosition();
+    QString states;
+    states.reserve(span.members.size());
+    for (int offset = 0; offset < span.members.size(); ++offset) {
+        const int position = span.anchorPosition + offset;
+        if (activePosition <= 0 || position > activePosition) {
+            states.append(QLatin1Char('0')); // unplayed
+        } else if (position == activePosition) {
+            states.append(QLatin1Char('h')); // currently playing
+        } else {
+            states.append(QLatin1Char('1')); // played
+        }
+    }
+    return states;
 }
 
 QString TandaQueueModel::tandaDuration(const QUuid& id) const {

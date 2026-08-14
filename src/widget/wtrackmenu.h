@@ -230,6 +230,7 @@ class WTrackMenu : public QMenu {
     // True when this menu is operating on the Auto DJ queue list (the only model
     // that shows cortina marks). Scopes the cortina toggle to that list.
     bool isCortinaList() const;
+    bool selectionContainsPlayingTrack() const;
     // Group of the preview deck currently holding the selected track, empty if
     // none is. "Set start here" needs a playhead, and an unloaded track has none.
     QString previewDeckGroupForSelectedTrack() const;

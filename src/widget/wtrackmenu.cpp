@@ -1095,8 +1095,10 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
+        const bool containsPlayingTrack = selectionContainsPlayingTrack();
         m_pAutoDJTopAct->setEnabled(!tangoMode);
         m_pAutoDJReplaceAct->setEnabled(!tangoMode);
+        m_pAutoDJCortinaAct->setEnabled(!containsPlayingTrack);
     }
 
     // The in-place cortina toggle is independent of Feature::AutoDJ so it can
@@ -1107,7 +1109,10 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
-        const bool show = tangoMode && isCortinaList() && m_cortinaToggleAllowed;
+        const bool containsPlayingTrack = selectionContainsPlayingTrack();
+        const bool show = tangoMode && isCortinaList() &&
+                m_cortinaToggleAllowed &&
+                !containsPlayingTrack;
         m_pCortinaToggleAct->setVisible(show);
         if (show) {
             const TrackIdList trackIds = getTrackIds();
@@ -3189,6 +3194,9 @@ void WTrackMenu::slotSetDisplayName() {
 }
 
 void WTrackMenu::slotAddToAutoDJCortina() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
     // Add to the bottom of the queue like any other track, then tag the selected
     // tracks as cortinas (session-only) so the Auto DJ list shows the blue
     // "[--CORTINA--]" styling.
@@ -3200,6 +3208,9 @@ void WTrackMenu::slotAddToAutoDJCortina() {
 }
 
 void WTrackMenu::slotToggleCortina() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
     // Flip the selected track(s) between cortina and normal track in place. Lets
     // the DJ fix a mistakenly-tagged track (the registry is keyed by track id, so
     // a re-added track keeps its old mark) or promote/demote without re-adding.
@@ -3380,6 +3391,25 @@ bool WTrackMenu::isCortinaList() const {
     // that flag to scope the cortina toggle to the Auto DJ list.
     const auto* pTableModel = baseTableModel(m_pTrackModel);
     return pTableModel && pTableModel->showCortinaMarks();
+}
+
+bool WTrackMenu::selectionContainsPlayingTrack() const {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.isEmpty()) {
+        return false;
+    }
+    const int numDecks = PlayerInfo::instance().numDecks();
+    for (int deck = 0; deck < numDecks; ++deck) {
+        const QString group = PlayerManager::groupForDeck(deck);
+        if (ControlObject::get(ConfigKey(group, QStringLiteral("play"))) <= 0.0) {
+            continue;
+        }
+        const TrackPointer pTrack = PlayerInfo::instance().getTrackInfo(group);
+        if (pTrack && trackIds.contains(TrackId(pTrack->getId()))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WTrackMenu::featureIsEnabled(Feature flag) const {

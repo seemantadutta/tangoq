@@ -49,6 +49,7 @@ TEST_F(TandaQueueStateTest, ClassificationRequiresConsecutiveOrdinaryRows) {
     const QUuid tanda = state.classify({3, 2}, TandaType::Vals);
     ASSERT_FALSE(tanda.isNull());
     ASSERT_EQ(1, state.spans().size());
+    EXPECT_TRUE(state.spans().first().collapsed);
     EXPECT_EQ(2, state.spans().first().anchorPosition);
     EXPECT_EQ(TandaType::Vals, state.spans().first().type);
     EXPECT_EQ(queue({2, 3}), state.spans().first().members);
@@ -62,7 +63,7 @@ TEST_F(TandaQueueStateTest, RestoreUsesExactMembersAndRefusesDuplicateAmbiguity)
     original.restore(queue({1, 2, 3, 4}));
     const QUuid id = original.classify({2, 3}, TandaType::Milonga);
     ASSERT_FALSE(id.isNull());
-    ASSERT_TRUE(original.setCollapsed(id, true));
+    ASSERT_TRUE(original.spans().first().collapsed);
     saveAndReloadConfig();
 
     // The unique sequence moved because something was inserted before it.
@@ -137,7 +138,7 @@ TEST_F(TandaQueueStateTest, WholeBlockMovePreservesMetadataAroundDuplicateTracks
     const QUuid otherTanda = state.classify({4}, TandaType::Vals);
     ASSERT_FALSE(duplicateTanda.isNull());
     ASSERT_FALSE(otherTanda.isNull());
-    ASSERT_TRUE(state.setCollapsed(duplicateTanda, true));
+    ASSERT_TRUE(state.spanById(duplicateTanda)->collapsed);
 
     ASSERT_TRUE(state.applyWholeTandaMove(duplicateTanda, 4));
     EXPECT_EQ(queue({1, 3, 4, 2, 2}), state.queueSnapshot());
@@ -252,6 +253,7 @@ TEST_F(TandaQueueDaoTest, OutlineMapsHeadersLeavesAndSharedCollapseState) {
     state.restore({a, b, c, d});
     const QUuid tanda = state.classify({2, 3}, TandaType::Vals);
     ASSERT_FALSE(tanda.isNull());
+    ASSERT_TRUE(state.setCollapsed(tanda, false));
 
     TandaQueueModel first(&source, &state);
     TandaQueueModel second(&source, &state);

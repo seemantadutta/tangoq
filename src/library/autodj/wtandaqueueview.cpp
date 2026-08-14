@@ -4,11 +4,13 @@
 #include <utility>
 
 #include <QAction>
+#include <QBrush>
 #include <QContextMenuEvent>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QFontMetrics>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QMenu>
@@ -19,6 +21,7 @@
 #include <QSet>
 
 #include "library/autodj/autodjfeature.h"
+#include "library/autodj/cortinaregistry.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/playlisttablemodel.h"
@@ -30,12 +33,44 @@ namespace {
 
 const char* kTandaHeaderMimeType = "application/x-mixxx-tanda-header";
 constexpr int kDisclosureHitWidth = 24;
+constexpr int kProgressPipDiameter = 8;
+constexpr int kProgressPipGap = 5;
 
 QUuid tandaIdFromMimeData(const QMimeData* pMimeData) {
     if (!pMimeData || !pMimeData->hasFormat(kTandaHeaderMimeType)) {
         return {};
     }
     return QUuid(QString::fromUtf8(pMimeData->data(kTandaHeaderMimeType)));
+}
+
+QColor colorFromForegroundRole(const QVariant& foreground, const QColor& fallback) {
+    if (foreground.canConvert<QBrush>()) {
+        return foreground.value<QBrush>().color();
+    }
+    if (foreground.canConvert<QColor>()) {
+        return foreground.value<QColor>();
+    }
+    return fallback;
+}
+
+void drawProgressPip(
+        QPainter* pPainter, const QRectF& rect, const QColor& color, QChar state) {
+    QPen pen(color);
+    pen.setWidth(1);
+    pPainter->setPen(pen);
+    pPainter->setBrush(Qt::NoBrush);
+    pPainter->drawEllipse(rect);
+
+    if (state == QLatin1Char('1')) {
+        pPainter->setBrush(color);
+        pPainter->drawEllipse(rect);
+    } else if (state == QLatin1Char('h')) {
+        pPainter->setBrush(color);
+        pPainter->drawPie(rect, 90 * 16, 180 * 16);
+    }
+
+    pPainter->setBrush(Qt::NoBrush);
+    pPainter->drawEllipse(rect);
 }
 
 } // namespace
@@ -277,8 +312,6 @@ void WTandaQueueView::paintEvent(QPaintEvent* pEvent) {
     }
     QPainter painter(viewport());
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(QPen(QColor(225, 230, 236)));
-    painter.setBrush(QBrush(QColor(225, 230, 236)));
     const int disclosureLeft = columnViewportPosition(pModel->summaryColumn());
     for (int row = firstRow; row <= lastRow; ++row) {
         if (!pModel->isHeaderRow(row)) {
@@ -293,6 +326,12 @@ void WTandaQueueView::paintEvent(QPaintEvent* pEvent) {
         const int y = rowViewportPosition(row);
         const int height = rowHeight(row);
         const int centerY = y + height / 2;
+        const QModelIndex summaryIndex = pModel->index(row, pModel->summaryColumn());
+        const QColor headerColor = colorFromForegroundRole(
+                pModel->data(summaryIndex, Qt::ForegroundRole),
+                QColor(225, 230, 236));
+        painter.setPen(QPen(headerColor));
+        painter.setBrush(QBrush(headerColor));
         const int x = disclosureLeft >= 0 ? disclosureLeft + 8 : 8;
         QPolygon triangle;
         if (pSpan->collapsed) {
@@ -305,6 +344,28 @@ void WTandaQueueView::paintEvent(QPaintEvent* pEvent) {
                      << QPoint(x + 3, centerY + 4);
         }
         painter.drawPolygon(triangle);
+
+        const QString progressStates = pModel->tandaProgressStatesForRow(row);
+        if (!progressStates.isEmpty()) {
+            QFont headerFont = font();
+            headerFont.setBold(true);
+            const QFontMetrics fontMetrics(headerFont);
+            const QString label =
+                    pModel->data(summaryIndex, Qt::DisplayRole).toString();
+            int pipLeft = columnViewportPosition(pModel->summaryColumn()) +
+                    fontMetrics.horizontalAdvance(label) + 10;
+            const int pipTop = centerY - kProgressPipDiameter / 2;
+            for (const QChar state : progressStates) {
+                drawProgressPip(&painter,
+                        QRectF(pipLeft,
+                                pipTop,
+                                kProgressPipDiameter,
+                                kProgressPipDiameter),
+                        headerColor,
+                        state);
+                pipLeft += kProgressPipDiameter + kProgressPipGap;
+            }
+        }
     }
 
     if (!pModel->playlistModel()->showCortinaMarks()) {
@@ -406,15 +467,23 @@ bool WTandaQueueView::canClassifySelection() const {
     if (selectedRowsAreHeaders()) {
         return false;
     }
+    TandaQueueModel* pModel = tandaModel();
+    if (!pModel) {
+        return false;
+    }
     bool allLeaves = false;
     const QVector<int> positions = selectedQueuePositions(&allLeaves);
     if (!allLeaves || positions.isEmpty()) {
         return false;
     }
     for (int index = 0; index < positions.size(); ++index) {
-        if ((index > 0 && positions.at(index) != positions.at(index - 1) + 1) ||
-                m_pAutoDJFeature->tandaQueueState()->spanAtPosition(
-                        positions.at(index))) {
+        const int position = positions.at(index);
+        const QModelIndex sourceIndex =
+                pModel->playlistModel()->index(position - 1, 0);
+        if ((index > 0 && position != positions.at(index - 1) + 1) ||
+                m_pAutoDJFeature->tandaQueueState()->spanAtPosition(position) ||
+                CortinaRegistry::instance().contains(
+                        pModel->playlistModel()->getTrackId(sourceIndex))) {
             return false;
         }
     }
