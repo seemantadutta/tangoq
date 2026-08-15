@@ -14,6 +14,9 @@ const QString MixxxDb::kDefaultSchemaFile(":/schema.xml");
 //static
 const int MixxxDb::kRequiredSchemaVersion = 39;
 
+//static
+const QString MixxxDb::kDefaultFileName("tangoq.db");
+
 namespace {
 
 const mixxx::Logger kLogger("MixxxDb");
@@ -23,8 +26,6 @@ const QString kType = QStringLiteral("QSQLITE");
 const QString kConnectOptions = QStringLiteral("QSQLITE_OPEN_URI");
 
 const QString kUriPrefix = QStringLiteral("file://");
-
-const QString kDefaultFileName = QStringLiteral("tangoq.db");
 
 const QString kUserName = QStringLiteral("mixxx");
 
@@ -39,7 +40,7 @@ mixxx::DbConnection::Params dbConnectionParams(
     params.connectOptions = kConnectOptions;
     params.filePath = kUriPrefix;
     const QString absFilePath =
-            QDir(pConfig->getSettingsPath()).absoluteFilePath(kDefaultFileName);
+            QDir(pConfig->getSettingsPath()).absoluteFilePath(MixxxDb::kDefaultFileName);
     // On Windows absFilePath starts with a drive letter instead of
     // the leading '/' as required.
     // https://www.sqlite.org/c3ref/open.html#urifilenameexamples
