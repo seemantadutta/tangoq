@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 24" width="74" height="24" role="img" aria-label="TangoQ">
-  <g transform="translate(1,1) scale(0.043)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 28" width="104" height="28" role="img" aria-label="TangoQ">
+  <g transform="translate(1,1) scale(0.05078125)">
     <g transform="translate(256 206) scale(0.78) translate(-212 -212)">
       <circle cx="212" cy="212" r="196" fill="#0c1122"/>
       <circle cx="212" cy="212" r="189" fill="none" stroke="#6f9bff" stroke-width="11"/>
@@ -18,5 +18,5 @@
     <circle cx="278" cy="446" r="9" fill="#6f9bff"/>
     <circle cx="322" cy="446" r="9" fill="#e6314e"/>
   </g>
-  <text x="26" y="16.8" font-family="Montserrat, Segoe UI, Arial, sans-serif" font-weight="600" font-size="14" letter-spacing="-0.4" fill="#e8ecf6">Tango<tspan fill="#e6314e">Q</tspan></text>
+  <text x="34" y="20.2" font-family="Montserrat, Segoe UI, Arial, sans-serif" font-weight="600" font-size="18" fill="#e8ecf6">Tango<tspan fill="#e6314e">Q</tspan></text>
 </svg>

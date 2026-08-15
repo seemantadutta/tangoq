@@ -146,16 +146,16 @@
           padding: 0;
           margin: 0px 2px 0px 2px;
           border: none;
-          min-width: 160px;
-          max-width: 160px;
-          min-height: 40px;
-          max-height: 40px;
+          min-width: 236px;
+          max-width: 236px;
+          min-height: 69px;
+          max-height: 69px;
         }
         QProgressBar {
           background: url(skins:LateNight/palemoon/style/progressbar_bg.svg);
           border: none;
-          min-width: 164px;
-          max-width: 164px;
+          min-width: 236px;
+          max-width: 236px;
           min-height: 5px;
           max-height: 5px;
         }
@@ -274,16 +274,16 @@
           padding: 0;
           margin: 0px 2px 0px 2px;
           border: none;
-          min-width: 162px;
-          max-width: 162px;
-          min-height: 42px;
-          max-height: 42px;
+          min-width: 236px;
+          max-width: 236px;
+          min-height: 69px;
+          max-height: 69px;
         }
         QProgressBar {
           background: url(skins:LateNight/classic/style/progressbar_bg.svg);
           border: none;
-          min-width: 160px;
-          max-width: 160px;
+          min-width: 236px;
+          max-width: 236px;
           min-height: 5px;
           max-height: 5px;
         }

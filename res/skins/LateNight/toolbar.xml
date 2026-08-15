@@ -308,7 +308,7 @@
 
       <Label>
         <ObjectName>ToolbarLogo</ObjectName>
-        <Size>74f,24f</Size>
+        <Size>104f,28f</Size>
       </Label>
 
       <WidgetGroup><Size>2f,min</Size></WidgetGroup>
