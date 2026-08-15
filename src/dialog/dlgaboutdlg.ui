@@ -49,17 +49,17 @@
        <!-- QSvgWidget stretches its drawing to fill the widget and ignores the
             aspect ratio, so a flexible height lets the layout squash the wordmark
             whenever the dialog is short. Pinning both sizes to the artwork's own
-            170x44 keeps it undistorted at any window size. -->
+            proportions keeps it undistorted at any window size. -->
        <property name="minimumSize">
         <size>
          <width>170</width>
-         <height>44</height>
+         <height>50</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>170</width>
-         <height>44</height>
+         <height>50</height>
         </size>
        </property>
       </widget>

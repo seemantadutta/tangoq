@@ -1,16 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" width="160" height="40" role="img" aria-label="TangoQ">
-  <text x="51" y="26"
-        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="19" letter-spacing="0">
-    <tspan fill="#e8ecf8" font-weight="300">Tango</tspan>
-  </text>
-  <g transform="translate(116,20)">
-    <circle cx="0" cy="0" r="16" fill="#0c1122"/>
-    <circle cx="0" cy="0" r="16" fill="none" stroke="#6f9bff" stroke-width="1.4"/>
-    <circle cx="0" cy="0" r="13" fill="none" stroke="#2a3357" stroke-width="0.9"/>
-    <circle cx="0" cy="0" r="8.4" fill="none" stroke="#2a3357" stroke-width="0.9"/>
-    <circle cx="0" cy="0" r="2.9" fill="#e6314e"/>
-    <path d="M10.8 10.8 L20 20" fill="none" stroke="#6f9bff" stroke-width="3.2" stroke-linecap="round"/>
-    <path d="M8.4 8.4 L16.3 16.3" fill="none" stroke="#d7dfef" stroke-width="1.1" stroke-linecap="round"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 820 240" width="160" height="47" role="img" aria-label="TangoQ" color="#e8ecf6">
+  <defs>
+    <symbol id="vinylQ" viewBox="0 0 512 512">
+      <g transform="translate(256 206) scale(0.78) translate(-212 -212)">
+        <circle cx="212" cy="212" r="196" fill="#0c1122"/>
+        <circle cx="212" cy="212" r="189" fill="none" stroke="#6f9bff" stroke-width="11"/>
+        <circle cx="212" cy="212" r="152" fill="none" stroke="#2a3357" stroke-width="3.5"/>
+        <circle cx="212" cy="212" r="120" fill="none" stroke="#2a3357" stroke-width="3.5"/>
+        <circle cx="212" cy="212" r="72" fill="none" stroke="#6f9bff" stroke-width="4" opacity="0.38"/>
+        <circle cx="212" cy="212" r="46" fill="#e6314e"/>
+        <circle cx="212" cy="212" r="7" fill="#0c1122"/>
+      </g>
+      <rect x="16" y="16" width="480" height="480" rx="52" fill="none" stroke="#6f9bff" stroke-width="12"/>
+      <circle cx="432" cy="80" r="16" fill="#e8ecf6"/>
+      <polyline points="432,80 332,292 291,327" fill="none" stroke="#e8ecf6" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="146" y1="404" x2="366" y2="404" stroke="#6f9bff" stroke-width="14" stroke-linecap="round"/>
+      <circle cx="190" cy="446" r="9" fill="#6f9bff"/>
+      <circle cx="234" cy="446" r="9" fill="#e6314e"/>
+      <circle cx="278" cy="446" r="9" fill="#6f9bff"/>
+      <circle cx="322" cy="446" r="9" fill="#e6314e"/>
+    </symbol>
+  </defs>
+  <use xlink:href="#vinylQ" x="16" y="30" width="176" height="176"/>
+  <text x="214" y="158" font-family="'Montserrat','Segoe UI',sans-serif" font-weight="600" font-size="150" letter-spacing="-4" fill="#e8ecf6">Tango<tspan fill="#e6314e" dy="8">Q</tspan></text>
 </svg>

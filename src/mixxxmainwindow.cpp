@@ -634,17 +634,17 @@ void MixxxMainWindow::alwaysHideMenuBarDlg() {
                 kMenuBarHintConfigKey, true)) {
         return;
     }
-    QString title = tr("Allow Mixxx to hide the menu bar?");
+    QString title = tr("Allow TangoQ to hide the menu bar?");
     //: Always show the menu bar?
     QString hideBtnLabel = tr("Hide");
     QString showBtnLabel = tr("Always show");
     //: Keep formatting tags <b> (bold text) and <br> (linebreak).
     //: %1 is the placeholder for the 'Always show' button label
     QString desc = tr(
-            "The Mixxx menu bar is hidden and can be toggled with a single press "
+            "The TangoQ menu bar is hidden and can be toggled with a single press "
             "of the <b>Alt</b> key.<br><br>"
             "Click <b>%1</b> to agree.<br><br>"
-            "Click <b>%2</b> to disable that, for example if you don't use Mixxx "
+            "Click <b>%2</b> to disable that, for example if you don't use TangoQ "
             "with a keyboard.<br><br>"
             "You can change this setting any time in Preferences -> Interface."
             "<br>") // line break for some extra margin to the checkbox
