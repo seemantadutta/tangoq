@@ -1,0 +1,76 @@
+<!--
+Description:
+  Tango DJ mode: a single button marking where a track should start playing -
+  after a spoken announcement, or past a cortina's lead-in. It replaces the stock
+  group of four intro/outro cue buttons, which is more vocabulary than one point
+  needs.
+
+  Left click sets the point at the play position, exactly: intro_start_set_exact
+  rather than intro_start_set, because the beatgrid over a spoken intro is
+  unreliable and snapping would move the point away from where the DJ put it.
+  Deliberately not intro_start_activate - that seeks to the cue when one exists,
+  so a second press would move the deck instead of the mark.
+
+  Right click clears it. The Reset button sets it to 00:00. The two-state icon
+  follows intro_start_enabled.
+Variables:
+  group: The group for the controls.
+  Size: Button size, e.g. 68f,26f.
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>TangoSetStartButton</ObjectName>
+    <SizePolicy>max,min</SizePolicy>
+    <Layout>horizontal</Layout>
+    <Children>
+      <PushButton>
+        <TooltipId>tango_set_start</TooltipId>
+        <ObjectName>TangoSetStart</ObjectName>
+        <Size><Variable name="Size"/></Size>
+        <NumberStates>2</NumberStates>
+        <State>
+          <Number>0</Number>
+          <Text>Set Start</Text>
+          <Alignment>center</Alignment>
+          <Unpressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium.svg</Unpressed>
+          <Pressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium_active.svg</Pressed>
+        </State>
+        <State>
+          <Number>1</Number>
+          <Text>Set Start</Text>
+          <Alignment>center</Alignment>
+          <Unpressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium_set.svg</Unpressed>
+          <Pressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium_active.svg</Pressed>
+        </State>
+        <Connection>
+          <ConfigKey><Variable name="Group"/>,intro_start_set_exact</ConfigKey>
+          <ButtonState>LeftButton</ButtonState>
+        </Connection>
+        <Connection>
+          <ConfigKey><Variable name="Group"/>,intro_start_clear</ConfigKey>
+          <ButtonState>RightButton</ButtonState>
+        </Connection>
+        <Connection>
+          <ConfigKey><Variable name="Group"/>,intro_start_enabled</ConfigKey>
+          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+        </Connection>
+      </PushButton>
+      <PushButton>
+        <ObjectName>TangoResetStart</ObjectName>
+        <Size>42f,26f</Size>
+        <NumberStates>1</NumberStates>
+        <State>
+          <Number>0</Number>
+          <Text>Reset</Text>
+          <Alignment>center</Alignment>
+          <Unpressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium.svg</Unpressed>
+          <Pressed scalemode="STRETCH">skins:TangoQ/<Variable name="BtnScheme"/>/buttons/btn_<Variable name="BtnType"/>_medium_active.svg</Pressed>
+        </State>
+        <Connection>
+          <ConfigKey><Variable name="Group"/>,intro_start_reset</ConfigKey>
+          <ButtonState>LeftButton</ButtonState>
+        </Connection>
+      </PushButton>
+    </Children>
+  </WidgetGroup>
+</Template>
