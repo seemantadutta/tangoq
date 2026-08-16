@@ -1937,11 +1937,26 @@ install(
 )
 
 # Skins
+# For the first TangoQ release we ship only the LateNight skin. The other stock
+# skins (Deere, Shade, Tango, and the 64-sampler variants) are neither branded
+# nor wired for Tango mode, so they are excluded from the installer to avoid
+# shipping broken-looking skins. Development builds are unaffected: they read
+# every skin live from the source tree. Add more skin directories here as they
+# are ported and branded.
 install(
   DIRECTORY
-    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/LateNight"
   DESTINATION
-    "${MIXXX_INSTALL_DATADIR}"
+    "${MIXXX_INSTALL_DATADIR}/skins"
+)
+# Shared stylesheets required by every skin, including LateNight.
+install(
+  FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default.qss"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default-menu-styles-linux.qss"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default-menu-styles-windows.qss"
+  DESTINATION
+    "${MIXXX_INSTALL_DATADIR}/skins"
 )
 
 # Controller mappings
