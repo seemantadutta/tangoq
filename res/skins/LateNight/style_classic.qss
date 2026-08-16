@@ -277,7 +277,7 @@ WSearchLineEdit,
   }
 
 WBeatSpinBox,
-#spinBoxTransition  {
+#spinBoxTransition, #spinBoxTandaGap  {
   selection-color: #000;
   selection-background-color: #d2d2d2;
   }
@@ -286,7 +286,7 @@ WBeatSpinBox,
     selection-background-color: #d2d2d2;
   }
   WBeatSpinBox:focus,
-  #spinBoxTransition:focus {
+  #spinBoxTransition:focus, #spinBoxTandaGap:focus {
     background-color: #000;
   }
 
@@ -628,7 +628,7 @@ WLibrary {
       border-image: url(skins:LateNight/classic/buttons/spinbox_elevated_border_focus.svg) 2 19 2 2;
     }
 
-  #spinBoxTransition {
+  #spinBoxTransition, #spinBoxTandaGap {
     border-width: 3px 19px 2px 3px;
     border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
     width: 24px;
@@ -637,14 +637,14 @@ WLibrary {
     margin: 0px 2px 3px 5px;
     background-color: #0f0f0f;
     }
-    #spinBoxTransition:focus {
+    #spinBoxTransition:focus, #spinBoxTandaGap:focus {
       border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border_focus_orange.svg) 3 19 2 3;
     }
 
   WBeatSpinBox::up-button,
   WBeatSpinBox::down-button,
-  #spinBoxTransition::up-button,
-  #spinBoxTransition::down-button {
+  #spinBoxTransition::up-button, #spinBoxTandaGap::up-button,
+  #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
     subcontrol-origin: content;
     position: relative;
     /* as with spinbox: border is added to size. */
@@ -652,35 +652,35 @@ WLibrary {
     padding: 0px;
     }
     WBeatSpinBox::up-button,
-    #spinBoxTransition::up-button {
+    #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
       height: 11px;
       subcontrol-position: top right;
       image: url(skins:LateNight/classic/buttons/spinbox_up.svg) no-repeat;
       }
       WBeatSpinBox::up-button:pressed,
-      #spinBoxTransition::up-button:pressed {
+      #spinBoxTransition::up-button:pressed, #spinBoxTandaGap::up-button:pressed {
         image: url(skins:LateNight/classic/buttons/spinbox_up_pressed.svg) no-repeat;
       }
       WBeatSpinBox::up-button {
         margin: -1px 0px 0px 0px;
         }
-      #spinBoxTransition::up-button {
+      #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
         margin: -2px -3px 0px 0px;
         }
     WBeatSpinBox::down-button,
-    #spinBoxTransition::down-button {
+    #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
       height: 11px;
       subcontrol-position: bottom right;
       image: url(skins:LateNight/classic/buttons/spinbox_down.svg) no-repeat;
       }
       WBeatSpinBox::down-button:pressed,
-      #spinBoxTransition::down-button:pressed {
+      #spinBoxTransition::down-button:pressed, #spinBoxTandaGap::down-button:pressed {
         image: url(skins:LateNight/classic/buttons/spinbox_down_pressed.svg) no-repeat;
       }
       WBeatSpinBox::down-button {
         margin: 0px 0px -2px 0px;
         }
-      #spinBoxTransition::down-button {
+      #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
         margin: 0px -3px -1px 0px;
         }
 
@@ -1255,7 +1255,7 @@ WSearchLineEdit QAbstractScrollArea,
 #fadeModeCombobox:!editable,
 #fadeModeCombobox:!editable:on,
 #fadeModeCombobox QAbstractScrollArea,
-WBeatSpinBox, #spinBoxTransition,
+WBeatSpinBox, #spinBoxTransition, #spinBoxTandaGap,
 #LibraryFeatureControls QLabel,
 #LibraryFeatureControls QRadioButton {
   color: #888;

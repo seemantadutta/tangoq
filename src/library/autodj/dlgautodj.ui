@@ -163,7 +163,7 @@
       <item>
        <widget class="QLabel" name="labelTandaGapAppendix">
         <property name="text">
-         <string>sec. gap</string>
+         <string>sec.</string>
         </property>
        </widget>
       </item>

@@ -662,12 +662,12 @@ WTrackProperty[pauseAfter="true"] {
 
 /********************** Loop Controls / AutoDJ spinbox ************************/
 WBeatSpinBox,
-#spinBoxTransition {
+#spinBoxTransition, #spinBoxTandaGap {
   selection-color: #a7998b;
   selection-background-color: #111;
   }
   WBeatSpinBox:focus,
-  #spinBoxTransition:focus,
+  #spinBoxTransition:focus, #spinBoxTandaGap:focus,
   #LibraryBPMSpinBox:focus  {
     selection-color: #000;
     selection-background-color: #d2d2d2;
@@ -678,7 +678,7 @@ WBeatSpinBox {
   border-width: 3px 19px 2px 3px;
   border-image: url(skins:LateNight/palemoon/buttons/btn_embedded_spinbox.svg) 3 19 2 3;
 }
-#spinBoxTransition {
+#spinBoxTransition, #spinBoxTandaGap {
   width: 24px;
   height: 19px;
   padding: 0px -15px 0px 0px;
@@ -687,14 +687,14 @@ WBeatSpinBox {
   border-image: url(skins:LateNight/palemoon/buttons/btn_embedded_spinbox_autodj.svg) 3 19 2 3;
   }
   WBeatSpinBox:focus,
-  #spinBoxTransition:focus {
+  #spinBoxTransition:focus, #spinBoxTandaGap:focus {
     border-image: url(skins:LateNight/palemoon/buttons/btn_embedded_spinbox_focus_blue.svg) 3 19 2 3;
   }
 
 WBeatSpinBox::up-button,
 WBeatSpinBox::down-button,
-#spinBoxTransition::up-button,
-#spinBoxTransition::down-button {
+#spinBoxTransition::up-button, #spinBoxTandaGap::up-button,
+#spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
   subcontrol-origin: content;
   position: relative;
   /* as with spinbox: border is added to size. */
@@ -702,7 +702,7 @@ WBeatSpinBox::down-button,
   padding: 0px;
   }
   WBeatSpinBox::up-button,
-  #spinBoxTransition::up-button {
+  #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
     height: 11px;
     subcontrol-position: top right;
     image: url(skins:LateNight/palemoon/buttons/btn__spinbox_up.svg) no-repeat;
@@ -710,11 +710,11 @@ WBeatSpinBox::down-button,
     WBeatSpinBox::up-button {
       margin: -2px -1px 0px 0px;
       }
-    #spinBoxTransition::up-button {
+    #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
       margin: -2px -3px 0px 0px;
       }
   WBeatSpinBox::down-button,
-  #spinBoxTransition::down-button {
+  #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
     height: 11px;
     subcontrol-position: bottom right;
     image: url(skins:LateNight/palemoon/buttons/btn__spinbox_down.svg) no-repeat;
@@ -722,7 +722,7 @@ WBeatSpinBox::down-button,
     WBeatSpinBox::down-button {
       margin: 0px -1px -3px 0px;
       }
-    #spinBoxTransition::down-button {
+    #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
       margin: 0px -3px -1px 0px;
       }
 
@@ -1358,7 +1358,7 @@ WEffectChainPresetSelector:!editable:on,
   }
 
   WBeatSpinBox,
-  #spinBoxTransition {
+  #spinBoxTransition, #spinBoxTandaGap {
     color: #a7998b;
   }
 
@@ -1727,8 +1727,8 @@ WBeatSpinBox::down-button {
   #SplitCue[displayValue="0"],
   #PlayPreview[displayValue="0"],
   /* library controls */
-  #spinBoxTransition::up-button,
-  #spinBoxTransition::down-button,
+  #spinBoxTransition::up-button, #spinBoxTandaGap::up-button,
+  #spinBoxTransition::down-button, #spinBoxTandaGap::down-button,
   QPushButton#pushButtonAutoDJ:enabled:!checked,
   #LibraryFeatureControls QPushButton:enabled {
     background-color: #222;
@@ -1809,8 +1809,8 @@ WPushButton#VinylStatus[displayValue="1"], /* enabled, OK */
 #FxUnit4 #FxToggleButton[displayValue="1"],
 WBeatSpinBox::up-button:pressed,
 WBeatSpinBox::down-button:pressed,
-#spinBoxTransition::up-button:pressed,
-#spinBoxTransition::down-button:pressed {
+#spinBoxTransition::up-button:pressed, #spinBoxTandaGap::up-button:pressed,
+#spinBoxTransition::down-button:pressed, #spinBoxTandaGap::down-button:pressed {
   background-color: #257b82;
   }
   /* Dim blue for assign buttons Fx34 */
@@ -2708,7 +2708,7 @@ WSearchLineEdit,
 WTrackPropertyEditor,
 WLibrary QLineEdit,
 WLibrary QPlainTextEdit,
-#spinBoxTransition,
+#spinBoxTransition, #spinBoxTandaGap,
 #LibraryBPMSpinBox {
   background-color: #0f0f0f;
 }
@@ -3108,7 +3108,7 @@ WSearchLineEdit {
 /* add margin to compensate for frameless library table */
 #LibraryFeatureControls QPushButton,
 /* #fadeModeCombobox set below */
-#spinBoxTransition {
+#spinBoxTransition, #spinBoxTandaGap {
   margin-top: 4px;
 }
 QLabel#labelProgress, /* Analysis progress */
