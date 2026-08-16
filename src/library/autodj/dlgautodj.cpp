@@ -207,7 +207,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             "Skip Silence:\n"
             "Play the whole track except for silence at the beginning and end.\n"
             "Begin crossfading from the selected number of seconds before the\n"
-            "last sound.");
+            "last sound.\n"
+            "\n"
+            "Tanda Transition:\n"
+            "Play each track in full, then insert a fixed silent gap before the\n"
+            "next track instead of crossfading. Set the gap length with the\n"
+            "adjacent field. Only available while Tango DJ mode is on.");
 
     pushButtonFadeNow->setToolTip(fadeBtnTooltip);
     pushButtonSkipNext->setToolTip(skipBtnTooltip);
