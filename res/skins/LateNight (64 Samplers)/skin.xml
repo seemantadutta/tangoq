@@ -142,7 +142,7 @@
           background-color: #0f0f0f;
         }
         QLabel {
-          image: url(skins:LateNight/palemoon/style/mixxx_logo.svg);
+          image: url(skins:LateNight/palemoon/style/tangoq_logo.svg);
           padding: 0;
           margin: 0px 2px 0px 2px;
           border: none;
@@ -268,7 +268,7 @@
           background-color: #1e1e1e;
         }
         QLabel {
-          image: url(skins:LateNight/classic/style/mixxx_logo.svg);
+          image: url(skins:LateNight/classic/style/tangoq_logo.svg);
           padding: 0;
           margin: 0px 2px 0px 2px;
           border: none;

@@ -2575,7 +2575,7 @@ WPushButton#PlayDeck[value="0"] {
   }
 
 #ToolbarLogo {
-  image: url(skins:LateNight/palemoon/style/mixxx_logo_small.svg) no-repeat center center;
+  image: url(skins:LateNight/palemoon/style/tangoq_logo_small.svg) no-repeat center center;
 }
 
 /* Search bar Clear button */

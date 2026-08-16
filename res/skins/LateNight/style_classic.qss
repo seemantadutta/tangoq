@@ -2096,7 +2096,7 @@ WPushButton#BpmLockToggle[value="1"] {
   }
 
 #ToolbarLogo {
-  image: url(skins:LateNight/classic/style/mixxx_logo_small.svg) no-repeat center center;
+  image: url(skins:LateNight/classic/style/tangoq_logo_small.svg) no-repeat center center;
 }
 #ToolbarSeparator {
   image: url(skins:LateNight/classic/style/toolbar_separator.svg) no-repeat center center;
