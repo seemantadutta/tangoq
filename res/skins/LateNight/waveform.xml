@@ -52,8 +52,6 @@
             <Mark>
               <Control>cue_point</Control>
               <Text>CUE</Text>
-              <!-- Hidden in Tango DJ mode; see decks/overview.xml. -->
-              <VisibilityControl>[AutoDJ],keep_queue_off</VisibilityControl>
               <Align>top|right</Align>
               <Color><Variable name="CueColor"/></Color>
               <TextColor>#FFFFFF</TextColor>
@@ -110,47 +108,6 @@
               <Align>top|left</Align>
               <Color><Variable name="IntroOutroColor"/></Color>
               <TextColor>#FFFFFF</TextColor>
-            </Mark>
-            <!-- Tango DJ mode start point. Bound to tango_start_position, which
-                 mirrors intro_start_position, because WaveformMarkSet silently
-                 drops a second Mark on a control it has already seen - so a
-                 Tango-gated mark on intro_start_position would never render.
-                 Without this the "Set Start" button would be invisible in
-                 operation: show_intro_outro_cues defaults to off, so nothing on
-                 screen would move when the DJ pressed it. -->
-            <Mark>
-              <Control>tango_start_position</Control>
-              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
-              <!-- Spelled out here, as the main cue marker it replaces was
-                   ("CUE"). The overview is far narrower, so it keeps "S". -->
-              <Text>START</Text>
-              <Align>top|right</Align>
-              <Color><Variable name="IntroOutroColor"/></Color>
-              <TextColor>#FFFFFF</TextColor>
-            </Mark>
-            <Mark>
-              <Control>tango_fas_position</Control>
-              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
-              <Text>FAS</Text>
-              <Align>top|right</Align>
-              <Color>#666666</Color>
-              <TextColor>#DDDDDD</TextColor>
-            </Mark>
-            <Mark>
-              <Control>tango_las_position</Control>
-              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
-              <Text>LAS</Text>
-              <Align>top|left</Align>
-              <Color>#666666</Color>
-              <TextColor>#DDDDDD</TextColor>
-            </Mark>
-            <Mark>
-              <Control>tango_file_start_position</Control>
-              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
-              <Text>0:0</Text>
-              <Align>top|right</Align>
-              <Color>#666666</Color>
-              <TextColor>#DDDDDD</TextColor>
             </Mark>
             <!-- Outro -->
             <MarkRange>

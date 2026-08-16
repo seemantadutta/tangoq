@@ -277,7 +277,7 @@ WSearchLineEdit,
   }
 
 WBeatSpinBox,
-#spinBoxTransition, #spinBoxTandaGap  {
+#spinBoxTransition  {
   selection-color: #000;
   selection-background-color: #d2d2d2;
   }
@@ -286,7 +286,7 @@ WBeatSpinBox,
     selection-background-color: #d2d2d2;
   }
   WBeatSpinBox:focus,
-  #spinBoxTransition:focus, #spinBoxTandaGap:focus {
+  #spinBoxTransition:focus {
     background-color: #000;
   }
 
@@ -628,7 +628,7 @@ WLibrary {
       border-image: url(skins:LateNight/classic/buttons/spinbox_elevated_border_focus.svg) 2 19 2 2;
     }
 
-  #spinBoxTransition, #spinBoxTandaGap {
+  #spinBoxTransition {
     border-width: 3px 19px 2px 3px;
     border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
     width: 24px;
@@ -637,14 +637,14 @@ WLibrary {
     margin: 0px 2px 3px 5px;
     background-color: #0f0f0f;
     }
-    #spinBoxTransition:focus, #spinBoxTandaGap:focus {
+    #spinBoxTransition:focus {
       border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border_focus_orange.svg) 3 19 2 3;
     }
 
   WBeatSpinBox::up-button,
   WBeatSpinBox::down-button,
-  #spinBoxTransition::up-button, #spinBoxTandaGap::up-button,
-  #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
+  #spinBoxTransition::up-button,
+  #spinBoxTransition::down-button {
     subcontrol-origin: content;
     position: relative;
     /* as with spinbox: border is added to size. */
@@ -652,87 +652,37 @@ WLibrary {
     padding: 0px;
     }
     WBeatSpinBox::up-button,
-    #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
+    #spinBoxTransition::up-button {
       height: 11px;
       subcontrol-position: top right;
       image: url(skins:LateNight/classic/buttons/spinbox_up.svg) no-repeat;
       }
       WBeatSpinBox::up-button:pressed,
-      #spinBoxTransition::up-button:pressed, #spinBoxTandaGap::up-button:pressed {
+      #spinBoxTransition::up-button:pressed {
         image: url(skins:LateNight/classic/buttons/spinbox_up_pressed.svg) no-repeat;
       }
       WBeatSpinBox::up-button {
         margin: -1px 0px 0px 0px;
         }
-      #spinBoxTransition::up-button, #spinBoxTandaGap::up-button {
+      #spinBoxTransition::up-button {
         margin: -2px -3px 0px 0px;
         }
     WBeatSpinBox::down-button,
-    #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
+    #spinBoxTransition::down-button {
       height: 11px;
       subcontrol-position: bottom right;
       image: url(skins:LateNight/classic/buttons/spinbox_down.svg) no-repeat;
       }
       WBeatSpinBox::down-button:pressed,
-      #spinBoxTransition::down-button:pressed, #spinBoxTandaGap::down-button:pressed {
+      #spinBoxTransition::down-button:pressed {
         image: url(skins:LateNight/classic/buttons/spinbox_down_pressed.svg) no-repeat;
       }
       WBeatSpinBox::down-button {
         margin: 0px 0px -2px 0px;
         }
-      #spinBoxTransition::down-button, #spinBoxTandaGap::down-button {
+      #spinBoxTransition::down-button {
         margin: 0px -3px -1px 0px;
         }
-
-
-/********************** AutoDJ Tango end-time picker *************************/
-/* Match the AutoDJ transition spinbox so the Tango end-time QTimeEdit blends
-   into the toolbar instead of showing the default white field. */
-  #endTimeEdit,
-  #spinBoxCortinaNudgeStep {
-    color: #888;
-    border-width: 3px 19px 2px 3px;
-    border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
-    height: 19px;
-    padding: 0px -15px 0px 3px;
-    margin: 0px 2px 3px 2px;
-    background-color: #0f0f0f;
-    }
-    #endTimeEdit:focus,
-    #spinBoxCortinaNudgeStep:focus {
-      border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border_focus_orange.svg) 3 19 2 3;
-    }
-  #endTimeEdit::up-button,
-  #endTimeEdit::down-button,
-  #spinBoxCortinaNudgeStep::up-button,
-  #spinBoxCortinaNudgeStep::down-button {
-    subcontrol-origin: content;
-    position: relative;
-    width: 17px;
-    padding: 0px;
-    }
-    #endTimeEdit::up-button,
-    #spinBoxCortinaNudgeStep::up-button {
-      height: 11px;
-      subcontrol-position: top right;
-      image: url(skins:LateNight/classic/buttons/spinbox_up.svg) no-repeat;
-      margin: -2px -3px 0px 0px;
-      }
-      #endTimeEdit::up-button:pressed,
-      #spinBoxCortinaNudgeStep::up-button:pressed {
-        image: url(skins:LateNight/classic/buttons/spinbox_up_pressed.svg) no-repeat;
-      }
-    #endTimeEdit::down-button,
-    #spinBoxCortinaNudgeStep::down-button {
-      height: 11px;
-      subcontrol-position: bottom right;
-      image: url(skins:LateNight/classic/buttons/spinbox_down.svg) no-repeat;
-      margin: 0px -3px -1px 0px;
-      }
-      #endTimeEdit::down-button:pressed,
-      #spinBoxCortinaNudgeStep::down-button:pressed {
-        image: url(skins:LateNight/classic/buttons/spinbox_down_pressed.svg) no-repeat;
-      }
 
 
 
@@ -1197,8 +1147,7 @@ WCoverArtMenu,
 WCueMenuPopup,
 WCueMenuPopup QLabel,
 #CueLabelEdit,
-#LatencyLabel, WTime,
-QMenu#AutoDJContextMenu {
+#LatencyLabel, WTime {
   color: #f0bb2b;
 }
 /* Override the 'missing' color in Tracks > Missing,
@@ -1255,7 +1204,7 @@ WSearchLineEdit QAbstractScrollArea,
 #fadeModeCombobox:!editable,
 #fadeModeCombobox:!editable:on,
 #fadeModeCombobox QAbstractScrollArea,
-WBeatSpinBox, #spinBoxTransition, #spinBoxTandaGap,
+WBeatSpinBox, #spinBoxTransition,
 #LibraryFeatureControls QLabel,
 #LibraryFeatureControls QRadioButton {
   color: #888;
@@ -1284,21 +1233,6 @@ WPushButton#VinylStatus[displayValue="0"], /* off */
 #SkinSettingsToggle[displayValue="0"],
 #RecDuration[highlight="0"] {
   color: #d2d2d1;
-  }
-
-/* Tango DJ mode "Set Start". Every other label in the transport row is an SVG
-   glyph (see btn__cue_deck.svg), so a Qt-rendered text label needs the glyph's
-   colour and weight applied explicitly or it reads as low-contrast next to them.
-   Both states get the same colour deliberately: the intro cue is auto-created at
-   first sound by AnalyzerSilence, so "set" is true for nearly every analysed
-   track and colouring it would just be noise. */
-WPushButton#TangoSetStart,
-WPushButton#TangoSetStart[displayValue="0"],
-WPushButton#TangoSetStart[displayValue="1"],
-WPushButton#TangoResetStart,
-WPushButton#TangoResetStart[displayValue="0"] {
-  color: #d2d2d1;
-  font-weight: bold;
   }
 
 WPushButton#VinylStatus[displayValue="1"], /* enabled (green bg) */
@@ -2096,7 +2030,7 @@ WPushButton#BpmLockToggle[value="1"] {
   }
 
 #ToolbarLogo {
-  image: url(skins:LateNight/classic/style/tangoq_logo_small.svg) no-repeat center center;
+  image: url(skins:LateNight/classic/style/mixxx_logo_small.svg) no-repeat center center;
 }
 #ToolbarSeparator {
   image: url(skins:LateNight/classic/style/toolbar_separator.svg) no-repeat center center;
@@ -2133,11 +2067,11 @@ QPushButton#pushButtonSkipNext:!enabled {
     image: url(skins:LateNight/classic/buttons/btn__autodj_skip.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonShuffle {
+QPushButton#pushButtonShuffle:enabled {
   image: url(skins:LateNight/classic/buttons/btn__autodj_shuffle.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonAddRandomTrack {
+QPushButton#pushButtonAddRandomTrack:enabled {
   image: url(skins:LateNight/classic/buttons/btn__autodj_addrandom.svg) no-repeat center center;
   }
 
@@ -2146,17 +2080,6 @@ QPushButton#pushButtonRepeatPlaylist:!checked {
   }
   QPushButton#pushButtonRepeatPlaylist:checked {
     image: url(skins:LateNight/classic/buttons/btn__autodj_repeat_playlist_on.svg) no-repeat center center;
-  }
-
-/* Keep Queue (tango mode) button */
-QPushButton#pushButtonKeepQueue:!checked {
-  image: url(skins:LateNight/classic/buttons/btn__autodj_keep_queue_off.svg) no-repeat center center;
-  }
-  /* No checked-state highlight: the button is only shown at all while Tango mode
-     is on, so the seal's presence is the indicator and a filled background just
-     boxes in a round emblem. */
-  QPushButton#pushButtonKeepQueue:checked {
-    image: url(skins:LateNight/classic/buttons/btn__autodj_keep_queue_on.svg) no-repeat center center;
   }
 
 /* widgets in cue popup menu */
@@ -2304,21 +2227,6 @@ WTrackProperty[selected="true"] {
   border: 1px solid #5E4507;
 }
 
-/* Tango mode: a cortina loaded on a deck. Same blue the Auto DJ list uses for
-   cortina rows, so the deck and the queue read as one thing. Placed after the
-   selected rule above so the mark survives the transient 'selected' state. */
-WTrackProperty[cortina="true"] {
-  color: #3388ff;
-}
-
-/* Tango mode: this deck holds the track the set pauses after for an
-   announcement. Red rather than the cortina blue below it in priority: not
-   noticing this one means the music stops unexpectedly in front of a floor.
-   Placed after the cortina rule so it wins on a cortina that is also a pause. */
-WTrackProperty[pauseAfter="true"] {
-  color: #ee4444;
-}
-
 /* Entire BPM cell */
 /* Lock icon at the left */
 #LibraryBPMButton::indicator:checked {
@@ -2410,43 +2318,6 @@ WTrackTableViewHeader {
       image: url(skins:LateNight/classic/buttons/btn__lib_sort_down.svg);
     }
 
-
-/*********** Auto DJ Queue dock panel **************************/
-/* The detached/dockable Auto DJ queue panel copies this library stylesheet. It
-   uses a custom WDockTitleBar (instead of the native title bar) so the themed
-   gradient shows in both the docked and floating states. */
-
-QDockWidget {
-  color: #bbb;
-}
-WDockTitleBar {
-  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-    stop:0 #222,
-    stop:1 #111);
-  border-bottom: 1px solid #000;
-}
-WDockTitleBar QLabel#AutoDJDockTitleLabel {
-  color: #bbb;
-  padding-left: 2px;
-}
-WDockTitleBar QToolButton {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  padding: 1px;
-  width: 14px;
-  height: 14px;
-}
-WDockTitleBar QToolButton:hover {
-  background-color: #444;
-  border: 1px solid #555;
-}
-QToolButton#AutoDJDockFloatButton {
-  qproperty-icon: url(skins:LateNight/classic/buttons/btn__expand.svg);
-}
-QToolButton#AutoDJDockCloseButton {
-  qproperty-icon: url(skins:LateNight/classic/buttons/btn__settings_close.svg);
-}
 
 
 /*********** scrollbars *********************************/
@@ -2682,8 +2553,7 @@ WEffectSelector QAbstractScrollArea,
 WEffectChainPresetSelector QAbstractScrollArea,
 WEffectChainPresetButton QMenu,
 WSearchLineEdit QAbstractScrollArea,
-#fadeModeCombobox QAbstractScrollArea,
-QMenu#AutoDJContextMenu {
+#fadeModeCombobox QAbstractScrollArea {
   border: 1px solid #888;
   border-radius: 2px;
 }
@@ -2726,15 +2596,8 @@ WEffectChainPresetButton QMenu QCheckBox,
 WSearchLineEdit QAbstractScrollArea,
 WSearchLineEdit::item,
 #fadeModeCombobox QAbstractScrollArea,
-#fadeModeCombobox::item,
-QMenu#AutoDJContextMenu,
-QMenu#AutoDJContextMenu::item {
+#fadeModeCombobox::item {
   background-color: #0f0f0f;
-}
-/* These menus have no icons, checkmarks or submenus, so drop the reserved side
-   columns and let each item hug its text. */
-QMenu#AutoDJContextMenu::item {
-  padding: 4px 16px 4px 16px;
 }
 WEffectSelector,
 #fadeModeCombobox {
@@ -2773,10 +2636,7 @@ WSearchLineEdit::item:selected,
 #SkinSettingsNumToggle[hover="true"],
 #SkinSettingsNumToggleHeader[hover="true"],
 #SkinSettingsMixerToggle[hover="true"],
-#SkinSettingsLabelButton[hover="true"],
-QMenu#AutoDJContextMenu::item:selected,
-QMenu#AutoDJContextMenu::item:hover,
-QMenu#AutoDJContextMenu::item:focus {
+#SkinSettingsLabelButton[hover="true"] {
   background-color: #5E4507;
   color: #fff;
   /* remove OS focus indicator */
