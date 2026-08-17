@@ -31,6 +31,45 @@ constexpr int kTandaGapPreferenceDefault = 3;
 constexpr double kTransitionPreferenceDefault = 10.0;
 constexpr double kKeepPosition = -1.0;
 
+// Idealized milonga flow for the HUD. The strip is delivered to the widget as a
+// fixed set of numeric controls, so the slot count is capped; a milonga cycle is
+// ~6 letters, so 8 is comfortable headroom.
+const char* kTandaFlowPatternPreferenceName = "TandaFlowPattern";
+const QString kTandaFlowPatternDefault = QStringLiteral("TTVTTM");
+constexpr int kHudFlowMaxSlots = 8;
+
+// Parses a flow pattern string (T/V/M/N letters) into per-slot type codes
+// (0=T,1=V,2=M,3=N), upper-cased, invalid letters dropped, capped at
+// kHudFlowMaxSlots. An empty or all-invalid string falls back to the default so
+// the HUD always has a map to show.
+std::vector<int> parseFlowPattern(const QString& raw) {
+    // NB: "slots" is a Qt keyword macro, so the accumulator is named "types".
+    std::vector<int> types;
+    const auto append = [&types](const QString& text) {
+        for (const QChar c : text.toUpper()) {
+            int type = -1;
+            switch (c.unicode()) {
+            case 'T': type = 0; break;
+            case 'V': type = 1; break;
+            case 'M': type = 2; break;
+            case 'N': type = 3; break;
+            default: break;
+            }
+            if (type >= 0) {
+                types.push_back(type);
+                if (static_cast<int>(types.size()) >= kHudFlowMaxSlots) {
+                    break;
+                }
+            }
+        }
+    };
+    append(raw);
+    if (types.empty()) {
+        append(kTandaFlowPatternDefault);
+    }
+    return types;
+}
+
 // A track needs to be longer than two callbacks to not stop AutoDJ
 constexpr double kMinimumTrackDurationSec = 0.2;
 
@@ -240,8 +279,13 @@ AutoDJProcessor::AutoDJProcessor(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_track_count"))),
           m_hudTandaPlayingIndex(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_playing_index"))),
-          m_hudFlowIndex(
-                  ConfigKey(kControlGroup, QStringLiteral("hud_flow_index"))),
+          m_hudFlowLen(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_flow_len"))),
+          m_hudFlowHighlight(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_flow_highlight"))),
+          m_hudFlowMismatch(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_flow_mismatch"))),
+          m_hudFlowOrdinal(-1),
           m_stopGuardArmed(false),
           m_bStopWhenLastTrackEnds(false),
           m_bPauseAfterPending(false) {
@@ -403,6 +447,17 @@ AutoDJProcessor::AutoDJProcessor(
             this,
             &AutoDJProcessor::slotTandaGapProgress);
 
+    // Resolved flow-strip slot controls. Fixed count (kHudFlowMaxSlots) so the
+    // HUD can subscribe to a known set; unused slots publish -1 (empty).
+    for (int i = 0; i < kHudFlowMaxSlots; ++i) {
+        m_hudFlowSlots.push_back(std::make_unique<ControlObject>(
+                ConfigKey(kControlGroup,
+                        QStringLiteral("hud_flow_slot_%1").arg(i))));
+        m_hudFlowSlots.back()->set(-1.0);
+    }
+    // Parse the configured pattern up front so the strip has a map from the start.
+    refreshHudFlowPattern();
+
     // 1 Hz publisher for the Tango HUD countdown. Cheap (no DB reads) and runs on
     // the GUI thread, so it cannot affect audio. publishHudTiming() early-returns
     // unless Auto DJ is running in Tango mode.
@@ -410,7 +465,8 @@ AutoDJProcessor::AutoDJProcessor(
     m_hudNextKind.set(0.0);
     m_hudTandaTrackCount.set(0.0);
     m_hudTandaPlayingIndex.set(-1.0);
-    m_hudFlowIndex.set(-1.0);
+    m_hudFlowOrdinal = -1;
+    publishHudFlow();
     m_hudTimer.setInterval(1000);
     connect(&m_hudTimer,
             &QTimer::timeout,
@@ -1715,6 +1771,9 @@ void AutoDJProcessor::disarmStopGuard() {
 }
 
 void AutoDJProcessor::publishHudTiming() {
+    // Pick up a Preferences edit of the flow pattern within a second (cheap: only
+    // re-parses when the string actually changed).
+    refreshHudFlowPattern();
     if (!keepQueueEnabled() || m_eState == ADJ_DISABLED) {
         m_hudCountdownSeconds.set(-1.0);
         m_hudNextKind.set(keepQueueEnabled() &&
@@ -1828,7 +1887,37 @@ void AutoDJProcessor::publishHudTiming() {
 void AutoDJProcessor::setHudTandaState(int trackCount, int playingIndex, int flowIndex) {
     m_hudTandaTrackCount.set(trackCount);
     m_hudTandaPlayingIndex.set(playingIndex);
-    m_hudFlowIndex.set(flowIndex);
+    m_hudFlowOrdinal = flowIndex;
+    publishHudFlow();
+}
+
+void AutoDJProcessor::refreshHudFlowPattern() {
+    const QString raw = m_pConfig->getValueString(
+            ConfigKey(kPreferenceGroup,
+                    QString::fromLatin1(kTandaFlowPatternPreferenceName)));
+    if (raw == m_hudFlowPatternRaw && !m_hudFlowPatternSlots.empty()) {
+        return;
+    }
+    m_hudFlowPatternRaw = raw;
+    m_hudFlowPatternSlots = parseFlowPattern(raw);
+    publishHudFlow();
+}
+
+void AutoDJProcessor::publishHudFlow() {
+    const int len = static_cast<int>(m_hudFlowPatternSlots.size());
+    m_hudFlowLen.set(len);
+    // The active-tanda ordinal counts every tanda in the set; wrap it into the
+    // one-cycle strip. -1 (no active/upcoming tanda) leaves nothing highlighted.
+    const int highlight =
+            (m_hudFlowOrdinal >= 0 && len > 0) ? m_hudFlowOrdinal % len : -1;
+    m_hudFlowHighlight.set(highlight);
+    // Stage 1: slots are the ideal pattern. The per-tanda type overlay and the
+    // mismatch "!" arrive with type-aware flow.
+    for (int i = 0; i < kHudFlowMaxSlots; ++i) {
+        const double type = i < len ? m_hudFlowPatternSlots[i] : -1.0;
+        m_hudFlowSlots[i]->set(type);
+    }
+    m_hudFlowMismatch.set(0.0);
 }
 
 mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {

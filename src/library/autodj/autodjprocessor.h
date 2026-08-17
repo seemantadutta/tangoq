@@ -260,7 +260,9 @@ class AutoDJProcessor : public QObject {
 
     // Publishes the current tanda's HUD state (track count, 0-based index of the
     // playing track, and the tanda's ordinal in the set). Called by
-    // TandaQueueModel, which owns the tanda spans.
+    // TandaQueueModel, which owns the tanda spans. The ordinal is turned into the
+    // resolved flow strip (slots + highlight) here, against the configured
+    // pattern - see publishHudFlow().
     void setHudTandaState(int trackCount, int playingIndex, int flowIndex);
 
     void setTransitionMode(TransitionMode newMode);
@@ -496,8 +498,17 @@ class AutoDJProcessor : public QObject {
     double keepQueueCurrentTrackRemainingSeconds(
             const TrackPointer& pTrack, double playPosition) const;
     // 1 Hz timer slot: publishes the countdown seconds to the next transition
-    // and whether the next queue item is a cortina.
+    // and whether the next queue item is a cortina. Also re-reads the configured
+    // flow pattern so a Preferences edit shows up within a second.
     void publishHudTiming();
+    // Re-reads [Auto DJ],TandaFlowPattern, and if it changed, re-parses it and
+    // republishes the flow strip. Cheap: a short string, parsed only on change.
+    void refreshHudFlowPattern();
+    // Resolves the flow strip (length, highlight slot, per-slot types) from the
+    // parsed pattern and the cached active-tanda ordinal, and pushes it to the
+    // hud_flow_* controls. Stage 1: slots are the ideal pattern; the type overlay
+    // and mismatch mark arrive with type-aware flow.
+    void publishHudFlow();
     // Audible length in seconds from the analyzed N60dBSound cue, or 0 if the
     // track has no such cue (e.g. not yet analyzed).
     double keepQueueAudibleSeconds(const TrackPointer& pTrack) const;
@@ -631,7 +642,20 @@ class AutoDJProcessor : public QObject {
     ControlObject m_hudNextKind;
     ControlObject m_hudTandaTrackCount;
     ControlObject m_hudTandaPlayingIndex;
-    ControlObject m_hudFlowIndex;
+    // Resolved flow strip for the HUD. len = active pattern length; highlight =
+    // current slot (or -1); the slot controls carry the type per slot
+    // (0=T,1=V,2=M,3=N; -1 = empty); mismatch = the trailing "!" flag. The HUD
+    // renders letters straight from these, so it never parses the pattern string.
+    ControlObject m_hudFlowLen;
+    ControlObject m_hudFlowHighlight;
+    ControlObject m_hudFlowMismatch;
+    std::vector<std::unique_ptr<ControlObject>> m_hudFlowSlots;
+    // Cached inputs to publishHudFlow(): the active-tanda ordinal from the model,
+    // and the parsed pattern (types per slot) plus the raw config string it came
+    // from, so a Preferences edit is detected and re-parsed only when it changes.
+    int m_hudFlowOrdinal;
+    QString m_hudFlowPatternRaw;
+    std::vector<int> m_hudFlowPatternSlots;
     QTimer m_hudTimer;
     // Stop-guard arm state: in LIVE mode the first disable request only arms a
     // short confirmation window; a second request within it actually stops.

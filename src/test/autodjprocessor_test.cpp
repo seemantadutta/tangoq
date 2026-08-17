@@ -689,6 +689,46 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
+TEST_F(AutoDJProcessorTest, HudFlow_DefaultPatternPublishesResolvedSlots) {
+    // Stage 1 flow strip: with no configured pattern the default TTVTTM resolves
+    // to six typed slots (0=T, 1=V, 2=M), the trailing slots are empty (-1), and
+    // the active-tanda ordinal wraps into the highlight. This pins the C++
+    // resolver that the painted HUD renders straight from these controls.
+    pProcessor->setHudTandaState(4, 1, 0);
+
+    EXPECT_DOUBLE_EQ(4.0,
+            ControlObject::get(ConfigKey("[AutoDJ]", "hud_tanda_track_count")));
+    EXPECT_DOUBLE_EQ(1.0,
+            ControlObject::get(ConfigKey("[AutoDJ]", "hud_tanda_playing_index")));
+    EXPECT_DOUBLE_EQ(6.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_len")));
+    EXPECT_DOUBLE_EQ(
+            0.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
+    EXPECT_DOUBLE_EQ(
+            0.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_mismatch")));
+
+    const double expectedTypes[6] = {0, 0, 1, 0, 0, 2}; // T T V T T M
+    for (int i = 0; i < 6; ++i) {
+        EXPECT_DOUBLE_EQ(expectedTypes[i],
+                ControlObject::get(ConfigKey("[AutoDJ]",
+                        QStringLiteral("hud_flow_slot_%1").arg(i))))
+                << "slot " << i;
+    }
+    for (int i = 6; i < 8; ++i) {
+        EXPECT_DOUBLE_EQ(-1.0,
+                ControlObject::get(ConfigKey("[AutoDJ]",
+                        QStringLiteral("hud_flow_slot_%1").arg(i))))
+                << "slot " << i;
+    }
+
+    // The ordinal wraps into one cycle: 8 -> slot 2; -1 clears the highlight.
+    pProcessor->setHudTandaState(4, 1, 8);
+    EXPECT_DOUBLE_EQ(
+            2.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
+    pProcessor->setHudTandaState(0, -1, -1);
+    EXPECT_DOUBLE_EQ(
+            -1.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     // When the queue runs dry, Auto DJ looks for a successor at the moment the
     // last track *starts*. Stopping there would report the set as over while the

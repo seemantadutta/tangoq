@@ -45,6 +45,49 @@
         </widget>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="TandaFlowPatternLayout">
+         <item>
+          <widget class="QLabel" name="TandaFlowPatternLabel">
+           <property name="text">
+            <string>Tango flow pattern</string>
+           </property>
+           <property name="buddy">
+            <cstring>TandaFlowPatternLineEdit</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="TandaFlowPatternLineEdit">
+           <property name="toolTip">
+            <string>The idealized milonga flow shown in the toolbar HUD, as a string of tanda types: T = Tango, V = Vals, M = Milonga, N = Nuevo/Alternative. For example TTVTTM. 1 to 8 letters. It is only a map: the HUD highlights your position in it and flags when your grouped tandas diverge.</string>
+           </property>
+           <property name="maxLength">
+            <number>8</number>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerTandaFlowPattern">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
         <layout class="QHBoxLayout" name="CortinaLengthLayout">
          <item>
           <widget class="QLabel" name="CortinaLengthLabel">

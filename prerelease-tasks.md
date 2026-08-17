@@ -504,13 +504,82 @@ nothing to the HUD — once the strip is type-aware, it updates immediately (the
 `spansChanged -> rebuild -> publish` path already fires). The current HUD publishes
 only a flow *ordinal*; type-aware flow needs the per-tanda type published too.
 
+### Ideal vs real, and how they reconcile (settled)
+
+Two layers. The **ideal flow** (the Preferences pattern) is always present and
+fixed — it is a *map*, not a claim about the set. The **real flow** (the
+groupings) may be empty, partial, longer, reordered, or deviating. Reconciliation
+is *not* "merge into one mutated string": the ideal is a dim backdrop, and the
+real paints onto it only where groupings exist.
+
+- **No groupings:** show the ideal, dimmed, nothing lit, no pips — a pure
+  reference map. The countdown line still works (it is deck-timing driven, not
+  grouping driven).
+- **Placement is positional (option 1):** the *nth* grouped tanda occupies the
+  *nth* slot (mod pattern length), and its **actual type overwrites that slot's
+  letter**. The highlight follows the current tanda's slot. Correct when the DJ
+  builds in pattern order; the anchor menu corrects drift.
+- **Longer than one cycle:** the strip is one cycle-window; the highlight wraps by
+  modulo.
+- **Loose tracks, performance tracks and cortinas do not consume slots.** The
+  ordinal count walks real tandas (spans) only, exactly as the resolver does now.
+  Their effect is *drift*: a performance track standing in for, say, the second T
+  pushes the next tanda onto a contradicting slot — which lights the mismatch
+  mark, and the DJ resyncs with "Set flow position".
+
+### Mismatch mark — trailing red `!` (settled)
+
+A single red `!` at the **end of the strip** signals that the real flow has
+diverged from the ideal, prompting a re-anchor. Rule:
+
+- Compare **only occupied slots** in the current cycle-window against the ideal.
+  A slot is occupied only when a real tanda maps to it.
+- `!` fires when an occupied slot's type **contradicts** the ideal there.
+- **Incompleteness never trips it.** Empty / not-yet-built slots are ignored, so a
+  partial prefix (`T`, `TT` against `TTVTTM`) shows no `!`. Building the list one
+  tanda at a time is the normal case and must stay quiet.
+- **Stateless — option (a).** The `!` reflects the current overlay each moment.
+  Anchoring to a correct slot clears it; an intentional deviation (`TTVTTT`)
+  leaves it quietly lit. No "acknowledge" state in v1 (option (b) deferred).
+- Ships as one numeric control `hud_flow_mismatch` (0/1), computed in the resolver
+  (part of the type-aware step) and painted by the HUD.
+
+```
+ideal:   T  T  V  T  T  M
+strip:   T [V] V  T  T  M   !     ← occupied slot 2 (V) contradicts ideal (T)
+partial: T [T]                    ← T or TT: matches, no !
+```
+
+### Flow-strip data channel (settled)
+
+The HUD is decoupled from the processor through numeric `ControlObject`s and is
+built by the skin parser with the default constructor, so a pattern *string*
+cannot cross to it cleanly. Resolve the whole strip in C++ and feed the HUD
+pre-digested slots; the widget only draws letters. New `[AutoDJ]` controls:
+
+- `hud_flow_len` — active pattern length.
+- `hud_flow_highlight` — current slot index, or -1.
+- `hud_flow_slot_0` .. `hud_flow_slot_7` — type per slot (0=T,1=V,2=M,3=N;
+  -1 = empty / show ideal default dimmed).
+- `hud_flow_mismatch` — the trailing `!` flag.
+
+Cap of 8 slots (a milonga cycle is ~6). This makes the configurable pattern, the
+type overlay and the anchor all "compute the slots differently in C++" with no
+string over controls and no config pointer plumbed into the widget. The HUD stops
+hard-coding `kFlowPattern` entirely.
+
 ### Build order for the flow work
 
-1. Configurable TTVTTM pattern in Preferences (foundation / expected default).
-2. Type-aware flow: publish per-tanda types; strip shows actual types, deviations
-   included (fixes the end-of-milonga TTVTTT case and the type-change no-op).
-3. "Set flow position" tanda menu (items generated from #1; anchors the flow).
-4. 30 s red flash (independent of the above).
+1. **Foundation + configurable pattern.** Add the `hud_flow_*` slot channel; add
+   the `[Auto DJ],TandaFlowPattern` preference (default `TTVTTM`, validated to
+   T/V/M/N, length 1-8) with a field in `dlgprefautodjdlg.ui`; the resolver reads
+   the pattern and publishes slots; the HUD renders from slots. (Expected default.)
+2. **Type-aware flow + mismatch `!`.** Overlay each tanda's actual type onto its
+   positional slot; compute `hud_flow_mismatch` per the rule above. Fixes the
+   end-of-milonga `TTVTTT` case and the type-change no-op.
+3. **"Set flow position" tanda menu** (items generated from #1; session-only
+   `tandaId -> slot` anchor; resolver rebases). Anchors the flow / clears drift.
+4. **30 s red flash** (independent of the above).
 
 ### Related decision — remove the Tango "mode"
 

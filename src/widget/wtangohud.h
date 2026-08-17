@@ -31,9 +31,21 @@ class WTangoHud : public WWidget {
     // clips (used by sizeHint()).
     int contentWidth() const;
 
+    // The flow strip's letters, one per active slot, from the hud_flow_* controls
+    // (empty/unknown slots become spaces). Length is the active pattern length.
+    QString flowLetters() const;
+
+    // Must match kHudFlowMaxSlots in autodjprocessor.cpp.
+    static constexpr int kMaxFlowSlots = 8;
+
     ControlProxy* m_pCountdownSeconds;
     ControlProxy* m_pNextKind;
     ControlProxy* m_pTandaTrackCount;
     ControlProxy* m_pTandaPlayingIndex;
-    ControlProxy* m_pFlowIndex;
+    // Resolved flow strip published by AutoDJProcessor: length, highlighted slot,
+    // per-slot type (0=T,1=V,2=M,3=N; -1 = empty), and the trailing "!" flag.
+    ControlProxy* m_pFlowLen;
+    ControlProxy* m_pFlowHighlight;
+    ControlProxy* m_pFlowMismatch;
+    ControlProxy* m_pFlowSlots[kMaxFlowSlots];
 };

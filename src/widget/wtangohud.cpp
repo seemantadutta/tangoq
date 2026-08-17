@@ -21,11 +21,24 @@ constexpr int kPixelSize = 14;
 constexpr int kSidePadding = 20;
 constexpr int kCountdownGap = 6;
 
-// The idealized milonga flow. v1 hard-codes this; a configurable pattern in
-// Preferences is the next step.
-const QString kFlowPattern = QStringLiteral("TTVTTM");
-
 const QString kGroup = QStringLiteral("[AutoDJ]");
+
+// Maps a slot type code (0=T,1=V,2=M,3=N) to its flow letter. Unknown/empty
+// slots render as a space so the strip keeps its shape.
+QChar flowLetterForType(int type) {
+    switch (type) {
+    case 0:
+        return QLatin1Char('T');
+    case 1:
+        return QLatin1Char('V');
+    case 2:
+        return QLatin1Char('M');
+    case 3:
+        return QLatin1Char('N');
+    default:
+        return QLatin1Char(' ');
+    }
+}
 
 QString formatCountdown(double seconds) {
     if (seconds < 0.0) {
@@ -86,17 +99,21 @@ QFont hudFont(const QFont& base) {
 
 WTangoHud::WTangoHud(QWidget* pParent)
         : WWidget(pParent) {
-    const auto makeProxy = [this](const char* key) {
-        auto* pProxy = new ControlProxy(
-                ConfigKey(kGroup, QString::fromLatin1(key)), this);
+    const auto makeProxy = [this](const QString& key) {
+        auto* pProxy = new ControlProxy(ConfigKey(kGroup, key), this);
         pProxy->connectValueChanged(this, &WTangoHud::slotControlChanged);
         return pProxy;
     };
-    m_pCountdownSeconds = makeProxy("hud_countdown_seconds");
-    m_pNextKind = makeProxy("hud_next_kind");
-    m_pTandaTrackCount = makeProxy("hud_tanda_track_count");
-    m_pTandaPlayingIndex = makeProxy("hud_tanda_playing_index");
-    m_pFlowIndex = makeProxy("hud_flow_index");
+    m_pCountdownSeconds = makeProxy(QStringLiteral("hud_countdown_seconds"));
+    m_pNextKind = makeProxy(QStringLiteral("hud_next_kind"));
+    m_pTandaTrackCount = makeProxy(QStringLiteral("hud_tanda_track_count"));
+    m_pTandaPlayingIndex = makeProxy(QStringLiteral("hud_tanda_playing_index"));
+    m_pFlowLen = makeProxy(QStringLiteral("hud_flow_len"));
+    m_pFlowHighlight = makeProxy(QStringLiteral("hud_flow_highlight"));
+    m_pFlowMismatch = makeProxy(QStringLiteral("hud_flow_mismatch"));
+    for (int i = 0; i < kMaxFlowSlots; ++i) {
+        m_pFlowSlots[i] = makeProxy(QStringLiteral("hud_flow_slot_%1").arg(i));
+    }
 }
 
 void WTangoHud::setup(const QDomNode& node, const SkinContext& context) {
@@ -114,6 +131,17 @@ void WTangoHud::slotControlChanged(double value) {
     update();
 }
 
+QString WTangoHud::flowLetters() const {
+    int len = static_cast<int>(m_pFlowLen->get());
+    len = qBound(0, len, kMaxFlowSlots);
+    QString letters;
+    letters.reserve(len);
+    for (int i = 0; i < len; ++i) {
+        letters.append(flowLetterForType(static_cast<int>(m_pFlowSlots[i]->get())));
+    }
+    return letters;
+}
+
 int WTangoHud::contentWidth() const {
     const QFontMetrics fm(hudFont(font()));
 
@@ -122,13 +150,18 @@ int WTangoHud::contentWidth() const {
             countdownLabelWidth(fm) + kCountdownGap + countdownTimeWidth(fm);
 
     // Row 2: flow letters + pips.
+    const QString flow = flowLetters();
     const int letterGap = fm.horizontalAdvance(QChar(' '));
     int flowWidth = 0;
-    for (int i = 0; i < kFlowPattern.size(); ++i) {
-        flowWidth += fm.horizontalAdvance(kFlowPattern.at(i));
-        if (i != kFlowPattern.size() - 1) {
+    for (int i = 0; i < flow.size(); ++i) {
+        flowWidth += fm.horizontalAdvance(flow.at(i));
+        if (i != flow.size() - 1) {
             flowWidth += letterGap;
         }
+    }
+    // The trailing "!" (shown when the real flow diverges) needs room too.
+    if (m_pFlowMismatch->toBool() && !flow.isEmpty()) {
+        flowWidth += letterGap + fm.horizontalAdvance(QLatin1Char('!'));
     }
     const int trackCount = static_cast<int>(m_pTandaTrackCount->get());
     const int pipD = mixxx::kTandaProgressPipDiameter;
@@ -160,7 +193,6 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     const int nextKind = static_cast<int>(m_pNextKind->get());
     const int trackCount = static_cast<int>(m_pTandaTrackCount->get());
     const int playingIndex = static_cast<int>(m_pTandaPlayingIndex->get());
-    const int flowIndex = static_cast<int>(m_pFlowIndex->get());
     // playingIndex < 0 with a track count means "previewing the upcoming tanda"
     // (a cortina/loose track is active): pips are drawn dimmed.
     const bool preview = playingIndex < 0 && trackCount > 0;
@@ -186,16 +218,21 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     // --- Row 2: T/V/M flow (current red) + track pips --------------------
     const QFontMetrics fm(f);
     const int letterGap = fm.horizontalAdvance(QChar(' '));
-    const int flowLen = kFlowPattern.size();
-    const int highlight = flowIndex >= 0 && flowLen > 0 ? flowIndex % flowLen : -1;
+    const QString flow = flowLetters();
+    const int flowLen = flow.size();
+    const int highlight = static_cast<int>(m_pFlowHighlight->get());
+    const bool mismatch = m_pFlowMismatch->toBool() && flowLen > 0;
+    const int bangAdvance = fm.horizontalAdvance(QLatin1Char('!'));
 
-    int flowWidth = 0;
+    int lettersWidth = 0;
     for (int i = 0; i < flowLen; ++i) {
-        flowWidth += fm.horizontalAdvance(kFlowPattern.at(i));
+        lettersWidth += fm.horizontalAdvance(flow.at(i));
         if (i != flowLen - 1) {
-            flowWidth += letterGap;
+            lettersWidth += letterGap;
         }
     }
+    const int flowWidth =
+            lettersWidth + (mismatch ? letterGap + bangAdvance : 0);
 
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
@@ -211,12 +248,19 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     int x = startX;
     for (int i = 0; i < flowLen; ++i) {
         p.setPen(i == highlight ? kColorAccent : kColorDim);
-        const QChar ch = kFlowPattern.at(i);
+        const QChar ch = flow.at(i);
         const int advance = fm.horizontalAdvance(ch);
         p.drawText(QRect(x, row2Top, advance, rowH),
                 Qt::AlignVCenter | Qt::AlignHCenter,
                 QString(ch));
         x += advance + letterGap;
+    }
+    // Trailing "!" when the grouped tandas diverge from the ideal pattern.
+    if (mismatch) {
+        p.setPen(kColorAccent);
+        p.drawText(QRect(x, row2Top, bangAdvance, rowH),
+                Qt::AlignVCenter | Qt::AlignHCenter,
+                QStringLiteral("!"));
     }
 
     // Track pips for the current (or, when previewing, the upcoming) tanda.
