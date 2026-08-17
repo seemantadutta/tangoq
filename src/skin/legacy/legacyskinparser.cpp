@@ -74,6 +74,7 @@
 #include "widget/wsplitter.h"
 #include "widget/wstarrating.h"
 #include "widget/wstatuslight.h"
+#include "widget/wtangohud.h"
 #include "widget/wtime.h"
 #include "widget/wtrackproperty.h"
 #include "widget/wtrackwidgetgroup.h"
@@ -550,6 +551,8 @@ QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
         result = wrapWidget(parseVuMeter(node));
     } else if (nodeName == "StatusLight") {
         result = wrapWidget(parseStandardWidget<WStatusLight>(node));
+    } else if (nodeName == "TangoHud") {
+        result = wrapWidget(parseStandardWidget<WTangoHud>(node));
     } else if (nodeName == "Display") {
         result = wrapWidget(parseStandardWidget<WDisplay>(node));
     } else if (nodeName == "BeatSpinBox") {

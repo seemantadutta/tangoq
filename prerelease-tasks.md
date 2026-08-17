@@ -388,3 +388,66 @@ the better way while in there.
 - **User documentation.** Still unwritten. The vocabulary is now small — cortina,
   pause mark, display name, LIVE mode, Set End Time — so this is a page, not a
   manual.
+
+## 5. Tango HUD — toolbar heads-up display
+
+Fill the empty toolbar band (the `me,min` expand spacer in `toolbar.xml`,
+between the left mode toggles and the right clock/REC/SETTINGS cluster) with an
+at-a-glance orientation display for the milonga DJ. Read-only: it reflects Auto
+DJ / Tango state and never touches transition logic.
+
+### Decided
+
+- **Countdown — one switching line.** A single line that counts down to the next
+  transition and relabels itself by what comes next: `Next track in mm:ss` when
+  the upcoming queue item is a normal track, `Cortina in mm:ss` when it is a
+  cortina. Not two lines.
+- **Tanda sequence — idealized, configurable pattern.** Render a configured
+  template (e.g. `T,T,V,T,T,M`) as the "map" and highlight the current position.
+  Do **not** derive the real sequence from the queue in v1 — that needs reliably
+  tagged tracks. Deriving the actual sequence from a tagged library (or scanning
+  track data to infer it) is a **v2** idea.
+- **Configurable in Preferences.** The expected pattern lives in a new preference,
+  backed by a config key the HUD reads.
+- **Countdown flashes red in the final 30 s.** During the last 30 seconds of the
+  active countdown (track or cortina) the countdown text flashes red. If the
+  cortina is shorter than 30 s it flashes for its whole duration; the same rule
+  applies to a track, and the code must handle a track shorter than 30 s even
+  though that is unusual. Live-stage behaviour.
+- **Pips match the Auto DJ list.** Track-in-tanda pips reuse the list's look:
+  8 px discs, 5 px gaps, three states (played = filled, playing = left-half pie,
+  unplayed = outline), rendered red to tie them to the current (red) tanda. The
+  live widget should share `drawProgressPip` with `wtandaqueueview.cpp`.
+- **Layout — centered first.** Center the HUD content in the spacer region and
+  test it before finalizing. Accept that adding widgets later may nudge things;
+  revisit left/right anchoring (which is reflow-safe) only if centering proves
+  jarring.
+- **Gating.** Shown under `[AutoDJ],keep_queue` (Tango). Once the mode default is
+  flipped on (see below), that simply means "always shown".
+
+### Staging
+
+1. **Countdown line** — prove the centered container + the C++→skin data bridge
+   with the single switching countdown. Lowest risk.
+2. **Tanda pips** — a row rendering the configured T/V/M pattern, current tanda
+   highlighted.
+3. **Track-in-tanda pips** — played / current / remaining, mirroring the Auto DJ
+   list's tanda indicators.
+
+### Open / to settle at implementation
+
+- **Display-binding mechanism.** Legacy skins bind numeric controls, not strings.
+  Decide between exposing numeric `ControlObject`s (seconds + `next_is_cortina`)
+  that the skin formats, vs. a small custom toolbar label widget the processor
+  updates directly. Settle this as the first implementation step of Stage 1.
+- **"Cortina in" definition.** Whether it counts only the current track's remain,
+  or the current track plus the full remaining tango tracks up to the cortina.
+
+### Related decision — remove the Tango "mode"
+
+Make the app Tango-by-default with no user-visible mode. Recommended path is
+**(B) flip the `keep_queue` default on and hide the toggle, keeping the internal
+gates** — reversible, upstream-mergeable, and preserves a hidden dev switch for
+stock-parity checks — rather than **(A)** ripping out all 56 `keep_queue` gates.
+Decoupled from the HUD. If adopted, update the "stock byte-for-byte with Tango
+off" invariant in `CLAUDE.md`. **Pending: A vs B.**

@@ -120,6 +120,19 @@
 
       <WidgetGroup><Size>me,min</Size></WidgetGroup>
 
+      <!-- Tango HUD: centered heads-up display, painted by WTangoHud so it
+           stays crisp at any DPI. Visible only in Tango mode. -->
+      <TangoHud>
+        <ObjectName>TangoHud</ObjectName>
+        <Size>240f,34f</Size>
+        <Connection>
+          <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </TangoHud>
+
+      <WidgetGroup><Size>me,min</Size></WidgetGroup>
+
       <StatusLight>
         <TooltipId>autodj_status</TooltipId>
         <ObjectName>AutoDjStatus</ObjectName>
