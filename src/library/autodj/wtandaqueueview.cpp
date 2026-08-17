@@ -89,6 +89,7 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
           m_pTandaSeparator(new QAction(this)),
           m_pToggleCollapsedAction(new QAction(this)),
           m_pUngroupAction(new QAction(tr("Unmake Tanda"), this)),
+          m_pRemoveAction(new QAction(tr("Remove"), this)),
           m_pMoveUpAction(new QAction(tr("Move tanda up"), this)),
           m_pMoveDownAction(new QAction(tr("Move tanda down"), this)) {
     m_pauseBlinkTimer.setInterval(500);
@@ -139,6 +140,9 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
         if (!m_contextTandaId.isNull()) {
             m_pAutoDJFeature->ungroupTanda(m_contextTandaId);
         }
+    });
+    connect(m_pRemoveAction, &QAction::triggered, this, [this] {
+        removeSelectedTracks();
     });
     connect(m_pMoveUpAction, &QAction::triggered, this, [this] {
         moveContextTanda(true);
@@ -285,8 +289,12 @@ void WTandaQueueView::keyPressEvent(QKeyEvent* pEvent) {
             return;
         }
         if (pEvent->matches(QKeySequence::Delete) ||
-                pEvent->key() == Qt::Key_Backspace ||
-                pEvent->matches(QKeySequence::Cut) ||
+                pEvent->key() == Qt::Key_Backspace) {
+            removeSelectedTracks();
+            pEvent->accept();
+            return;
+        }
+        if (pEvent->matches(QKeySequence::Cut) ||
                 pEvent->matches(QKeySequence::Copy)) {
             pEvent->accept();
             return;
@@ -527,6 +535,8 @@ void WTandaQueueView::setContextTanda(const QUuid& id) {
     const bool collapsed = pSpan && pSpan->collapsed;
     m_pToggleCollapsedAction->setText(
             collapsed ? tr("Expand tanda") : tr("Collapse tanda"));
+    TandaQueueModel* pModel = tandaModel();
+    m_pRemoveAction->setEnabled(pModel && !pModel->isLocked());
     m_pMoveUpAction->setEnabled(pSpan && pSpan->anchorPosition > 1);
     m_pMoveDownAction->setEnabled(pSpan &&
             pSpan->anchorPosition + pSpan->members.size() - 1 <
@@ -596,6 +606,7 @@ void WTandaQueueView::showTandaHeaderMenu(
     menu.addAction(m_pToggleCollapsedAction);
     menu.addMenu(m_pChangeTandaTypeMenu);
     menu.addAction(m_pUngroupAction);
+    menu.addAction(m_pRemoveAction);
     menu.addSeparator();
     menu.addAction(m_pMoveUpAction);
     menu.addAction(m_pMoveDownAction);

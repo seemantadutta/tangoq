@@ -27,8 +27,12 @@ class WTangoHud : public WWidget {
     void slotControlChanged(double value);
 
   private:
+    // Width the current content needs, so the widget sizes to fit and never
+    // clips (used by sizeHint()).
+    int contentWidth() const;
+
     ControlProxy* m_pCountdownSeconds;
-    ControlProxy* m_pNextIsCortina;
+    ControlProxy* m_pNextKind;
     ControlProxy* m_pTandaTrackCount;
     ControlProxy* m_pTandaPlayingIndex;
     ControlProxy* m_pFlowIndex;

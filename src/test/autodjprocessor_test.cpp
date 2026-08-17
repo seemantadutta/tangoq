@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <QMetaObject>
 #include <QScopedPointer>
 #include <QString>
 
@@ -452,6 +453,7 @@ TEST_F(AutoDJProcessorTest, TandaTransition_ZeroGapStartsIncomingAtStartMarker) 
     deck1.fakeTrackLoadedEvent(pTrack);
 
     PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->setShowCortinaMarks(true);
     pAutoDJTableModel->appendTrack(testId);
     pAutoDJTableModel->appendTrack(testId);
 
@@ -682,6 +684,7 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     deck1.play.set(0.0);
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
     EXPECT_TRUE(pAutoDJTableModel->isActivePauseAfterRow(0));
+    EXPECT_DOUBLE_EQ(3.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_next_kind")));
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
@@ -739,7 +742,7 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
     EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
 
-    deck2.playposition.set(0.4);
+    deck2.playposition.set(0.2);
     EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
 
     // Only when that last track actually finishes does Auto DJ stop.
@@ -748,6 +751,47 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     deck2.playposition.set(1.0);
     deck2.play.set(0.0);
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+}
+
+TEST_F(AutoDJProcessorTest, EndOfQueue_ManualPauseDoesNotStopAutoDJ) {
+    // The final track can be paused and resumed by the DJ any number of times.
+    // That must not be mistaken for the automatic end-of-set stop; only a real
+    // end position should spend the pending stop and disable Auto DJ.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack(testId);
+    pTrack->setDuration(100);
+    deck2.slotLoadTrack(pTrack, false);
+    deck2.fakeTrackLoadedEvent(pTrack);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+    EXPECT_TRUE(ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0);
+    EXPECT_TRUE(deck2.play.toBool());
+
+    ::testing::Mock::VerifyAndClearExpectations(pProcessor.get());
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(_)).Times(::testing::AnyNumber());
+
+    deck2.playposition.set(0.2);
+    for (int i = 0; i < 3; ++i) {
+        deck2.play.set(0.0);
+        EXPECT_NE(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+        EXPECT_TRUE(ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0);
+        deck2.play.set(1.0);
+        EXPECT_TRUE(ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0);
+    }
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
 TEST_F(AutoDJProcessorTest, EndOfQueue_ResumesWhenTracksAreAppended) {
@@ -1022,7 +1066,27 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_LastCortinaKeepsFading) {
     EXPECT_FALSE(deck2.play.toBool());
     EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
 
+    ASSERT_TRUE(QMetaObject::invokeMethod(
+            pProcessor.get(), "slotCortinaGapElapsed", Qt::DirectConnection));
+    EXPECT_TRUE(deck2.play.toBool());
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    ::testing::Mock::VerifyAndClearExpectations(pProcessor.get());
+    deck1.fakeUnloadingTrackEvent(pTanda);
+
+    // Once the final cortina has completed its audible window and after-gap,
+    // there is no next tanda track to start, so Auto DJ should end the set.
+    deck2.playposition.set(1.0);
+    EXPECT_FALSE(deck2.play.toBool());
+    EXPECT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    ASSERT_TRUE(QMetaObject::invokeMethod(
+            pProcessor.get(), "slotCortinaGapElapsed", Qt::DirectConnection));
+    EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
     CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
 TEST_F(AutoDJProcessorTest, FullIntroOutro_LongerOutro) {

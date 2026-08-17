@@ -101,6 +101,9 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     bool isActivePauseAfterRow(int row) const {
         return row >= 0 && row == m_activePauseAfterRow;
     }
+    bool hasActivePauseAfterRow() const {
+        return m_activePauseAfterRow >= 0;
+    }
 
   signals:
     /// The set of pause-after rows changed: repaint, and re-read it.

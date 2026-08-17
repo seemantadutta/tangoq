@@ -752,7 +752,8 @@ void WTrackTableView::paintEvent(QPaintEvent* pEvent) {
     pen.setWidth(2);
     painter.setPen(pen);
     for (int row = firstRow; row <= lastRow; ++row) {
-        if (!pTableModel->isPauseAfterRow(row)) {
+        if (!pTableModel->isPauseAfterRow(row) &&
+                !pTableModel->isActivePauseAfterRow(row)) {
             continue;
         }
         // Ask the view for the row's geometry directly rather than going through

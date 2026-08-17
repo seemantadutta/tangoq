@@ -124,7 +124,7 @@
            stays crisp at any DPI. Visible only in Tango mode. -->
       <TangoHud>
         <ObjectName>TangoHud</ObjectName>
-        <Size>240f,34f</Size>
+        <SizePolicy>min,min</SizePolicy>
         <Connection>
           <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
           <BindProperty>visible</BindProperty>

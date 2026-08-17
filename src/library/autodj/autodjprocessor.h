@@ -625,7 +625,10 @@ class AutoDJProcessor : public QObject {
     // the WTangoHud widget subscribes to. The 1 Hz m_hudTimer sets the timing
     // pair; TandaQueueModel sets the tanda trio via setHudTandaState().
     ControlObject m_hudCountdownSeconds;
-    ControlObject m_hudNextIsCortina;
+    // What the countdown is counting down to: 0 = a normal track, 1 = a cortina,
+    // 2 = the end of the set. Drives the HUD label (Next track / Cortina / Set
+    // ends in).
+    ControlObject m_hudNextKind;
     ControlObject m_hudTandaTrackCount;
     ControlObject m_hudTandaPlayingIndex;
     ControlObject m_hudFlowIndex;

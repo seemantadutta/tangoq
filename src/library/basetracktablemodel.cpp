@@ -809,7 +809,7 @@ QVariant BaseTrackTableModel::data(
         if (!startTimeMark.isEmpty()) {
             marks << startTimeMark;
         }
-        if (isPauseAfterRow(index.row())) {
+        if (isPauseAfterRow(index.row()) || isActivePauseAfterRow(index.row())) {
             marks << QStringLiteral("PAUSE AFTER");
         }
         // A display name stands in for the title when the DJ has given the

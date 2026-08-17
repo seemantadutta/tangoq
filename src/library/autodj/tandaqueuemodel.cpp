@@ -6,6 +6,8 @@
 #include <QSet>
 #include <QSqlDatabase>
 
+#include <algorithm>
+
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/dao/trackschema.h"
@@ -243,13 +245,40 @@ QString TandaQueueModel::tandaProgressStatesForRow(int proxyRow) const {
 
 QModelIndexList TandaQueueModel::mapSelectionToSource(
         const QModelIndexList& indices) const {
-    QModelIndexList sourceIndices;
-    sourceIndices.reserve(indices.size());
+    QSet<int> sourceRows;
     for (const QModelIndex& index : indices) {
-        const QModelIndex sourceIndex = mapToSource(index);
-        if (sourceIndex.isValid()) {
-            sourceIndices.append(sourceIndex);
+        const VisibleRow* pRow = visibleRow(index.row());
+        if (!pRow || !index.isValid()) {
+            continue;
         }
+        if (pRow->kind == RowKind::Track) {
+            if (pRow->sourceRow >= 0) {
+                sourceRows.insert(pRow->sourceRow);
+            }
+            continue;
+        }
+        const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
+        if (!pSpan) {
+            continue;
+        }
+        for (int offset = 0; offset < pSpan->members.size(); ++offset) {
+            const int sourceRow = pSpan->anchorPosition - 1 + offset;
+            if (sourceRow >= 0 && sourceRow < m_pPlaylistModel->rowCount()) {
+                sourceRows.insert(sourceRow);
+            }
+        }
+    }
+    QVector<int> sortedRows;
+    sortedRows.reserve(sourceRows.size());
+    for (int sourceRow : sourceRows) {
+        sortedRows.append(sourceRow);
+    }
+    std::sort(sortedRows.begin(), sortedRows.end());
+
+    QModelIndexList sourceIndices;
+    sourceIndices.reserve(sortedRows.size());
+    for (int sourceRow : sortedRows) {
+        sourceIndices.append(m_pPlaylistModel->index(sourceRow, 0));
     }
     return sourceIndices;
 }
@@ -501,26 +530,48 @@ void TandaQueueModel::publishHudTandaState() {
     }
     const int activePosition = m_pProcessor->activeKeepQueuePosition(); // 1-based
     int trackCount = 0;
-    int playingIndex = -1;
+    int playingIndex = -1; // -1 also means "preview" (dimmed) to the HUD
     int flowIndex = -1;
     if (activePosition > 0) {
-        const TandaSpan* pActive = m_pState->spanAtPosition(activePosition);
+        // Walk the tanda spans in order once, tracking their ordinal. Find the
+        // span that contains the active position (a tanda is playing), else the
+        // first span after it (a cortina or loose track is active - preview the
+        // upcoming tanda dimmed).
+        const TandaSpan* pActive = nullptr;
+        const TandaSpan* pUpcoming = nullptr;
+        int activeOrdinal = -1;
+        int upcomingOrdinal = -1;
+        int ordinal = 0;
+        int pos = 1;
+        const int rowCount = m_pPlaylistModel->rowCount();
+        while (pos <= rowCount) {
+            const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
+            if (pSpan && pSpan->anchorPosition == pos) {
+                const int spanEnd = pSpan->anchorPosition + pSpan->members.size();
+                if (activePosition >= pSpan->anchorPosition &&
+                        activePosition < spanEnd) {
+                    pActive = pSpan;
+                    activeOrdinal = ordinal;
+                } else if (!pUpcoming && pSpan->anchorPosition > activePosition) {
+                    pUpcoming = pSpan;
+                    upcomingOrdinal = ordinal;
+                }
+                ++ordinal;
+                pos += pSpan->members.size();
+            } else {
+                ++pos;
+            }
+        }
         if (pActive) {
             trackCount = pActive->members.size();
             playingIndex = activePosition - pActive->anchorPosition; // 0-based
-            // Ordinal of the active tanda among all tandas in the set, so the HUD
-            // can map it onto the configured T/V/M flow pattern.
-            flowIndex = 0;
-            int pos = 1;
-            while (pos < pActive->anchorPosition) {
-                const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
-                if (pSpan && pSpan->anchorPosition == pos) {
-                    ++flowIndex;
-                    pos += pSpan->members.size();
-                } else {
-                    ++pos;
-                }
-            }
+            flowIndex = activeOrdinal;
+        } else if (pUpcoming) {
+            // Preview the coming tanda: full track count, nothing playing yet
+            // (playingIndex -1 -> dimmed), flow highlight advanced to it.
+            trackCount = pUpcoming->members.size();
+            playingIndex = -1;
+            flowIndex = upcomingOrdinal;
         }
     }
     m_pProcessor->setHudTandaState(trackCount, playingIndex, flowIndex);

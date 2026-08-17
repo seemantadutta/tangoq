@@ -302,3 +302,80 @@ TEST_F(TandaQueueDaoTest, OutlineMapsHeadersLeavesAndSharedCollapseState) {
     EXPECT_EQ(5, first.rowCount());
     EXPECT_EQ(1, first.mapToSource(first.index(2, 0)).row());
 }
+
+TEST_F(TandaQueueDaoTest, RemoveHeaderExpandsToTandaMembers) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId c = addTrack(QStringLiteral("cover-test-png.mp3"));
+    const TrackId d = addTrack(QStringLiteral("cover-test-vbr.mp3"));
+    const TrackId e = addTrack(QStringLiteral("empty.mp3"));
+    ASSERT_TRUE(a.isValid());
+    ASSERT_TRUE(b.isValid());
+    ASSERT_TRUE(c.isValid());
+    ASSERT_TRUE(d.isValid());
+    ASSERT_TRUE(e.isValid());
+
+    const int collapsedPlaylistId =
+            dao.createPlaylist(QStringLiteral("Tanda header remove collapsed"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(collapsedPlaylistId, 0);
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c, d, e}, collapsedPlaylistId));
+
+    PlaylistTableModel collapsedSource(
+            nullptr, trackCollectionManager(), "tanda_remove_collapsed_test");
+    collapsedSource.selectPlaylist(collapsedPlaylistId);
+    collapsedSource.select();
+    ASSERT_EQ(5, collapsedSource.rowCount());
+
+    TandaQueueState collapsedState{UserSettingsPointer()};
+    collapsedState.restore({a, b, c, d, e});
+    const QUuid collapsedTanda =
+            collapsedState.classify({2, 3, 4}, TandaType::Tango);
+    ASSERT_FALSE(collapsedTanda.isNull());
+    ASSERT_TRUE(collapsedState.spanById(collapsedTanda)->collapsed);
+    collapsedSource.setTandaQueueState(&collapsedState);
+
+    TandaQueueModel collapsedModel(&collapsedSource, &collapsedState);
+    ASSERT_EQ(3, collapsedModel.rowCount());
+    ASSERT_TRUE(collapsedModel.isHeaderRow(1));
+
+    collapsedModel.removeTracks({collapsedModel.index(1, 0)});
+    EXPECT_EQ(QVector<TrackId>({a, e}),
+            dao.getTrackIdsInPlaylistOrder(collapsedPlaylistId));
+    EXPECT_TRUE(collapsedState.spans().isEmpty());
+
+    const int expandedPlaylistId =
+            dao.createPlaylist(QStringLiteral("Tanda header remove expanded"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(expandedPlaylistId, 0);
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c, d, e}, expandedPlaylistId));
+
+    PlaylistTableModel expandedSource(
+            nullptr, trackCollectionManager(), "tanda_remove_expanded_test");
+    expandedSource.selectPlaylist(expandedPlaylistId);
+    expandedSource.select();
+    ASSERT_EQ(5, expandedSource.rowCount());
+
+    TandaQueueState expandedState{UserSettingsPointer()};
+    expandedState.restore({a, b, c, d, e});
+    const QUuid expandedTanda =
+            expandedState.classify({2, 3, 4}, TandaType::Vals);
+    ASSERT_FALSE(expandedTanda.isNull());
+    ASSERT_TRUE(expandedState.setCollapsed(expandedTanda, false));
+    expandedSource.setTandaQueueState(&expandedState);
+
+    TandaQueueModel expandedModel(&expandedSource, &expandedState);
+    ASSERT_EQ(6, expandedModel.rowCount());
+    ASSERT_TRUE(expandedModel.isHeaderRow(1));
+    EXPECT_EQ(1, expandedModel.mapToSource(expandedModel.index(2, 0)).row());
+
+    // Selecting both a header and one of its children should still remove each
+    // source row only once.
+    expandedModel.removeTracks(
+            {expandedModel.index(1, 0), expandedModel.index(2, 0)});
+    EXPECT_EQ(QVector<TrackId>({a, e}),
+            dao.getTrackIdsInPlaylistOrder(expandedPlaylistId));
+    EXPECT_TRUE(expandedState.spans().isEmpty());
+}

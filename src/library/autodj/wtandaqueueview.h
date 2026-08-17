@@ -64,6 +64,7 @@ class WTandaQueueView final : public WTrackTableView {
     QAction* m_pTandaSeparator;
     QAction* m_pToggleCollapsedAction;
     QAction* m_pUngroupAction;
+    QAction* m_pRemoveAction;
     QAction* m_pMoveUpAction;
     QAction* m_pMoveDownAction;
     QUuid m_pressedHeaderTandaId;

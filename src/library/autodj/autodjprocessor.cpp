@@ -234,8 +234,8 @@ AutoDJProcessor::AutoDJProcessor(
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_hudCountdownSeconds(
                   ConfigKey(kControlGroup, QStringLiteral("hud_countdown_seconds"))),
-          m_hudNextIsCortina(
-                  ConfigKey(kControlGroup, QStringLiteral("hud_next_is_cortina"))),
+          m_hudNextKind(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_next_kind"))),
           m_hudTandaTrackCount(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_track_count"))),
           m_hudTandaPlayingIndex(
@@ -407,7 +407,7 @@ AutoDJProcessor::AutoDJProcessor(
     // the GUI thread, so it cannot affect audio. publishHudTiming() early-returns
     // unless Auto DJ is running in Tango mode.
     m_hudCountdownSeconds.set(-1.0);
-    m_hudNextIsCortina.set(0.0);
+    m_hudNextKind.set(0.0);
     m_hudTandaTrackCount.set(0.0);
     m_hudTandaPlayingIndex.set(-1.0);
     m_hudFlowIndex.set(-1.0);
@@ -710,6 +710,7 @@ bool AutoDJProcessor::fadePlayingCortinaNow() {
     }
     if (!canFadePlayingCortinaNow() || !pCortinaDeck) {
         qInfo().nospace() << "[CORTINA_FADE_NOW] reject reason=canFadeFalse";
+        publishHudTiming();
         return false;
     }
     const TrackPointer pCortina = pCortinaDeck->getLoadedTrack();
@@ -718,6 +719,7 @@ bool AutoDJProcessor::fadePlayingCortinaNow() {
         qInfo().nospace() << "[CORTINA_FADE_NOW] reject reason=trackOrDuration"
                           << " hasTrack=" << yesNo(static_cast<bool>(pCortina))
                           << " duration=" << duration;
+        publishHudTiming();
         return false;
     }
 
@@ -756,6 +758,7 @@ bool AutoDJProcessor::fadePlayingCortinaNow() {
                       << pCortinaDeck->autoDJFadeGain()
                       << " crossfaderAfter=" << getCrossfader()
                       << " deckPlaying=" << yesNo(pCortinaDeck->isPlaying());
+    publishHudTiming();
     return handled;
 }
 
@@ -1107,6 +1110,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             pDeck->disconnect(this);
         }
         emitAutoDJStateChanged(m_eState);
+        publishHudTiming();
     }
     return ADJ_OK;
 }
@@ -1118,6 +1122,9 @@ void AutoDJProcessor::controlEnableChangeRequest(double value) {
 void AutoDJProcessor::controlFadeNow(double value) {
     if (value > 0.0) {
         fadeNow();
+        // Fade Now transitions immediately; refresh the HUD now rather than
+        // waiting up to a second for the next timer tick.
+        publishHudTiming();
     }
 }
 
@@ -1710,17 +1717,44 @@ void AutoDJProcessor::disarmStopGuard() {
 void AutoDJProcessor::publishHudTiming() {
     if (!keepQueueEnabled() || m_eState == ADJ_DISABLED) {
         m_hudCountdownSeconds.set(-1.0);
-        m_hudNextIsCortina.set(0.0);
+        m_hudNextKind.set(keepQueueEnabled() &&
+                        m_pAutoDJTableModel &&
+                        m_pAutoDJTableModel->hasActivePauseAfterRow()
+                        ? 3.0
+                        : 0.0);
         return;
     }
-    // Countdown to the next transition. Cheap - the track is held by the deck.
+    // What comes next, so the label reads "Next track / Cortina / Set ends in".
+    // activeKeepQueuePosition() is 1-based; the next item sits at 0-based row ==
+    // activePosition.
+    bool hasNext = false;
+    const int activePosition = activeKeepQueuePosition();
+    if (activePosition > 0 && m_pAutoDJTableModel) {
+        TrackPointer pNext = m_pAutoDJTableModel->getTrack(
+                m_pAutoDJTableModel->index(activePosition, 0));
+        if (pNext) {
+            hasNext = true;
+            m_hudNextKind.set(isCortina(pNext) ? 1.0 : 0.0);
+        } else {
+            m_hudNextKind.set(2.0); // no next item: the set ends here
+        }
+    }
+    // When the active position can't be resolved (e.g. paused at the end) leave
+    // the last kind in place, so the label does not flip away from "Set ends in".
+
+    // Countdown to the moment the next track becomes audible, so "... in mm:ss"
+    // stays literally true. Cheap - all values are held by the decks/timers.
     double countdown = -1.0;
-    if (DeckAttributes* pCortinaDeck = playingCortinaDeck()) {
-        // A cortina does not transition at its file's natural end: it plays for
-        // its effective window, the cortina length clamped to the audible span
-        // (cl), governed by the fade envelope. Mirror the envelope's cl - elapsed
-        // so the countdown reaches 0 at the switch, not at the file's last sound.
-        // Keep this in sync with maybeHandleCortinaFade().
+    if (m_tandaGapTimer.isActive()) {
+        // In the silent gap between two tanda tracks: count the gap itself down.
+        countdown = m_tandaGapTimer.remainingTime() / 1000.0;
+    } else if (m_cortinaGapTimer.isActive()) {
+        countdown = m_cortinaGapTimer.remainingTime() / 1000.0;
+    } else if (DeckAttributes* pCortinaDeck = playingCortinaDeck()) {
+        // A cortina plays for its effective window (cortina length clamped to the
+        // audible span), governed by the fade envelope - not to the file's end.
+        // Mirror the envelope's cl - elapsed. Keep in sync with
+        // maybeHandleCortinaFade().
         const double duration = getEndSecond(pCortinaDeck);
         if (duration > 0.0) {
             const double envelopeStart =
@@ -1734,30 +1768,61 @@ void AutoDJProcessor::publishHudTiming() {
             const double elapsed =
                     pCortinaDeck->playPosition() * duration - envelopeStart;
             countdown = math_max(cl - elapsed, 0.0);
+            if (m_cortinaManualFadeOutStartSecond != kKeepPosition) {
+                const double manualFadeOutElapsed =
+                        pCortinaDeck->playPosition() * duration -
+                        m_cortinaManualFadeOutStartSecond;
+                const double manualFadeOutSeconds = math_min(
+                        static_cast<double>(m_cortinaFadeOutSeconds),
+                        math_max(getLastSoundSecond(pCortinaDeck) -
+                                        m_cortinaManualFadeOutStartSecond,
+                                0.0));
+                countdown = math_max(
+                        manualFadeOutSeconds - manualFadeOutElapsed,
+                        0.0);
+            }
+            // Plus the silent after-gap before the next tanda track starts.
+            if (hasNext) {
+                countdown += m_cortinaGapSeconds;
+            }
         }
-    } else if (DeckAttributes* pFromDeck = getFromDeck()) {
-        // Normal track: the unplayed remainder of the current (playing/paused)
-        // track.
-        TrackPointer pTrack = pFromDeck->getLoadedTrack();
-        const double pos = pFromDeck->playPosition();
-        if (pTrack && pos >= 0.0) {
-            countdown = keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
+    } else {
+        // The main track's remaining. Prefer the flagged from-deck, but fall back
+        // to any playing non-cortina deck so the last track - which has no
+        // transition pending and hence no from-deck - still shows a countdown.
+        // Paused decks show --:-- (a frozen number would mislead).
+        DeckAttributes* pDeck = getFromDeck();
+        if (!pDeck || !pDeck->isPlaying()) {
+            pDeck = nullptr;
+            for (const auto& pCandidate : m_decks) {
+                if (pCandidate && pCandidate->isPlaying() &&
+                        !isCortina(pCandidate->getLoadedTrack())) {
+                    pDeck = pCandidate.get();
+                    break;
+                }
+            }
+        }
+        if (pDeck && pDeck->isPlaying()) {
+            TrackPointer pTrack = pDeck->getLoadedTrack();
+            const double pos = pDeck->playPosition();
+            if (pTrack && pos >= 0.0) {
+                double remaining =
+                        keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
+                if (hasNext) {
+                    if (m_transitionMode == TransitionMode::TandaTransition) {
+                        // Hard cut, then a silent gap before the next item.
+                        remaining += m_tandaGapSeconds;
+                    } else {
+                        // Crossfade modes: the incoming becomes audible when the
+                        // crossfade starts, m_transitionTime before the end.
+                        remaining -= m_transitionTime;
+                    }
+                }
+                countdown = math_max(remaining, 0.0);
+            }
         }
     }
     m_hudCountdownSeconds.set(countdown);
-
-    // Is the next queue item a cortina? activeKeepQueuePosition() is 1-based, so
-    // the next item sits at 0-based row == activePosition.
-    bool nextIsCortina = false;
-    const int activePosition = activeKeepQueuePosition();
-    if (activePosition > 0 && m_pAutoDJTableModel) {
-        TrackPointer pNext = m_pAutoDJTableModel->getTrack(
-                m_pAutoDJTableModel->index(activePosition, 0));
-        if (pNext) {
-            nextIsCortina = isCortina(pNext);
-        }
-    }
-    m_hudNextIsCortina.set(nextIsCortina ? 1.0 : 0.0);
 }
 
 void AutoDJProcessor::setHudTandaState(int trackCount, int playingIndex, int flowIndex) {
@@ -2227,6 +2292,25 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
             cancelCortinaFade();
             return;
         }
+        // End-of-set check comes first, before the loading guard below. When the
+        // queue has no track after this cortina the set is over - even if a played
+        // track lingers on the other deck (keep-queue removes nothing on play). At
+        // end of set loadNextTrackFromQueue() ejects a null "end of Auto DJ" track
+        // onto the idle deck, which leaves it flagged loading forever; the loading
+        // guard would then re-arm the gap timer every 500ms and Auto DJ would never
+        // stop. Consult the authoritative cursor first so the set actually ends.
+        if (!getNextTrackFromQueue()) {
+            if (!pNextDeck->isPlaying()) {
+                // No next track and the DJ hasn't taken over: complete the set.
+                cancelCortinaFade();
+                m_bStopWhenLastTrackEnds = true;
+                toggleAutoDJ(false);
+                return;
+            }
+            // The DJ started a deck themselves: back off and let them drive.
+            cancelCortinaFade();
+            return;
+        }
         if (pNextDeck->loading) {
             // The next track is still loading (e.g. Auto DJ was only just
             // enabled): extend the gap slightly rather than stalling the set
@@ -2237,7 +2321,8 @@ void AutoDJProcessor::slotCortinaGapElapsed() {
         }
         const double nextDuration = getEndSecond(pNextDeck);
         if (pNextDeck->isPlaying() || nextDuration < kMinimumTrackDurationSec) {
-            // Already started by the DJ, or nothing playable is cued: back off.
+            // The queue has a next track but nothing playable is cued here (or the
+            // DJ started a deck): back off.
             cancelCortinaFade();
             return;
         }
@@ -2762,7 +2847,7 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
     // here would cancel the fade and strand the cortina in its silent lead-in.
     // The after-gap is not excluded: with nothing left to hand off to, ending
     // there is right and drops the now-pointless gap.
-    if (!playing && automaticStopPending() &&
+    if (!playing && thisDeck->playPosition() >= 1.0 && automaticStopPending() &&
             m_cortinaFadePhase != CortinaFadePhase::BeforeGap &&
             !anyDeckPlaying()) {
         // Left set deliberately: toggleAutoDJ() reads it to tell this automatic
@@ -3650,6 +3735,7 @@ void AutoDJProcessor::playerEmpty(DeckAttributes* pDeck) {
     if constexpr (sDebug) {
         qDebug() << this << "playerEmpty()" << pDeck->group;
     }
+    pDeck->loading = false;
 
     if (isTandaGapPending() &&
             (pDeck == m_pTandaFromDeck || pDeck == m_pTandaToDeck)) {

@@ -34,19 +34,5 @@
 
 
 # New bugs
-* seeking cortina in the deck stops auto DJ
-* Tanda transition should not be visible when not in tango mode, i.e. if I select tanda transition, should I not reset it back to skip silence or whatever mode it was before turning on tango mode?
-* Skip silence in tango mode off changes to tanda transition when tango mode is turned on
-* If I change the spin box value while auto DJ is running, the new value does not take between transitions.
+* Feature: Show and hide different parts in the toolbar like timing information
 
---
-* what is this new mark in the waveform?
-* when do you enable 'set start here'?
-
-
-
--
-
-
-* Show and hide different parts in the toolbar like timing information
-* In LIVE MODE clicking the waveform should be a NOP
