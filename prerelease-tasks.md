@@ -489,11 +489,28 @@ re-bases: `position = (tandaOrdinal - anchorOrdinal + anchorSlot) mod patternLen
   order and types all follow the Preferences pattern, nothing hard-coded. So
   this must land *after* the configurable-pattern prefs are wired.
 
+### Type-aware flow (confirmed)
+
+The flow strip must reflect what the DJ *actually* plays, not just an idealized
+template. Near the end of a milonga the DJ may deviate — e.g. `TTVTTT` instead of
+`TTVTTM` (a Tango where the Milonga would be). Decision (option 1): drive the
+strip from each tanda's **actual type**, which the DJ already sets with the
+existing "Change tanda type" menu. The configured pattern is the *expected*
+default; the assigned type overrides per tanda. So swapping the last M for a T
+sets that tanda's type to Tango and the strip shows `T T V T T T`.
+
+This also resolves the earlier observation that changing a tanda's type does
+nothing to the HUD — once the strip is type-aware, it updates immediately (the
+`spansChanged -> rebuild -> publish` path already fires). The current HUD publishes
+only a flow *ordinal*; type-aware flow needs the per-tanda type published too.
+
 ### Build order for the flow work
 
-1. Configurable TTVTTM pattern in Preferences (foundation).
-2. "Set flow position" tanda menu (items generated from #1; anchors the flow).
-3. 30 s red flash (independent of the above).
+1. Configurable TTVTTM pattern in Preferences (foundation / expected default).
+2. Type-aware flow: publish per-tanda types; strip shows actual types, deviations
+   included (fixes the end-of-milonga TTVTTT case and the type-change no-op).
+3. "Set flow position" tanda menu (items generated from #1; anchors the flow).
+4. 30 s red flash (independent of the above).
 
 ### Related decision — remove the Tango "mode"
 
