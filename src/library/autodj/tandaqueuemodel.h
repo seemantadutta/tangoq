@@ -130,6 +130,10 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     QString tandaTypeLabel(const QUuid& id) const;
     QString tandaSummary(const QUuid& id) const;
     QString tandaProgressStates(const TandaSpan& span) const;
+
+    // Computes the current tanda's state (track count, playing index, ordinal in
+    // the set) and pushes it to the processor for the toolbar HUD.
+    void publishHudTandaState();
     QString tandaDuration(const QUuid& id) const;
 
     PlaylistTableModel* const m_pPlaylistModel;

@@ -232,6 +232,16 @@ AutoDJProcessor::AutoDJProcessor(
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
+          m_hudCountdownSeconds(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_countdown_seconds"))),
+          m_hudNextIsCortina(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_next_is_cortina"))),
+          m_hudTandaTrackCount(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_tanda_track_count"))),
+          m_hudTandaPlayingIndex(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_tanda_playing_index"))),
+          m_hudFlowIndex(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_flow_index"))),
           m_stopGuardArmed(false),
           m_bStopWhenLastTrackEnds(false),
           m_bPauseAfterPending(false) {
@@ -392,6 +402,21 @@ AutoDJProcessor::AutoDJProcessor(
             &QTimer::timeout,
             this,
             &AutoDJProcessor::slotTandaGapProgress);
+
+    // 1 Hz publisher for the Tango HUD countdown. Cheap (no DB reads) and runs on
+    // the GUI thread, so it cannot affect audio. publishHudTiming() early-returns
+    // unless Auto DJ is running in Tango mode.
+    m_hudCountdownSeconds.set(-1.0);
+    m_hudNextIsCortina.set(0.0);
+    m_hudTandaTrackCount.set(0.0);
+    m_hudTandaPlayingIndex.set(-1.0);
+    m_hudFlowIndex.set(-1.0);
+    m_hudTimer.setInterval(1000);
+    connect(&m_hudTimer,
+            &QTimer::timeout,
+            this,
+            &AutoDJProcessor::publishHudTiming);
+    m_hudTimer.start();
 
     connect(pPlayerManager,
             &PlayerManagerInterface::numberOfDecksChanged,
@@ -1680,6 +1705,65 @@ void AutoDJProcessor::disarmStopGuard() {
     m_stopGuardArmed = false;
     m_stopGuardTimer.stop();
     emit stopGuardArmedChanged(false);
+}
+
+void AutoDJProcessor::publishHudTiming() {
+    if (!keepQueueEnabled() || m_eState == ADJ_DISABLED) {
+        m_hudCountdownSeconds.set(-1.0);
+        m_hudNextIsCortina.set(0.0);
+        return;
+    }
+    // Countdown to the next transition. Cheap - the track is held by the deck.
+    double countdown = -1.0;
+    if (DeckAttributes* pCortinaDeck = playingCortinaDeck()) {
+        // A cortina does not transition at its file's natural end: it plays for
+        // its effective window, the cortina length clamped to the audible span
+        // (cl), governed by the fade envelope. Mirror the envelope's cl - elapsed
+        // so the countdown reaches 0 at the switch, not at the file's last sound.
+        // Keep this in sync with maybeHandleCortinaFade().
+        const double duration = getEndSecond(pCortinaDeck);
+        if (duration > 0.0) {
+            const double envelopeStart =
+                    m_cortinaEnvelopeStartSecond != kKeepPosition
+                    ? m_cortinaEnvelopeStartSecond
+                    : getFirstSoundSecond(pCortinaDeck);
+            const double audible = math_max(
+                    getLastSoundSecond(pCortinaDeck) - envelopeStart, 0.0);
+            const double cl = math_min(
+                    static_cast<double>(m_keepQueueCortinaSeconds), audible);
+            const double elapsed =
+                    pCortinaDeck->playPosition() * duration - envelopeStart;
+            countdown = math_max(cl - elapsed, 0.0);
+        }
+    } else if (DeckAttributes* pFromDeck = getFromDeck()) {
+        // Normal track: the unplayed remainder of the current (playing/paused)
+        // track.
+        TrackPointer pTrack = pFromDeck->getLoadedTrack();
+        const double pos = pFromDeck->playPosition();
+        if (pTrack && pos >= 0.0) {
+            countdown = keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
+        }
+    }
+    m_hudCountdownSeconds.set(countdown);
+
+    // Is the next queue item a cortina? activeKeepQueuePosition() is 1-based, so
+    // the next item sits at 0-based row == activePosition.
+    bool nextIsCortina = false;
+    const int activePosition = activeKeepQueuePosition();
+    if (activePosition > 0 && m_pAutoDJTableModel) {
+        TrackPointer pNext = m_pAutoDJTableModel->getTrack(
+                m_pAutoDJTableModel->index(activePosition, 0));
+        if (pNext) {
+            nextIsCortina = isCortina(pNext);
+        }
+    }
+    m_hudNextIsCortina.set(nextIsCortina ? 1.0 : 0.0);
+}
+
+void AutoDJProcessor::setHudTandaState(int trackCount, int playingIndex, int flowIndex) {
+    m_hudTandaTrackCount.set(trackCount);
+    m_hudTandaPlayingIndex.set(playingIndex);
+    m_hudFlowIndex.set(flowIndex);
 }
 
 mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {

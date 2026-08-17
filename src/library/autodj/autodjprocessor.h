@@ -258,6 +258,11 @@ class AutoDJProcessor : public QObject {
 
     void setTandaGapSeconds(int seconds);
 
+    // Publishes the current tanda's HUD state (track count, 0-based index of the
+    // playing track, and the tanda's ordinal in the set). Called by
+    // TandaQueueModel, which owns the tanda spans.
+    void setHudTandaState(int trackCount, int playingIndex, int flowIndex);
+
     void setTransitionMode(TransitionMode newMode);
 
     AutoDJError shufflePlaylist(const QModelIndexList& selectedIndices);
@@ -490,6 +495,9 @@ class AutoDJProcessor : public QObject {
     // stopping at the last audible sample in Skip Silence mode.
     double keepQueueCurrentTrackRemainingSeconds(
             const TrackPointer& pTrack, double playPosition) const;
+    // 1 Hz timer slot: publishes the countdown seconds to the next transition
+    // and whether the next queue item is a cortina.
+    void publishHudTiming();
     // Audible length in seconds from the analyzed N60dBSound cue, or 0 if the
     // track has no such cue (e.g. not yet analyzed).
     double keepQueueAudibleSeconds(const TrackPointer& pTrack) const;
@@ -612,6 +620,16 @@ class AutoDJProcessor : public QObject {
     // LIVE mode (Tango performance lock). Session-only, not persisted: defaults
     // off at every launch. While on, it arms the accidental-stop guards.
     ControlObject m_liveMode;
+
+    // Tango HUD (toolbar heads-up display) publish channels. Read-only outputs
+    // the WTangoHud widget subscribes to. The 1 Hz m_hudTimer sets the timing
+    // pair; TandaQueueModel sets the tanda trio via setHudTandaState().
+    ControlObject m_hudCountdownSeconds;
+    ControlObject m_hudNextIsCortina;
+    ControlObject m_hudTandaTrackCount;
+    ControlObject m_hudTandaPlayingIndex;
+    ControlObject m_hudFlowIndex;
+    QTimer m_hudTimer;
     // Stop-guard arm state: in LIVE mode the first disable request only arms a
     // short confirmation window; a second request within it actually stops.
     bool m_stopGuardArmed;

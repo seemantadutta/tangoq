@@ -443,6 +443,34 @@ DJ / Tango state and never touches transition logic.
 - **"Cortina in" definition.** Whether it counts only the current track's remain,
   or the current track plus the full remaining tango tracks up to the cortina.
 
+### Flow anchor — "Set flow position" tanda menu
+
+With mixed ungrouped tracks and tandas, the ordinal-based flow index cannot know
+where in TTVTTM the DJ actually is. The motivating case: a special *performance
+track* queued as a loose (ungrouped) track between tandas — it is not a tanda, so
+it breaks the ordinal count and the flow highlight drifts. Fix: a context-menu
+"Set this tanda as ->"
+submenu on tanda headers (only headers, reusing the existing
+`WTandaQueueView` menu that already hosts "Change tanda type") whose six items
+are the flow slots. Selecting one anchors that tanda to that slot, and the HUD
+re-bases: `position = (tandaOrdinal - anchorOrdinal + anchorSlot) mod patternLen`.
+
+- Distinct from "Change tanda type" (which sets the musical T/V/M type / list
+  label). This sets HUD flow position only.
+- Label the six slots unambiguously (e.g. `1 - Tango` ... `6 - Milonga`, tick the
+  current), since bare `T T V T T M` repeats.
+- Persist one anchor `(tandaId -> slot)` in `TandaQueueState` alongside
+  type/collapsed; most recent sync wins.
+- The submenu is **generated from the configured pattern** — its item count,
+  order and types all follow the Preferences pattern, nothing hard-coded. So
+  this must land *after* the configurable-pattern prefs are wired.
+
+### Build order for the flow work
+
+1. Configurable TTVTTM pattern in Preferences (foundation).
+2. "Set flow position" tanda menu (items generated from #1; anchors the flow).
+3. 30 s red flash (independent of the above).
+
 ### Related decision — remove the Tango "mode"
 
 Make the app Tango-by-default with no user-visible mode. Recommended path is

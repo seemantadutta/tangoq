@@ -492,6 +492,38 @@ void TandaQueueModel::rebuild() {
         ++sourceRow;
     }
     endResetModel();
+    publishHudTandaState();
+}
+
+void TandaQueueModel::publishHudTandaState() {
+    if (!m_pProcessor) {
+        return;
+    }
+    const int activePosition = m_pProcessor->activeKeepQueuePosition(); // 1-based
+    int trackCount = 0;
+    int playingIndex = -1;
+    int flowIndex = -1;
+    if (activePosition > 0) {
+        const TandaSpan* pActive = m_pState->spanAtPosition(activePosition);
+        if (pActive) {
+            trackCount = pActive->members.size();
+            playingIndex = activePosition - pActive->anchorPosition; // 0-based
+            // Ordinal of the active tanda among all tandas in the set, so the HUD
+            // can map it onto the configured T/V/M flow pattern.
+            flowIndex = 0;
+            int pos = 1;
+            while (pos < pActive->anchorPosition) {
+                const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
+                if (pSpan && pSpan->anchorPosition == pos) {
+                    ++flowIndex;
+                    pos += pSpan->members.size();
+                } else {
+                    ++pos;
+                }
+            }
+        }
+    }
+    m_pProcessor->setHudTandaState(trackCount, playingIndex, flowIndex);
 }
 
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
@@ -524,6 +556,9 @@ void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
                     index(proxyRow, columnCount() - 1));
         }
     }
+    // The active track (and thus the pip/flow state) can advance without a
+    // structural rebuild, so refresh the HUD here too.
+    publishHudTandaState();
 }
 
 const TandaQueueModel::VisibleRow* TandaQueueModel::visibleRow(
