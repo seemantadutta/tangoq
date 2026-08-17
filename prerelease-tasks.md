@@ -425,6 +425,29 @@ DJ / Tango state and never touches transition logic.
 - **Gating.** Shown under `[AutoDJ],keep_queue` (Tango). Once the mode default is
   flipped on (see below), that simply means "always shown".
 
+### Confirmed in-between-state behaviour (from review)
+
+- **Countdown = time until the next track becomes audible, always true.** Add the
+  silent gap for Tanda Transition and the cortina after-gap; for crossfade modes
+  subtract the transition time (audible at crossfade start). During a live gap,
+  show the gap counting down (read the gap timer's remaining).
+- **During a cortina:** preview the *upcoming* tanda — show its pips but **dimmed**
+  and advance the flow highlight to it. Restore full brightness when the tanda's
+  first track actually starts.
+- **Last track of the set:** label becomes **"Set ends in"** (no next item).
+- **Auto DJ stopped while Tango on:** keep showing `--:--` and no pips — a cue for
+  the DJ to glance there once Auto DJ starts. Do not hide the HUD.
+- **Paused track:** show `--:--` (not a frozen number).
+- **Flow anchor is session-only:** do **not** persist it across restart/crash. On
+  restart the DJ re-syncs with the "Set flow position" menu. (Overrides the
+  earlier "persist the anchor" note.)
+- **Layout never clips:** the widget measures its content (wide tandas / long
+  patterns) and fits rather than clipping silently.
+
+Implementation note: the countdown label now has three states (track / cortina /
+set-ends), so the single `hud_next_is_cortina` flag generalises to a "next kind"
+value; and the cortina case needs the upcoming tanda's state plus a "dimmed" flag.
+
 ### Staging
 
 1. **Countdown line** — prove the centered container + the C++→skin data bridge
@@ -459,8 +482,9 @@ re-bases: `position = (tandaOrdinal - anchorOrdinal + anchorSlot) mod patternLen
   label). This sets HUD flow position only.
 - Label the six slots unambiguously (e.g. `1 - Tango` ... `6 - Milonga`, tick the
   current), since bare `T T V T T M` repeats.
-- Persist one anchor `(tandaId -> slot)` in `TandaQueueState` alongside
-  type/collapsed; most recent sync wins.
+- Hold one anchor `(tandaId -> slot)` in memory (session-only, **not** persisted -
+  see the confirmed decisions above); most recent sync wins. Keyed by tandaId so
+  it survives queue edits within the session.
 - The submenu is **generated from the configured pattern** — its item count,
   order and types all follow the Preferences pattern, nothing hard-coded. So
   this must land *after* the configurable-pattern prefs are wired.
