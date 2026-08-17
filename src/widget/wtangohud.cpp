@@ -152,17 +152,19 @@ int WTangoHud::contentWidth() const {
     // Row 2: flow letters + pips.
     const QString flow = flowLetters();
     const int letterGap = fm.horizontalAdvance(QChar(' '));
-    int flowWidth = 0;
+    int lettersWidth = 0;
     for (int i = 0; i < flow.size(); ++i) {
-        flowWidth += fm.horizontalAdvance(flow.at(i));
+        lettersWidth += fm.horizontalAdvance(flow.at(i));
         if (i != flow.size() - 1) {
-            flowWidth += letterGap;
+            lettersWidth += letterGap;
         }
     }
-    // The trailing "!" (shown when the real flow diverges) needs room too.
-    if (m_pFlowMismatch->toBool() && !flow.isEmpty()) {
-        flowWidth += letterGap + fm.horizontalAdvance(QLatin1Char('!'));
-    }
+    // Reserve a fixed cell for the "!" at the left of the strip, shown or not, so
+    // toggling the mark never shifts the letters.
+    const int bangCell = flow.isEmpty()
+            ? 0
+            : fm.horizontalAdvance(QLatin1Char('!')) + letterGap;
+    const int flowWidth = bangCell + lettersWidth;
     const int trackCount = static_cast<int>(m_pTandaTrackCount->get());
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
@@ -223,6 +225,9 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     const int highlight = static_cast<int>(m_pFlowHighlight->get());
     const bool mismatch = m_pFlowMismatch->toBool() && flowLen > 0;
     const int bangAdvance = fm.horizontalAdvance(QLatin1Char('!'));
+    // Fixed "!" cell at the left of the strip, always reserved so toggling the
+    // mark never shifts the letters.
+    const int bangCell = flowLen > 0 ? bangAdvance + letterGap : 0;
 
     int lettersWidth = 0;
     for (int i = 0; i < flowLen; ++i) {
@@ -231,8 +236,7 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
             lettersWidth += letterGap;
         }
     }
-    const int flowWidth =
-            lettersWidth + (mismatch ? letterGap + bangAdvance : 0);
+    const int flowWidth = bangCell + lettersWidth;
 
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
@@ -244,23 +248,27 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     const int row2Top = rowH;
     const int row2CenterY = row2Top + rowH / 2;
 
-    // Flow letters (current tanda in red).
-    int x = startX;
+    // "!" in its reserved left cell (drawn only when set; the space is always
+    // reserved so the letters hold still).
+    if (mismatch) {
+        p.setPen(kColorAccent);
+        p.drawText(QRect(startX, row2Top, bangAdvance, rowH),
+                Qt::AlignVCenter | Qt::AlignHCenter,
+                QStringLiteral("!"));
+    }
+    // Flow letters, starting after the reserved "!" cell. The highlighted marker
+    // matches the pip colour: full red while its tanda plays, dimmed red while a
+    // cortina/loose track previews the upcoming tanda.
+    const QColor highlightColor = preview ? kColorAccentDim : kColorAccent;
+    int x = startX + bangCell;
     for (int i = 0; i < flowLen; ++i) {
-        p.setPen(i == highlight ? kColorAccent : kColorDim);
+        p.setPen(i == highlight ? highlightColor : kColorDim);
         const QChar ch = flow.at(i);
         const int advance = fm.horizontalAdvance(ch);
         p.drawText(QRect(x, row2Top, advance, rowH),
                 Qt::AlignVCenter | Qt::AlignHCenter,
                 QString(ch));
         x += advance + letterGap;
-    }
-    // Trailing "!" when the grouped tandas diverge from the ideal pattern.
-    if (mismatch) {
-        p.setPen(kColorAccent);
-        p.drawText(QRect(x, row2Top, bangAdvance, rowH),
-                Qt::AlignVCenter | Qt::AlignHCenter,
-                QStringLiteral("!"));
     }
 
     // Track pips for the current (or, when previewing, the upcoming) tanda.

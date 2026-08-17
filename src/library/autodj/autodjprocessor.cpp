@@ -1884,10 +1884,14 @@ void AutoDJProcessor::publishHudTiming() {
     m_hudCountdownSeconds.set(countdown);
 }
 
-void AutoDJProcessor::setHudTandaState(int trackCount, int playingIndex, int flowIndex) {
+void AutoDJProcessor::setHudTandaState(int trackCount,
+        int playingIndex,
+        int flowIndex,
+        const QVector<int>& tandaTypes) {
     m_hudTandaTrackCount.set(trackCount);
     m_hudTandaPlayingIndex.set(playingIndex);
     m_hudFlowOrdinal = flowIndex;
+    m_hudFlowTandaTypes = tandaTypes;
     publishHudFlow();
 }
 
@@ -1907,17 +1911,37 @@ void AutoDJProcessor::publishHudFlow() {
     const int len = static_cast<int>(m_hudFlowPatternSlots.size());
     m_hudFlowLen.set(len);
     // The active-tanda ordinal counts every tanda in the set; wrap it into the
-    // one-cycle strip. -1 (no active/upcoming tanda) leaves nothing highlighted.
+    // one-cycle strip. -1 (no active/upcoming tanda) leaves nothing highlighted
+    // and shows the first cycle, so the overlay guides list-building while stopped.
     const int highlight =
             (m_hudFlowOrdinal >= 0 && len > 0) ? m_hudFlowOrdinal % len : -1;
     m_hudFlowHighlight.set(highlight);
-    // Stage 1: slots are the ideal pattern. The per-tanda type overlay and the
-    // mismatch "!" arrive with type-aware flow.
+
+    // Positional overlay: the tanda at ordinal (base + slot) paints its actual
+    // type onto the ideal pattern; empty slots keep the ideal default. The base
+    // is the start of the cycle-window the active tanda sits in.
+    const int base = (m_hudFlowOrdinal >= 0 && len > 0)
+            ? (m_hudFlowOrdinal / len) * len
+            : 0;
+    bool mismatch = false;
     for (int i = 0; i < kHudFlowMaxSlots; ++i) {
-        const double type = i < len ? m_hudFlowPatternSlots[i] : -1.0;
+        if (i >= len) {
+            m_hudFlowSlots[i]->set(-1.0);
+            continue;
+        }
+        const int ideal = m_hudFlowPatternSlots[i];
+        const int ordinal = base + i;
+        const bool occupied = ordinal < m_hudFlowTandaTypes.size();
+        const int type = occupied ? m_hudFlowTandaTypes.at(ordinal) : ideal;
         m_hudFlowSlots[i]->set(type);
+        // The "!" fires only on an occupied slot whose real type contradicts the
+        // ideal. Empty (not-yet-built) slots never trip it, so a partial prefix
+        // stays quiet.
+        if (occupied && type != ideal) {
+            mismatch = true;
+        }
     }
-    m_hudFlowMismatch.set(0.0);
+    m_hudFlowMismatch.set(mismatch ? 1.0 : 0.0);
 }
 
 mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {

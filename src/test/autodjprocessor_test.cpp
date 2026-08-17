@@ -690,11 +690,11 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
 }
 
 TEST_F(AutoDJProcessorTest, HudFlow_DefaultPatternPublishesResolvedSlots) {
-    // Stage 1 flow strip: with no configured pattern the default TTVTTM resolves
-    // to six typed slots (0=T, 1=V, 2=M), the trailing slots are empty (-1), and
-    // the active-tanda ordinal wraps into the highlight. This pins the C++
-    // resolver that the painted HUD renders straight from these controls.
-    pProcessor->setHudTandaState(4, 1, 0);
+    // Flow strip with no groupings: the default TTVTTM resolves to six typed
+    // slots (0=T, 1=V, 2=M), the trailing slots are empty (-1), and the
+    // active-tanda ordinal wraps into the highlight. With no tandas nothing is
+    // occupied, so the strip is the ideal and the mismatch mark stays off.
+    pProcessor->setHudTandaState(4, 1, 0, {});
 
     EXPECT_DOUBLE_EQ(4.0,
             ControlObject::get(ConfigKey("[AutoDJ]", "hud_tanda_track_count")));
@@ -721,12 +721,60 @@ TEST_F(AutoDJProcessorTest, HudFlow_DefaultPatternPublishesResolvedSlots) {
     }
 
     // The ordinal wraps into one cycle: 8 -> slot 2; -1 clears the highlight.
-    pProcessor->setHudTandaState(4, 1, 8);
+    pProcessor->setHudTandaState(4, 1, 8, {});
     EXPECT_DOUBLE_EQ(
             2.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
-    pProcessor->setHudTandaState(0, -1, -1);
+    pProcessor->setHudTandaState(0, -1, -1, {});
     EXPECT_DOUBLE_EQ(
             -1.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
+}
+
+TEST_F(AutoDJProcessorTest, HudFlow_TypeOverlayAndMismatch) {
+    // Type-aware overlay against the default TTVTTM (ideal 0,0,1,0,0,2).
+    const auto slot = [](int i) {
+        return ControlObject::get(ConfigKey("[AutoDJ]",
+                QStringLiteral("hud_flow_slot_%1").arg(i)));
+    };
+    const auto mismatch = [] {
+        return ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_mismatch"));
+    };
+
+    // A partial prefix (T, T) matches the two leading ideal T-slots: the real
+    // types overlay their slots, later slots keep the ideal, and no "!".
+    pProcessor->setHudTandaState(4, 0, 1, QVector<int>{0, 0});
+    EXPECT_DOUBLE_EQ(0.0, slot(0));
+    EXPECT_DOUBLE_EQ(0.0, slot(1));
+    EXPECT_DOUBLE_EQ(1.0, slot(2)); // ideal V, no tanda there yet
+    EXPECT_DOUBLE_EQ(2.0, slot(5)); // ideal M
+    EXPECT_DOUBLE_EQ(0.0, mismatch());
+
+    // A Vals where the ideal wants a T (skipped the second T): slot 1 shows V and
+    // the "!" lights.
+    pProcessor->setHudTandaState(4, 0, 1, QVector<int>{0, 1});
+    EXPECT_DOUBLE_EQ(0.0, slot(0));
+    EXPECT_DOUBLE_EQ(1.0, slot(1)); // real V overrides ideal T
+    EXPECT_DOUBLE_EQ(1.0, slot(2)); // ideal V (unoccupied)
+    EXPECT_DOUBLE_EQ(1.0, mismatch());
+
+    // An intentional TTVTTT ending (last M replaced by a Tango): slot 5 shows T,
+    // and the "!" stays lit - stateless, per option (a).
+    pProcessor->setHudTandaState(4, 0, 5, QVector<int>{0, 0, 1, 0, 0, 0});
+    EXPECT_DOUBLE_EQ(0.0, slot(5)); // real T overrides ideal M
+    EXPECT_DOUBLE_EQ(1.0, mismatch());
+
+    // A full faithful TTVTTM cycle: overlay matches the ideal everywhere, no "!".
+    pProcessor->setHudTandaState(4, 0, 0, QVector<int>{0, 0, 1, 0, 0, 2});
+    EXPECT_DOUBLE_EQ(0.0, mismatch());
+
+    // Second cycle: ordinal 7 sits in the window starting at 6, so a deviation in
+    // the first cycle no longer counts - the shown window is clean.
+    pProcessor->setHudTandaState(
+            4, 0, 7, QVector<int>{0, 1, 1, 0, 0, 2, 0, 0});
+    EXPECT_DOUBLE_EQ(1.0,
+            ControlObject::get(ConfigKey("[AutoDJ]", "hud_flow_highlight")));
+    EXPECT_DOUBLE_EQ(0.0, slot(0)); // ordinal 6 = T, ideal T
+    EXPECT_DOUBLE_EQ(0.0, slot(1)); // ordinal 7 = T, ideal T
+    EXPECT_DOUBLE_EQ(0.0, mismatch());
 }
 
 TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {

@@ -15,6 +15,24 @@
 #include "moc_tandaqueuemodel.cpp"
 #include "util/duration.h"
 
+namespace {
+// Flow-strip type code for a tanda, matching the HUD/processor codes
+// (0=T,1=V,2=M,3=N).
+int tandaTypeCode(TandaType type) {
+    switch (type) {
+    case TandaType::Tango:
+        return 0;
+    case TandaType::Vals:
+        return 1;
+    case TandaType::Milonga:
+        return 2;
+    case TandaType::NuevoAlternative:
+        return 3;
+    }
+    return 0;
+}
+} // namespace
+
 TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
         TandaQueueState* pState,
         AutoDJProcessor* pProcessor,
@@ -532,49 +550,53 @@ void TandaQueueModel::publishHudTandaState() {
     int trackCount = 0;
     int playingIndex = -1; // -1 also means "preview" (dimmed) to the HUD
     int flowIndex = -1;
-    if (activePosition > 0) {
-        // Walk the tanda spans in order once, tracking their ordinal. Find the
-        // span that contains the active position (a tanda is playing), else the
-        // first span after it (a cortina or loose track is active - preview the
-        // upcoming tanda dimmed).
-        const TandaSpan* pActive = nullptr;
-        const TandaSpan* pUpcoming = nullptr;
-        int activeOrdinal = -1;
-        int upcomingOrdinal = -1;
-        int ordinal = 0;
-        int pos = 1;
-        const int rowCount = m_pPlaylistModel->rowCount();
-        while (pos <= rowCount) {
-            const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
-            if (pSpan && pSpan->anchorPosition == pos) {
-                const int spanEnd = pSpan->anchorPosition + pSpan->members.size();
-                if (activePosition >= pSpan->anchorPosition &&
-                        activePosition < spanEnd) {
-                    pActive = pSpan;
-                    activeOrdinal = ordinal;
-                } else if (!pUpcoming && pSpan->anchorPosition > activePosition) {
-                    pUpcoming = pSpan;
-                    upcomingOrdinal = ordinal;
-                }
-                ++ordinal;
-                pos += pSpan->members.size();
-            } else {
-                ++pos;
+    // Walk the tanda spans in order once. Always collect each tanda's type by
+    // ordinal (the flow overlay needs it even while Auto DJ is stopped, so the
+    // strip and "!" guide list-building). When a set is active, also find the
+    // span containing the active position (a tanda is playing), else the first
+    // span after it (a cortina or loose track is active - preview the upcoming
+    // tanda dimmed).
+    QVector<int> tandaTypes;
+    const TandaSpan* pActive = nullptr;
+    const TandaSpan* pUpcoming = nullptr;
+    int activeOrdinal = -1;
+    int upcomingOrdinal = -1;
+    int ordinal = 0;
+    int pos = 1;
+    const int rowCount = m_pPlaylistModel->rowCount();
+    while (pos <= rowCount) {
+        const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
+        if (pSpan && pSpan->anchorPosition == pos) {
+            tandaTypes.append(tandaTypeCode(pSpan->type));
+            const int spanEnd = pSpan->anchorPosition + pSpan->members.size();
+            if (activePosition > 0 &&
+                    activePosition >= pSpan->anchorPosition &&
+                    activePosition < spanEnd) {
+                pActive = pSpan;
+                activeOrdinal = ordinal;
+            } else if (activePosition > 0 && !pUpcoming &&
+                    pSpan->anchorPosition > activePosition) {
+                pUpcoming = pSpan;
+                upcomingOrdinal = ordinal;
             }
-        }
-        if (pActive) {
-            trackCount = pActive->members.size();
-            playingIndex = activePosition - pActive->anchorPosition; // 0-based
-            flowIndex = activeOrdinal;
-        } else if (pUpcoming) {
-            // Preview the coming tanda: full track count, nothing playing yet
-            // (playingIndex -1 -> dimmed), flow highlight advanced to it.
-            trackCount = pUpcoming->members.size();
-            playingIndex = -1;
-            flowIndex = upcomingOrdinal;
+            ++ordinal;
+            pos += pSpan->members.size();
+        } else {
+            ++pos;
         }
     }
-    m_pProcessor->setHudTandaState(trackCount, playingIndex, flowIndex);
+    if (pActive) {
+        trackCount = pActive->members.size();
+        playingIndex = activePosition - pActive->anchorPosition; // 0-based
+        flowIndex = activeOrdinal;
+    } else if (pUpcoming) {
+        // Preview the coming tanda: full track count, nothing playing yet
+        // (playingIndex -1 -> dimmed), flow highlight advanced to it.
+        trackCount = pUpcoming->members.size();
+        playingIndex = -1;
+        flowIndex = upcomingOrdinal;
+    }
+    m_pProcessor->setHudTandaState(trackCount, playingIndex, flowIndex, tandaTypes);
 }
 
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,

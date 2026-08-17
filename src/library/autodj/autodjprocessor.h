@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
+#include <QVector>
 #include <memory>
 #include <vector>
 
@@ -259,11 +260,15 @@ class AutoDJProcessor : public QObject {
     void setTandaGapSeconds(int seconds);
 
     // Publishes the current tanda's HUD state (track count, 0-based index of the
-    // playing track, and the tanda's ordinal in the set). Called by
-    // TandaQueueModel, which owns the tanda spans. The ordinal is turned into the
-    // resolved flow strip (slots + highlight) here, against the configured
-    // pattern - see publishHudFlow().
-    void setHudTandaState(int trackCount, int playingIndex, int flowIndex);
+    // playing track, the active tanda's ordinal in the set, and the type of every
+    // tanda by ordinal). Called by TandaQueueModel, which owns the tanda spans.
+    // The ordinal and types are turned into the resolved flow strip (slots +
+    // highlight + mismatch) here, against the configured pattern - see
+    // publishHudFlow(). tandaTypes[ordinal] holds a type code (0=T,1=V,2=M,3=N).
+    void setHudTandaState(int trackCount,
+            int playingIndex,
+            int flowIndex,
+            const QVector<int>& tandaTypes);
 
     void setTransitionMode(TransitionMode newMode);
 
@@ -650,10 +655,12 @@ class AutoDJProcessor : public QObject {
     ControlObject m_hudFlowHighlight;
     ControlObject m_hudFlowMismatch;
     std::vector<std::unique_ptr<ControlObject>> m_hudFlowSlots;
-    // Cached inputs to publishHudFlow(): the active-tanda ordinal from the model,
-    // and the parsed pattern (types per slot) plus the raw config string it came
-    // from, so a Preferences edit is detected and re-parsed only when it changes.
+    // Cached inputs to publishHudFlow(): the active-tanda ordinal and the type of
+    // every tanda by ordinal (from the model), and the parsed pattern (types per
+    // slot) plus the raw config string it came from, so a Preferences edit is
+    // detected and re-parsed only when it changes.
     int m_hudFlowOrdinal;
+    QVector<int> m_hudFlowTandaTypes;
     QString m_hudFlowPatternRaw;
     std::vector<int> m_hudFlowPatternSlots;
     QTimer m_hudTimer;
