@@ -937,6 +937,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/autodj/tandaqueuestate.cpp
   src/library/autodj/wtandaqueueview.cpp
   src/library/autodj/cortinaregistry.cpp
+  src/library/autodj/performanceregistry.cpp
   src/library/autodj/tracklabelregistry.cpp
   src/library/autodj/dlgautodj.cpp
   src/library/autodj/dlgautodj.ui

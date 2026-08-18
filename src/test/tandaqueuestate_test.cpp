@@ -1,6 +1,9 @@
 #include "library/autodj/tandaqueuestate.h"
 #include "library/autodj/tandaqueuemodel.h"
 
+#include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
+
 #include <gtest/gtest.h>
 
 #include <QJsonArray>
@@ -301,6 +304,130 @@ TEST_F(TandaQueueDaoTest, OutlineMapsHeadersLeavesAndSharedCollapseState) {
     ASSERT_TRUE(state.setCollapsed(tanda, false));
     EXPECT_EQ(5, first.rowCount());
     EXPECT_EQ(1, first.mapToSource(first.index(2, 0)).row());
+}
+
+TEST_F(TandaQueueDaoTest, TandaTypeColumnShowsLetterOnHeaderOnly) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda type column test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId c = addTrack(QStringLiteral("cover-test-png.mp3"));
+    const TrackId d = addTrack(QStringLiteral("cover-test-vbr.mp3"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c, d}, playlistId));
+
+    PlaylistTableModel source(
+            nullptr, trackCollectionManager(), "tanda_type_column_test");
+    source.selectPlaylist(playlistId);
+    source.select();
+    ASSERT_EQ(4, source.rowCount());
+
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({a, b, c, d});
+    const QUuid tanda = state.classify({2, 3}, TandaType::Vals);
+    ASSERT_FALSE(tanda.isNull());
+    ASSERT_TRUE(state.setCollapsed(tanda, false));
+
+    TandaQueueModel model(&source, &state);
+    ASSERT_EQ(5, model.rowCount());
+
+    // The appended column sits one past the source columns.
+    const int typeCol = model.columnCount() - 1;
+    EXPECT_EQ(source.columnCount() + 1, model.columnCount());
+    EXPECT_EQ(QStringLiteral("Item Type"),
+            model.headerData(typeCol, Qt::Horizontal).toString());
+
+    // The tanda header carries its letter; loose tracks and constituent tracks
+    // stay blank in that column.
+    EXPECT_TRUE(model.isHeaderRow(1));
+    EXPECT_EQ(QStringLiteral("V"),
+            model.data(model.index(1, typeCol)).toString());
+    EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
+    EXPECT_TRUE(model.data(model.index(2, typeCol)).toString().isEmpty());
+
+    // A real, user-selectable, non-sortable column that never maps to a source
+    // cell.
+    EXPECT_FALSE(model.isColumnInternal(typeCol));
+    EXPECT_FALSE(model.isColumnSortable(typeCol));
+    EXPECT_FALSE(model.mapToSource(model.index(1, typeCol)).isValid());
+    EXPECT_FALSE(model.mapToSource(model.index(2, typeCol)).isValid());
+}
+
+TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksCortinaTracks) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda cortina column test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId c = addTrack(QStringLiteral("cover-test-png.mp3"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c}, playlistId));
+
+    PlaylistTableModel source(
+            nullptr, trackCollectionManager(), "tanda_cortina_column_test");
+    source.selectPlaylist(playlistId);
+    source.select();
+    source.setShowCortinaMarks(true);
+    ASSERT_EQ(3, source.rowCount());
+
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({a, b, c});
+
+    TandaQueueModel model(&source, &state);
+    ASSERT_EQ(3, model.rowCount());
+    const int typeCol = model.columnCount() - 1;
+
+    // Row 1 (track b) is an ordinary loose track until tagged as a cortina.
+    EXPECT_TRUE(model.data(model.index(1, typeCol)).toString().isEmpty());
+    CortinaRegistry::instance().mark(b);
+    EXPECT_EQ(QStringLiteral("C"),
+            model.data(model.index(1, typeCol)).toString());
+    EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
+    CortinaRegistry::instance().unmark(b);
+    EXPECT_TRUE(model.data(model.index(1, typeCol)).toString().isEmpty());
+}
+
+TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksPerformanceTracks) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda performance column test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b}, playlistId));
+
+    PlaylistTableModel source(
+            nullptr, trackCollectionManager(), "tanda_performance_column_test");
+    source.selectPlaylist(playlistId);
+    source.select();
+    source.setShowCortinaMarks(true);
+    ASSERT_EQ(2, source.rowCount());
+
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({a, b});
+
+    TandaQueueModel model(&source, &state);
+    ASSERT_EQ(2, model.rowCount());
+    const int typeCol = model.columnCount() - 1;
+
+    EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
+    PerformanceRegistry::instance().mark(a);
+    EXPECT_EQ(QStringLiteral("P"),
+            model.data(model.index(0, typeCol)).toString());
+
+    // Cortina takes precedence in the column when both marks somehow coexist
+    // (the menu keeps them mutually exclusive; this pins the display rule).
+    CortinaRegistry::instance().mark(a);
+    EXPECT_EQ(QStringLiteral("C"),
+            model.data(model.index(0, typeCol)).toString());
+
+    CortinaRegistry::instance().unmark(a);
+    PerformanceRegistry::instance().unmark(a);
+    EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
 }
 
 TEST_F(TandaQueueDaoTest, RemoveHeaderExpandsToTandaMembers) {

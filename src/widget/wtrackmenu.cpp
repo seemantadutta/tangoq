@@ -19,6 +19,7 @@
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/tracklabelregistry.h"
 #include "library/basetracktablemodel.h"
@@ -372,6 +373,18 @@ void WTrackMenu::createActions() {
     m_pCortinaToggleAct = make_parented<QAction>(tr("Set as Cortina"), this);
     m_pCortinaToggleAct->setVisible(false);
     connect(m_pCortinaToggleAct, &QAction::triggered, this, &WTrackMenu::slotToggleCortina);
+
+    // The in-place performance-track toggle: like the cortina toggle, but marks a
+    // one-off (a show or special request) that sits outside the tanda structure.
+    // Marking it also inserts a pause after the track. Its label flips between
+    // "Set as Performance Track" and "Set as Track".
+    m_pPerformanceToggleAct =
+            make_parented<QAction>(tr("Set as Performance Track"), this);
+    m_pPerformanceToggleAct->setVisible(false);
+    connect(m_pPerformanceToggleAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotTogglePerformance);
 
     // Stop the set after this track so the organiser can make an announcement,
     // then continue by re-enabling Auto DJ. Shown on the Auto DJ queue list in
@@ -743,6 +756,7 @@ void WTrackMenu::setupActions() {
 
     // Shown only in Tango mode (updateMenus), including in the Auto DJ queue list.
     addAction(m_pCortinaToggleAct);
+    addAction(m_pPerformanceToggleAct);
 
     // Eject decks and reset AutoDJ queue state: Auto DJ queue list only, revealed
     // in updateMenus() with its own leading separator so it reads as a distinct,
@@ -1133,6 +1147,32 @@ void WTrackMenu::updateMenus() {
             }
             m_pCortinaToggleAct->setText(
                     allCortina ? tr("Set as Track") : tr("Set as Cortina"));
+        }
+    }
+
+    // The performance-track toggle: same scoping as the cortina toggle, but it
+    // also inserts a pause after the track, which is positional, so restrict it
+    // to a single row like the pause-after mark. The label flips to "Set as
+    // Track" once the row is a performance track.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        auto* pTableModel = baseTableModel(m_pTrackModel);
+        const bool singleRow = m_trackIndexList.size() == 1;
+        const QModelIndex baseIndex = singleRow
+                ? baseTableIndex(m_pTrackModel, m_trackIndexList.first())
+                : QModelIndex();
+        const bool show = tangoMode && isCortinaList() &&
+                m_cortinaToggleAllowed && pTableModel && baseIndex.isValid() &&
+                !selectionContainsPlayingTrack();
+        m_pPerformanceToggleAct->setVisible(show);
+        if (show) {
+            const bool isPerformance = PerformanceRegistry::instance().contains(
+                    pTableModel->getTrackId(baseIndex));
+            m_pPerformanceToggleAct->setText(isPerformance
+                            ? tr("Set as Track")
+                            : tr("Set as Performance Track"));
         }
     }
 
@@ -3269,7 +3309,41 @@ void WTrackMenu::slotToggleCortina() {
         if (allCortina) {
             CortinaRegistry::instance().unmark(trackId);
         } else {
+            // A track is a cortina or a performance track, never both.
+            PerformanceRegistry::instance().unmark(trackId);
             CortinaRegistry::instance().mark(trackId);
+        }
+    }
+}
+
+void WTrackMenu::slotTogglePerformance() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
+    // The pause this inserts is positional, so act on the one row updateMenus()
+    // offered this for.
+    auto* pTableModel = baseTableModel(m_pTrackModel);
+    if (!pTableModel || m_trackIndexList.size() != 1) {
+        return;
+    }
+    const QModelIndex baseIndex =
+            baseTableIndex(m_pTrackModel, m_trackIndexList.first());
+    if (!baseIndex.isValid()) {
+        return;
+    }
+    const TrackId trackId = pTableModel->getTrackId(baseIndex);
+    if (PerformanceRegistry::instance().contains(trackId)) {
+        // Performance track -> ordinary track: drop the mark and the pause it
+        // added.
+        PerformanceRegistry::instance().unmark(trackId);
+        pTableModel->clearPauseAfterRow(baseIndex.row());
+    } else {
+        // Mark as a performance track: mutually exclusive with cortina, and
+        // stop the set after it so the DJ can run the one-off.
+        CortinaRegistry::instance().unmark(trackId);
+        PerformanceRegistry::instance().mark(trackId);
+        if (!pTableModel->isPauseAfterRow(baseIndex.row())) {
+            pTableModel->togglePauseAfterRow(baseIndex.row());
         }
     }
 }

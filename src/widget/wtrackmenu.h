@@ -177,6 +177,7 @@ class WTrackMenu : public QMenu {
     void slotAddToAutoDJReplace();
     void slotAddToAutoDJCortina();
     void slotToggleCortina();
+    void slotTogglePerformance();
     void slotTogglePauseAfter();
     void slotSetDisplayName();
     void slotSetStartPoint();
@@ -313,6 +314,9 @@ class WTrackMenu : public QMenu {
     // Tango DJ mode only: checkable toggle to mark/unmark the selected Auto DJ
     // track(s) as cortinas in place (without re-adding them).
     parented_ptr<QAction> m_pCortinaToggleAct;
+    // Toggles the selected track between a performance track (a one-off outside
+    // the tanda structure, with a pause after it) and an ordinary track.
+    parented_ptr<QAction> m_pPerformanceToggleAct;
     parented_ptr<QAction> m_pPauseAfterToggleAct;
     parented_ptr<QAction> m_pDisplayNameAct;
     // Tango DJ mode: set a track's start point without loading it on a deck.

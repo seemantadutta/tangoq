@@ -6,6 +6,7 @@
 #include <QScreen>
 
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
 #include "library/autodj/tracklabelregistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
@@ -572,8 +573,19 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
                                 {Qt::ForegroundRole, Qt::DisplayRole});
                     }
                 });
+        connect(&PerformanceRegistry::instance(),
+                &PerformanceRegistry::performanceMarksChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::ForegroundRole, Qt::DisplayRole});
+                    }
+                });
     } else {
         disconnect(&CortinaRegistry::instance(), nullptr, this, nullptr);
+        disconnect(&PerformanceRegistry::instance(), nullptr, this, nullptr);
     }
     if (enable) {
         // Any queue edit can create or resolve a duplicate, and tagging a track
@@ -592,6 +604,10 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
                 &BaseTrackTableModel::invalidateDuplicateTrackIds);
         connect(&CortinaRegistry::instance(),
                 &CortinaRegistry::cortinaMarksChanged,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(&PerformanceRegistry::instance(),
+                &PerformanceRegistry::performanceMarksChanged,
                 this,
                 &BaseTrackTableModel::invalidateDuplicateTrackIds);
         // Rows renumber on every queue edit, so the marks have to follow their
@@ -737,6 +753,9 @@ QVariant BaseTrackTableModel::data(
             if (CortinaRegistry::instance().contains(trackId)) {
                 return QVariant::fromValue(QColor(0x33, 0x88, 0xff));
             }
+            if (PerformanceRegistry::instance().contains(trackId)) {
+                return QVariant::fromValue(QColor(0x44, 0xcc, 0x88));
+            }
             if (duplicateTrackIds().contains(trackId)) {
                 return QVariant::fromValue(QColor(0xff, 0xaa, 0x33));
             }
@@ -802,6 +821,8 @@ QVariant BaseTrackTableModel::data(
         QStringList marks;
         if (CortinaRegistry::instance().contains(trackId)) {
             marks << QStringLiteral("CORTINA");
+        } else if (PerformanceRegistry::instance().contains(trackId)) {
+            marks << QStringLiteral("PERFORMANCE");
         } else if (duplicateTrackIds().contains(trackId)) {
             marks << QStringLiteral("DUPLICATE");
         }

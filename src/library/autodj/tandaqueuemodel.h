@@ -133,6 +133,8 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     };
 
     const VisibleRow* visibleRow(int proxyRow) const;
+    // Index of the appended, source-less "Tanda Type" column.
+    int tandaTypeColumn() const;
     QModelIndex sourceIndexForInsertion(const QModelIndex& proxyIndex) const;
     bool isActiveTanda(const QUuid& id) const;
     QString tandaTypeLabel(const QUuid& id) const;

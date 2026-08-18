@@ -9,6 +9,8 @@
 #include <algorithm>
 
 #include "library/autodj/autodjprocessor.h"
+#include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -30,6 +32,21 @@ int tandaTypeCode(TandaType type) {
         return 3;
     }
     return 0;
+}
+
+// Single-letter designation shown in the "Tanda Type" column.
+QString tandaTypeLetter(TandaType type) {
+    switch (type) {
+    case TandaType::Tango:
+        return QStringLiteral("T");
+    case TandaType::Vals:
+        return QStringLiteral("V");
+    case TandaType::Milonga:
+        return QStringLiteral("M");
+    case TandaType::NuevoAlternative:
+        return QStringLiteral("N");
+    }
+    return {};
 }
 } // namespace
 
@@ -74,6 +91,24 @@ TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
             &QAbstractItemModel::dataChanged,
             this,
             &TandaQueueModel::sourceDataChanged);
+    // The "C"/"P" in the type column track cortina and performance marks, which
+    // live outside the source model, so refresh that column directly when
+    // either changes.
+    const auto refreshTypeColumn = [this]() {
+        if (rowCount() > 0) {
+            emit dataChanged(index(0, tandaTypeColumn()),
+                    index(rowCount() - 1, tandaTypeColumn()),
+                    {Qt::DisplayRole, Qt::ForegroundRole});
+        }
+    };
+    connect(&CortinaRegistry::instance(),
+            &CortinaRegistry::cortinaMarksChanged,
+            this,
+            refreshTypeColumn);
+    connect(&PerformanceRegistry::instance(),
+            &PerformanceRegistry::performanceMarksChanged,
+            this,
+            refreshTypeColumn);
     rebuild();
 }
 
@@ -83,6 +118,10 @@ QModelIndex TandaQueueModel::mapToSource(const QModelIndex& proxyIndex) const {
     }
     const VisibleRow* pRow = visibleRow(proxyIndex.row());
     if (!pRow || pRow->kind != RowKind::Track) {
+        return {};
+    }
+    // The appended "Tanda Type" column has no source counterpart.
+    if (proxyIndex.column() >= m_pPlaylistModel->columnCount()) {
         return {};
     }
     return m_pPlaylistModel->index(pRow->sourceRow, proxyIndex.column());
@@ -117,7 +156,13 @@ int TandaQueueModel::rowCount(const QModelIndex& parent) const {
 }
 
 int TandaQueueModel::columnCount(const QModelIndex& parent) const {
-    return parent.isValid() ? 0 : m_pPlaylistModel->columnCount();
+    // One extra virtual column appended after the source columns: "Tanda Type".
+    return parent.isValid() ? 0 : m_pPlaylistModel->columnCount() + 1;
+}
+
+int TandaQueueModel::tandaTypeColumn() const {
+    // The appended column sits just past the source columns.
+    return m_pPlaylistModel->columnCount();
 }
 
 QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
@@ -131,6 +176,30 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         }
         if (role == TandaIdRole) {
             return pRow->tandaId;
+        }
+        // Constituent tracks carry no tanda letter, but a cortina ("C", blue) or
+        // a performance track ("P", green) shows its mark here so the set's
+        // breaks and one-offs scan at a glance alongside the tandas.
+        if (proxyIndex.column() == tandaTypeColumn()) {
+            if (role == Qt::TextAlignmentRole) {
+                return QVariant::fromValue(Qt::AlignCenter);
+            }
+            if (m_pPlaylistModel->showCortinaMarks() &&
+                    (role == Qt::DisplayRole || role == Qt::ForegroundRole)) {
+                const TrackId trackId = m_pPlaylistModel->getTrackId(
+                        m_pPlaylistModel->index(pRow->sourceRow, 0));
+                if (CortinaRegistry::instance().contains(trackId)) {
+                    return role == Qt::DisplayRole
+                            ? QVariant(QStringLiteral("C"))
+                            : QVariant(QBrush(QColor(0x33, 0x88, 0xff)));
+                }
+                if (PerformanceRegistry::instance().contains(trackId)) {
+                    return role == Qt::DisplayRole
+                            ? QVariant(QStringLiteral("P"))
+                            : QVariant(QBrush(QColor(0x44, 0xcc, 0x88)));
+                }
+            }
+            return {};
         }
         if (role == Qt::DisplayRole && !pRow->tandaId.isNull() &&
                 proxyIndex.column() == summaryColumn()) {
@@ -182,7 +251,8 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         return QBrush(QColor(225, 230, 236));
     }
     if (role == Qt::TextAlignmentRole) {
-        return proxyIndex.column() == disclosureColumn()
+        return (proxyIndex.column() == disclosureColumn() ||
+                       proxyIndex.column() == tandaTypeColumn())
                 ? QVariant::fromValue(Qt::AlignCenter)
                 : QVariant::fromValue(Qt::AlignVCenter | Qt::AlignLeft);
     }
@@ -190,6 +260,9 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         return {};
     }
 
+    if (proxyIndex.column() == tandaTypeColumn()) {
+        return tandaTypeLetter(pSpan->type);
+    }
     if (proxyIndex.column() == summaryColumn()) {
         return QStringLiteral("      %1").arg(tandaSummary(pRow->tandaId));
     }
@@ -207,6 +280,9 @@ bool TandaQueueModel::setData(
 
 QVariant TandaQueueModel::headerData(
         int section, Qt::Orientation orientation, int role) const {
+    if (orientation == Qt::Horizontal && section == tandaTypeColumn()) {
+        return role == Qt::DisplayRole ? QVariant(tr("Item Type")) : QVariant();
+    }
     return m_pPlaylistModel->headerData(section, orientation, role);
 }
 
@@ -365,10 +441,16 @@ const QString TandaQueueModel::currentSearch() const {
 }
 
 bool TandaQueueModel::isColumnInternal(int column) {
+    if (column == tandaTypeColumn()) {
+        return false; // a real, user-selectable column
+    }
     return m_pPlaylistModel->isColumnInternal(column);
 }
 
 bool TandaQueueModel::isColumnHiddenByDefault(int column) {
+    if (column == tandaTypeColumn()) {
+        return false; // shown by default in Tango mode
+    }
     return m_pPlaylistModel->isColumnHiddenByDefault(column);
 }
 
@@ -431,6 +513,9 @@ bool TandaQueueModel::isLocked() {
 
 QAbstractItemDelegate* TandaQueueModel::delegateForColumn(
         int column, QObject* pParent) {
+    if (column == tandaTypeColumn()) {
+        return nullptr; // plain text rendering
+    }
     return m_pPlaylistModel->delegateForColumn(column, pParent);
 }
 
@@ -461,11 +546,17 @@ void TandaQueueModel::setDefaultSort(
 }
 
 bool TandaQueueModel::isColumnSortable(int column) const {
+    if (column == tandaTypeColumn()) {
+        return false;
+    }
     return m_pPlaylistModel->isColumnSortable(column);
 }
 
 TrackModel::SortColumnId TandaQueueModel::sortColumnIdFromColumnIndex(
         int index) const {
+    if (index == tandaTypeColumn()) {
+        return SortColumnId::Invalid;
+    }
     return m_pPlaylistModel->sortColumnIdFromColumnIndex(index);
 }
 
