@@ -56,11 +56,15 @@ class WTandaQueueView final : public WTrackTableView {
     void moveContextTanda(bool up);
     void showTandaHeaderMenu(const QPoint& globalPos, const QUuid& id);
     void showError(const QString& message);
+    // Rebuilds the "Set flow position" submenu from the configured pattern, with
+    // the context tanda's current slot ticked. Called each time it is shown.
+    void rebuildSetFlowPositionMenu();
 
     AutoDJFeature* const m_pAutoDJFeature;
     QUuid m_contextTandaId;
     QList<QAction*> m_classifyActions;
     QMenu* m_pChangeTandaTypeMenu;
+    QMenu* m_pSetFlowPositionMenu;
     QAction* m_pTandaSeparator;
     QAction* m_pToggleCollapsedAction;
     QAction* m_pUngroupAction;

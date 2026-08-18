@@ -286,6 +286,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_hudFlowMismatch(
                   ConfigKey(kControlGroup, QStringLiteral("hud_flow_mismatch"))),
           m_hudFlowOrdinal(-1),
+          m_hudFlowOffset(0),
           m_stopGuardArmed(false),
           m_bStopWhenLastTrackEnds(false),
           m_bPauseAfterPending(false) {
@@ -1887,12 +1888,27 @@ void AutoDJProcessor::publishHudTiming() {
 void AutoDJProcessor::setHudTandaState(int trackCount,
         int playingIndex,
         int flowIndex,
-        const QVector<int>& tandaTypes) {
+        const QVector<int>& tandaTypes,
+        int flowOffset) {
     m_hudTandaTrackCount.set(trackCount);
     m_hudTandaPlayingIndex.set(playingIndex);
     m_hudFlowOrdinal = flowIndex;
+    m_hudFlowOffset = flowOffset;
     m_hudFlowTandaTypes = tandaTypes;
     publishHudFlow();
+}
+
+int AutoDJProcessor::hudFlowPatternLength() const {
+    return static_cast<int>(m_hudFlowPatternSlots.size());
+}
+
+QVector<int> AutoDJProcessor::hudFlowPatternTypes() const {
+    QVector<int> types;
+    types.reserve(static_cast<int>(m_hudFlowPatternSlots.size()));
+    for (const int t : m_hudFlowPatternSlots) {
+        types.append(t);
+    }
+    return types;
 }
 
 void AutoDJProcessor::refreshHudFlowPattern() {
@@ -1913,16 +1929,39 @@ void AutoDJProcessor::publishHudFlow() {
     // The active-tanda ordinal counts every tanda in the set; wrap it into the
     // one-cycle strip. -1 (no active/upcoming tanda) leaves nothing highlighted
     // and shows the first cycle, so the overlay guides list-building while stopped.
-    const int highlight =
-            (m_hudFlowOrdinal >= 0 && len > 0) ? m_hudFlowOrdinal % len : -1;
+    if (len <= 0) {
+        m_hudFlowHighlight.set(-1);
+        for (int i = 0; i < kHudFlowMaxSlots; ++i) {
+            m_hudFlowSlots[i]->set(-1.0);
+        }
+        m_hudFlowMismatch.set(0.0);
+        return;
+    }
+    // Floor division and positive modulo, since the session anchor can push the
+    // flow position negative (a later tanda pinned to an earlier slot).
+    const auto floorDiv = [](int a, int b) {
+        int q = a / b;
+        if ((a % b != 0) && ((a < 0) != (b < 0))) {
+            --q;
+        }
+        return q;
+    };
+    const auto posMod = [](int a, int b) {
+        const int r = a % b;
+        return r < 0 ? r + b : r;
+    };
+
+    // The anchor rebases the ordinal into a flow position: position = ordinal +
+    // offset, where offset = anchorSlot - anchorOrdinal (0 with no anchor).
+    const bool hasActive = m_hudFlowOrdinal >= 0;
+    const int flowPos = hasActive ? m_hudFlowOrdinal + m_hudFlowOffset : 0;
+    const int highlight = hasActive ? posMod(flowPos, len) : -1;
     m_hudFlowHighlight.set(highlight);
 
-    // Positional overlay: the tanda at ordinal (base + slot) paints its actual
-    // type onto the ideal pattern; empty slots keep the ideal default. The base
-    // is the start of the cycle-window the active tanda sits in.
-    const int base = (m_hudFlowOrdinal >= 0 && len > 0)
-            ? (m_hudFlowOrdinal / len) * len
-            : 0;
+    // Positional overlay: slot j shows the tanda whose flow position is
+    // (cycleBase + j); that tanda's ordinal is (cycleBase + j) - offset. Empty
+    // slots keep the ideal default.
+    const int cycleBase = hasActive ? floorDiv(flowPos, len) * len : 0;
     bool mismatch = false;
     for (int i = 0; i < kHudFlowMaxSlots; ++i) {
         if (i >= len) {
@@ -1930,8 +1969,9 @@ void AutoDJProcessor::publishHudFlow() {
             continue;
         }
         const int ideal = m_hudFlowPatternSlots[i];
-        const int ordinal = base + i;
-        const bool occupied = ordinal < m_hudFlowTandaTypes.size();
+        const int ordinal = cycleBase + i - m_hudFlowOffset;
+        const bool occupied =
+                ordinal >= 0 && ordinal < m_hudFlowTandaTypes.size();
         const int type = occupied ? m_hudFlowTandaTypes.at(ordinal) : ideal;
         m_hudFlowSlots[i]->set(type);
         // The "!" fires only on an occupied slot whose real type contradicts the

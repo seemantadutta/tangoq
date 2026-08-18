@@ -48,6 +48,12 @@ TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
             &TandaQueueState::spansChanged,
             this,
             &TandaQueueModel::rebuild);
+    // The flow anchor changes the strip without touching spans, so refresh the
+    // HUD directly rather than doing a full rebuild.
+    connect(m_pState,
+            &TandaQueueState::flowAnchorChanged,
+            this,
+            &TandaQueueModel::publishHudTandaState);
     connect(m_pPlaylistModel,
             &QAbstractItemModel::modelReset,
             this,
@@ -561,6 +567,9 @@ void TandaQueueModel::publishHudTandaState() {
     const TandaSpan* pUpcoming = nullptr;
     int activeOrdinal = -1;
     int upcomingOrdinal = -1;
+    // Ordinal of the session flow anchor's tanda, so the processor can rebase.
+    const QUuid anchorId = m_pState->flowAnchorTandaId();
+    int anchorOrdinal = -1;
     int ordinal = 0;
     int pos = 1;
     const int rowCount = m_pPlaylistModel->rowCount();
@@ -568,6 +577,9 @@ void TandaQueueModel::publishHudTandaState() {
         const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
         if (pSpan && pSpan->anchorPosition == pos) {
             tandaTypes.append(tandaTypeCode(pSpan->type));
+            if (!anchorId.isNull() && pSpan->id == anchorId) {
+                anchorOrdinal = ordinal;
+            }
             const int spanEnd = pSpan->anchorPosition + pSpan->members.size();
             if (activePosition > 0 &&
                     activePosition >= pSpan->anchorPosition &&
@@ -596,7 +608,63 @@ void TandaQueueModel::publishHudTandaState() {
         playingIndex = -1;
         flowIndex = upcomingOrdinal;
     }
-    m_pProcessor->setHudTandaState(trackCount, playingIndex, flowIndex, tandaTypes);
+    // offset = anchorSlot - anchorOrdinal; 0 when there is no anchor or its tanda
+    // is gone (the anchor is then simply ignored, per most-recent-wins).
+    const int anchorSlot = m_pState->flowAnchorSlot();
+    const int flowOffset =
+            (anchorSlot >= 0 && anchorOrdinal >= 0) ? anchorSlot - anchorOrdinal : 0;
+    m_pProcessor->setHudTandaState(
+            trackCount, playingIndex, flowIndex, tandaTypes, flowOffset);
+}
+
+void TandaQueueModel::setFlowAnchor(const QUuid& tandaId, int slot) {
+    if (m_pState) {
+        m_pState->setFlowAnchor(tandaId, slot);
+    }
+}
+
+QVector<int> TandaQueueModel::flowPatternTypes() const {
+    return m_pProcessor ? m_pProcessor->hudFlowPatternTypes() : QVector<int>();
+}
+
+int TandaQueueModel::ordinalForTanda(const QUuid& tandaId) const {
+    if (tandaId.isNull()) {
+        return -1;
+    }
+    int ordinal = 0;
+    int pos = 1;
+    const int rowCount = m_pPlaylistModel->rowCount();
+    while (pos <= rowCount) {
+        const TandaSpan* pSpan = m_pState->spanAtPosition(pos);
+        if (pSpan && pSpan->anchorPosition == pos) {
+            if (pSpan->id == tandaId) {
+                return ordinal;
+            }
+            ++ordinal;
+            pos += pSpan->members.size();
+        } else {
+            ++pos;
+        }
+    }
+    return -1;
+}
+
+int TandaQueueModel::currentFlowSlot(const QUuid& tandaId) const {
+    if (!m_pProcessor) {
+        return -1;
+    }
+    const int len = m_pProcessor->hudFlowPatternLength();
+    const int ordinal = ordinalForTanda(tandaId);
+    if (len <= 0 || ordinal < 0) {
+        return -1;
+    }
+    // Same rebasing as publishHudFlow: slot = (ordinal + offset) mod len.
+    const int anchorSlot = m_pState->flowAnchorSlot();
+    const int anchorOrdinal = ordinalForTanda(m_pState->flowAnchorTandaId());
+    const int offset =
+            (anchorSlot >= 0 && anchorOrdinal >= 0) ? anchorSlot - anchorOrdinal : 0;
+    const int r = (ordinal + offset) % len;
+    return r < 0 ? r + len : r;
 }
 
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,

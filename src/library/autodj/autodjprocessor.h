@@ -268,7 +268,14 @@ class AutoDJProcessor : public QObject {
     void setHudTandaState(int trackCount,
             int playingIndex,
             int flowIndex,
-            const QVector<int>& tandaTypes);
+            const QVector<int>& tandaTypes,
+            int flowOffset = 0);
+
+    // Ideal flow pattern the HUD strip is built from (type codes per slot), and
+    // its length. Used by the "Set flow position" menu to label the slots and by
+    // TandaQueueModel to map a tanda ordinal to its current slot.
+    int hudFlowPatternLength() const;
+    QVector<int> hudFlowPatternTypes() const;
 
     void setTransitionMode(TransitionMode newMode);
 
@@ -660,6 +667,9 @@ class AutoDJProcessor : public QObject {
     // slot) plus the raw config string it came from, so a Preferences edit is
     // detected and re-parsed only when it changes.
     int m_hudFlowOrdinal;
+    // Flow-slot offset from the session anchor (anchorSlot - anchorOrdinal, mod
+    // len applied at use). 0 when no anchor is set - the plain positional overlay.
+    int m_hudFlowOffset;
     QVector<int> m_hudFlowTandaTypes;
     QString m_hudFlowPatternRaw;
     std::vector<int> m_hudFlowPatternSlots;

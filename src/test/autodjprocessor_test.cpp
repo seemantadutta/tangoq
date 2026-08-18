@@ -777,6 +777,48 @@ TEST_F(AutoDJProcessorTest, HudFlow_TypeOverlayAndMismatch) {
     EXPECT_DOUBLE_EQ(0.0, mismatch());
 }
 
+TEST_F(AutoDJProcessorTest, HudFlow_AnchorAlignsAndClearsMismatch) {
+    const auto slot = [](int i) {
+        return ControlObject::get(ConfigKey("[AutoDJ]",
+                QStringLiteral("hud_flow_slot_%1").arg(i)));
+    };
+    const auto ctl = [](const char* key) {
+        return ControlObject::get(ConfigKey("[AutoDJ]", key));
+    };
+
+    // A lone Vals as the first (and active) tanda. With no anchor it lands on the
+    // ideal's first T-slot and lights the "!".
+    pProcessor->setHudTandaState(3, 0, 0, QVector<int>{1});
+    EXPECT_DOUBLE_EQ(0.0, ctl("hud_flow_highlight"));
+    EXPECT_DOUBLE_EQ(1.0, slot(0));
+    EXPECT_DOUBLE_EQ(1.0, ctl("hud_flow_mismatch"));
+
+    // Anchor that Vals to slot 2 (the V): offset = 2 - 0. The strip rebases, the
+    // Vals sits on the V slot, and the "!" clears.
+    pProcessor->setHudTandaState(3, 0, 0, QVector<int>{1}, 2);
+    EXPECT_DOUBLE_EQ(2.0, ctl("hud_flow_highlight"));
+    EXPECT_DOUBLE_EQ(1.0, slot(2)); // V on the V slot
+    EXPECT_DOUBLE_EQ(0.0, slot(0)); // ideal T (unoccupied)
+    EXPECT_DOUBLE_EQ(0.0, ctl("hud_flow_mismatch"));
+}
+
+TEST_F(AutoDJProcessorTest, HudFlow_AnchorNegativeOffsetWraps) {
+    const auto slot = [](int i) {
+        return ControlObject::get(ConfigKey("[AutoDJ]",
+                QStringLiteral("hud_flow_slot_%1").arg(i)));
+    };
+    const auto ctl = [](const char* key) {
+        return ControlObject::get(ConfigKey("[AutoDJ]", key));
+    };
+
+    // Active tanda ordinal 0 with a -1 offset pushes the flow position negative;
+    // floor division and positive modulo must wrap the highlight to the last slot.
+    pProcessor->setHudTandaState(3, 0, 0, QVector<int>{0, 0}, -1);
+    EXPECT_DOUBLE_EQ(5.0, ctl("hud_flow_highlight"));
+    EXPECT_DOUBLE_EQ(0.0, slot(5));                  // the T tanda at slot 5
+    EXPECT_DOUBLE_EQ(1.0, ctl("hud_flow_mismatch")); // T contradicts ideal M
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     // When the queue runs dry, Auto DJ looks for a successor at the moment the
     // last track *starts*. Stopping there would report the set as over while the
