@@ -376,8 +376,8 @@ void WTrackMenu::createActions() {
 
     // The in-place performance-track toggle: like the cortina toggle, but marks a
     // one-off (a show or special request) that sits outside the tanda structure.
-    // Marking it also inserts a pause after the track. Its label flips between
-    // "Set as Performance Track" and "Set as Track".
+    // Marking it also inserts a pause before and after the track. Its label flips
+    // between "Set as Performance Track" and "Set as Track".
     m_pPerformanceToggleAct =
             make_parented<QAction>(tr("Set as Performance Track"), this);
     m_pPerformanceToggleAct->setVisible(false);
@@ -1151,7 +1151,7 @@ void WTrackMenu::updateMenus() {
     }
 
     // The performance-track toggle: same scoping as the cortina toggle, but it
-    // also inserts a pause after the track, which is positional, so restrict it
+    // also inserts pauses around the track, which are positional, so restrict it
     // to a single row like the pause-after mark. The label flips to "Set as
     // Track" once the row is a performance track.
     {
@@ -3332,18 +3332,29 @@ void WTrackMenu::slotTogglePerformance() {
         return;
     }
     const TrackId trackId = pTableModel->getTrackId(baseIndex);
+    // "Pause before" is a pause after the preceding row; -1 when the performance
+    // is the first row, where there is nothing to pause after.
+    const int row = baseIndex.row();
+    const int beforeRow = row - 1;
     if (PerformanceRegistry::instance().contains(trackId)) {
-        // Performance track -> ordinary track: drop the mark and the pause it
-        // added.
+        // Performance track -> ordinary track: drop the mark and both pauses it
+        // added (before and after).
         PerformanceRegistry::instance().unmark(trackId);
-        pTableModel->clearPauseAfterRow(baseIndex.row());
+        pTableModel->clearPauseAfterRow(row);
+        if (beforeRow >= 0) {
+            pTableModel->clearPauseAfterRow(beforeRow);
+        }
     } else {
-        // Mark as a performance track: mutually exclusive with cortina, and
-        // stop the set after it so the DJ can run the one-off.
+        // Mark as a performance track: mutually exclusive with cortina, and stop
+        // the set before AND after it so the DJ can announce the one-off, play
+        // it, then bring dancers back.
         CortinaRegistry::instance().unmark(trackId);
         PerformanceRegistry::instance().mark(trackId);
-        if (!pTableModel->isPauseAfterRow(baseIndex.row())) {
-            pTableModel->togglePauseAfterRow(baseIndex.row());
+        if (!pTableModel->isPauseAfterRow(row)) {
+            pTableModel->togglePauseAfterRow(row);
+        }
+        if (beforeRow >= 0 && !pTableModel->isPauseAfterRow(beforeRow)) {
+            pTableModel->togglePauseAfterRow(beforeRow);
         }
     }
 }

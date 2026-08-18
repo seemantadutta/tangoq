@@ -383,7 +383,7 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksCortinaTracks) {
     // Row 1 (track b) is an ordinary loose track until tagged as a cortina.
     EXPECT_TRUE(model.data(model.index(1, typeCol)).toString().isEmpty());
     CortinaRegistry::instance().mark(b);
-    EXPECT_EQ(QStringLiteral("C"),
+    EXPECT_EQ(QStringLiteral("c"),
             model.data(model.index(1, typeCol)).toString());
     EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
     CortinaRegistry::instance().unmark(b);
@@ -416,13 +416,13 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksPerformanceTracks) {
 
     EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
     PerformanceRegistry::instance().mark(a);
-    EXPECT_EQ(QStringLiteral("P"),
+    EXPECT_EQ(QStringLiteral("p"),
             model.data(model.index(0, typeCol)).toString());
 
     // Cortina takes precedence in the column when both marks somehow coexist
     // (the menu keeps them mutually exclusive; this pins the display rule).
     CortinaRegistry::instance().mark(a);
-    EXPECT_EQ(QStringLiteral("C"),
+    EXPECT_EQ(QStringLiteral("c"),
             model.data(model.index(0, typeCol)).toString());
 
     CortinaRegistry::instance().unmark(a);

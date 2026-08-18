@@ -177,9 +177,11 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == TandaIdRole) {
             return pRow->tandaId;
         }
-        // Constituent tracks carry no tanda letter, but a cortina ("C", blue) or
-        // a performance track ("P", green) shows its mark here so the set's
-        // breaks and one-offs scan at a glance alongside the tandas.
+        // Constituent tracks carry no tanda letter. A cortina or performance
+        // track shows a dim, lowercase mark here ("c" / "p") - deliberately
+        // subordinate to the bold T/V/M tanda letters so the eye rides the
+        // TTVTTM flow and treats these as quiet punctuation. Their vivid
+        // identification lives in the coloured title prefix instead.
         if (proxyIndex.column() == tandaTypeColumn()) {
             if (role == Qt::TextAlignmentRole) {
                 return QVariant::fromValue(Qt::AlignCenter);
@@ -190,13 +192,13 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                         m_pPlaylistModel->index(pRow->sourceRow, 0));
                 if (CortinaRegistry::instance().contains(trackId)) {
                     return role == Qt::DisplayRole
-                            ? QVariant(QStringLiteral("C"))
-                            : QVariant(QBrush(QColor(0x33, 0x88, 0xff)));
+                            ? QVariant(QStringLiteral("c"))
+                            : QVariant(QBrush(QColor(0x60, 0x74, 0x88)));
                 }
                 if (PerformanceRegistry::instance().contains(trackId)) {
                     return role == Qt::DisplayRole
-                            ? QVariant(QStringLiteral("P"))
-                            : QVariant(QBrush(QColor(0x44, 0xcc, 0x88)));
+                            ? QVariant(QStringLiteral("p"))
+                            : QVariant(QBrush(QColor(0x60, 0x82, 0x72)));
                 }
             }
             return {};

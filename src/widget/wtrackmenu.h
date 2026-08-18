@@ -315,7 +315,8 @@ class WTrackMenu : public QMenu {
     // track(s) as cortinas in place (without re-adding them).
     parented_ptr<QAction> m_pCortinaToggleAct;
     // Toggles the selected track between a performance track (a one-off outside
-    // the tanda structure, with a pause after it) and an ordinary track.
+    // the tanda structure, with pauses before and after it) and an ordinary
+    // track.
     parented_ptr<QAction> m_pPerformanceToggleAct;
     parented_ptr<QAction> m_pPauseAfterToggleAct;
     parented_ptr<QAction> m_pDisplayNameAct;
