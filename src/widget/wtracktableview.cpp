@@ -159,14 +159,14 @@ void WTrackTableView::slotGuiTick50ms(double /*unused*/) {
         if (m_selectionChangedSinceLastGuiTick) {
             const QModelIndexList indices = getSelectedRows();
             if (indices.size() == 1 && indices.first().isValid()) {
-                // A single track has been selected
+                // A single row is selected. Emit its track, or a null pointer if
+                // the row resolves to none (e.g. a Tango tanda header) so that
+                // downstream listeners - like the Auto DJ selection-duration
+                // line, which totals a selected tanda's tracks - still update.
                 TrackModel* pTrackModel = getTrackModel();
-                if (pTrackModel) {
-                    TrackPointer pTrack = pTrackModel->getTrack(indices.first());
-                    if (pTrack) {
-                        emit trackSelected(pTrack);
-                    }
-                }
+                emit trackSelected(pTrackModel
+                                ? pTrackModel->getTrack(indices.first())
+                                : TrackPointer());
             } else {
                 // None or multiple tracks have been selected
                 emit trackSelected(TrackPointer());

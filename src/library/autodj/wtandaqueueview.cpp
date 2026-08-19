@@ -21,6 +21,7 @@
 #include <QSet>
 
 #include "library/autodj/autodjfeature.h"
+#include "library/autodj/autodjqueuereset.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/tandaqueuestate.h"
@@ -610,6 +611,16 @@ void WTandaQueueView::showTandaHeaderMenu(
     menu.addSeparator();
     menu.addAction(m_pMoveUpAction);
     menu.addAction(m_pMoveDownAction);
+    // Same reset offered on loose tracks (WTrackMenu), so a tanda header is not a
+    // dead spot for it. Gated to Tango/stopped/not-LIVE/idle by the helper.
+    if (mixxx::canResetAutoDJQueueState()) {
+        menu.addSeparator();
+        QAction* pReset =
+                menu.addAction(tr("Eject decks and reset AutoDJ queue state"));
+        connect(pReset, &QAction::triggered, this, [this] {
+            mixxx::resetAutoDJQueueState(this);
+        });
+    }
     menu.exec(globalPos);
 }
 

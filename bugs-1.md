@@ -29,10 +29,14 @@
 # Long term features
 
 * Detect tracks with big gaps or audio cut outs
-* configurable tango mode toolbar so that I can choose what I want to see, like milonga under/over times etc.
 * Tanda suggestion window - needs more work and needs a well tagged library. Maybe add a system to tag tracks as popular/unpopular during a live gig and then build the data set over time which can then be used by AI/ML algorithms to generate tanda suggestions based on the expected dancer outcomes. The data set building can happen over several months to years. (Design notes live in the untracked `tanda-insights.md` - framing, the candidate insights, and the finding that the underlying data does not exist yet.)
 
 
 # New bugs
 * Feature: Show and hide different parts in the toolbar like timing information
+* Feature: Curated right click menu in the toolbar area (QMainWindow based)
 
+* carry on with removing the HUD and making it bigger
+* App icon tooltip needs to have the tag line correctly
+
+* app wide skinning changes
