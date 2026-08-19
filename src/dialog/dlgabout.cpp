@@ -33,7 +33,7 @@ DlgAbout::DlgAbout()
     mixxx_logo->installEventFilter(this);
 
     version_label->setText(VersionStore::applicationName() +
-            QStringLiteral(" ") + VersionStore::version());
+            QStringLiteral(" version ") + VersionStore::forkVersion());
     git_version_label->setText(VersionStore::gitVersion());
     qt_version_label->setText(VersionStore::qtVersion());
     platform_label->setText(VersionStore::platform());
@@ -466,17 +466,23 @@ DlgAbout::DlgAbout()
     sections << QString("<p align=\"center\"><b>%1</b></p>"
                         "<p align=\"center\">%2</p>")
                         .arg(tr("About this build"),
-                                tr("TangoQ is Argentine Tango DJ Software based "
+                                tr("TangoQ is Argentine Tango DJ software based "
                                    "on Mixxx. It is not affiliated with, "
                                    "supported by, or endorsed by the Mixxx "
                                    "project.<br>"
                                    "Please report problems with TangoQ to its "
-                                   "own issue tracker rather than to Mixxx.<br>"
-                                   "The original application is at "
-                                   "<a href=\"%1\">mixxx.org</a>.<br><br>"
-                                   "TangoQ is built on the work of everyone "
-                                   "credited below.")
-                                        .arg(MIXXX_WEBSITE_URL))
+                                   "own issue tracker rather than to Mixxx.<br><br>"
+                                   "TangoQ is built on the work of the Mixxx "
+                                   "developers and everyone credited below. The "
+                                   "original application is at "
+                                   "<a href=\"%1\">mixxx.org</a> &mdash; please "
+                                   "consider supporting them with a "
+                                   "<a href=\"%2\">donation to Mixxx</a>.<br><br>"
+                                   "Like Mixxx, TangoQ is free software, "
+                                   "distributed under the same terms: the GNU "
+                                   "General Public License, version 2 or later. "
+                                   "The full license text is in the License tab.")
+                                        .arg(MIXXX_WEBSITE_URL, MIXXX_DONATE_URL))
              << sectionTemplate.arg(s_devTeam,
                                     thisReleaseDevelopers.join("<br>"))
              << sectionTemplate.arg(s_contributions,
@@ -487,6 +493,10 @@ DlgAbout::DlgAbout()
                                     pastContributors.join("<br>"))
              << sectionTemplate.arg(s_specialThanks,
                                     specialThanks.join("<br>"));
+    // The credits carry the Mixxx site and donation links, so anchors must be
+    // clickable - the .ui sets NoTextInteraction - and open in the browser.
+    textBrowser->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    textBrowser->setOpenExternalLinks(true);
     textBrowser->setHtml(sections.join(""));
 
     // Make the fork maintainer contactable, in the dialog's own link colour so it
@@ -500,31 +510,20 @@ DlgAbout::DlgAbout()
                                  palette().text().color())
                                     .name()));
 
-    textWebsiteLink->setText(
-            QString("<a style=\"color:%1;\" href=\"%2\">%3</a>")
-                    .arg(Color::blendColors(palette().link().color(),
-                                 palette().text().color())
-                                    .name(),
-                            MIXXX_WEBSITE_URL,
-                            tr("Official Website")));
+    // One support button, for TangoQ. Mixxx's own site and donation links live in
+    // the credits text above, so a good-faith supporter of either project can
+    // reach the right place. The "Official Website" label and the separate
+    // "Donate to Mixxx" button were removed in favour of that. The heart icon
+    // (with the occasional rainbow) rides on this button now.
     if (std::rand() % 6) {
         if (!Color::isDimColor(palette().text().color())) {
-            btnDonate->setIcon(QIcon(":/images/heart_icon_light.svg"));
+            btnSupportFork->setIcon(QIcon(":/images/heart_icon_light.svg"));
         } else {
-            btnDonate->setIcon(QIcon(":/images/heart_icon_dark.svg"));
+            btnSupportFork->setIcon(QIcon(":/images/heart_icon_dark.svg"));
         }
     } else {
-        btnDonate->setIcon(QIcon(":/images/heart_icon_rainbow.svg"));
+        btnSupportFork->setIcon(QIcon(":/images/heart_icon_rainbow.svg"));
     }
-    btnDonate->setText(tr("Donate to Mixxx"));
-    connect(btnDonate, &QPushButton::clicked, this, [] {
-        mixxx::DesktopHelper::openUrl(QUrl(MIXXX_DONATE_URL));
-    });
-
-    // A separate button rather than repointing the one above. Someone clicking
-    // "Donate" in a dialog full of Mixxx's credits means to support Mixxx, and
-    // quietly redirecting that would take a donation given in good faith to
-    // someone else. Two buttons, clearly labelled, lets people choose.
     btnSupportFork->setText(tr("Support TangoQ"));
     connect(btnSupportFork, &QPushButton::clicked, this, [] {
         mixxx::DesktopHelper::openUrl(QUrl(TANGOQ_SUPPORT_URL));

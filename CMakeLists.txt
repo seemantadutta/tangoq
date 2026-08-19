@@ -2385,6 +2385,14 @@ else()
    set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
+# TangoQ fork product version. Shown to users (About dialog, window title,
+# startup log) and stamped into the Windows .exe "Product version". It is
+# deliberately independent of the Mixxx base version above (CMAKE_PROJECT_VERSION),
+# which the config-upgrade logic and skin lineage still rely on - so bump this
+# per TangoQ release, and leave the Mixxx base alone.
+set(TANGOQ_VERSION "1.0.1")
+string(REPLACE "." "," TANGOQ_PRODUCTVERSION "${TANGOQ_VERSION}")
+
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
 # uses CMAKE_PROJECT_VERSION MIXXX_VERSION_PRERELEASE MIXXX_BUILD_FLAGS
@@ -2420,7 +2428,8 @@ if(WIN32)
   string(TIMESTAMP MIXXX_YEAR "%Y")
 
   set(MIXXX_FILEVERSION "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}")
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  # File version tracks the Mixxx code base; product version is the TangoQ release.
+  set(MIXXX_PRODUCTVERSION "${TANGOQ_PRODUCTVERSION}")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)

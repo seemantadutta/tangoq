@@ -271,16 +271,6 @@ p, li { white-space: pre-wrap; }
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QLabel" name="textWebsiteLink">
-       <property name="openExternalLinks">
-        <bool>true</bool>
-       </property>
-       <property name="textInteractionFlags">
-        <set>Qt::LinksAccessibleByMouse</set>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="horizontalSpacer_2">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -295,9 +285,6 @@ p, li { white-space: pre-wrap; }
      </item>
      <item>
       <widget class="QPushButton" name="btnSupportFork"/>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnDonate"/>
      </item>
      <item>
       <widget class="QDialogButtonBox" name="buttonBox">

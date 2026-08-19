@@ -828,7 +828,8 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
 
 void MixxxMainWindow::slotUpdateWindowTitle(TrackPointer pTrack) {
     m_pTitleTrack = pTrack;
-    QString appTitle = VersionStore::applicationName();
+    QString appTitle = VersionStore::applicationName() +
+            QChar(' ') + VersionStore::forkVersion();
     QString filePath;
 
     // The app is TangoQ whether or not Tango DJ mode is engaged -- the name

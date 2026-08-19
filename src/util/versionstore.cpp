@@ -50,6 +50,11 @@ QString VersionStore::version() {
 }
 
 // static
+QString VersionStore::forkVersion() {
+    return QStringLiteral(TANGOQ_VERSION);
+}
+
+// static
 QVersionNumber VersionStore::versionNumber() {
     return kMixxxVersionNumber;
 }
@@ -216,6 +221,9 @@ void VersionStore::logBuildDetails() {
     QString buildFlags = VersionStore::buildFlags();
 
     QStringList buildInfo;
+    // The Mixxx code base this TangoQ release is built on, kept for support/debug
+    // now that the first log line shows the fork version instead.
+    buildInfo.append(QString("Mixxx base %1").arg(version));
     buildInfo.append(QString("git %1").arg(VersionStore::gitVersion()));
 #ifndef DISABLE_BUILDTIME // buildtime=1, on by default
     buildInfo.append("built on: " __DATE__ " @ " __TIME__);
@@ -226,7 +234,7 @@ void VersionStore::logBuildDetails() {
     QString buildInfoFormatted = QString("(%1)").arg(buildInfo.join("; "));
 
     // This is the first line in tangoq.log
-    qDebug().noquote() << applicationName() << version << buildInfoFormatted << "is starting...";
+    qDebug().noquote() << applicationName() << forkVersion() << buildInfoFormatted << "is starting...";
 
     QStringList depVersions = dependencyVersions();
     qDebug() << "Compile time library versions:";

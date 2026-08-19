@@ -28,9 +28,7 @@
 // landing page rather than a payment provider directly: a bare payment link
 // opening out of an app looks like something to be suspicious of, and a page we
 // control can offer several ways to help without another release to change them.
-// Support page for the TangoQ fork. Keep this on the project issue tracker until
-// a dedicated product domain is available.
-#define TANGOQ_SUPPORT_URL "https://github.com/seemantadutta/mixxx/issues"
+#define TANGOQ_SUPPORT_URL "https://tangoq.app/"
 
 #define MIXXX_CONTROLLER_FORUMS_URL \
     "https://mixxx.discourse.group/c/controller-mappings/10"
