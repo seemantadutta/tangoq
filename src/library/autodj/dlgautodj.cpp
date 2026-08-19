@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include <QDateTime>
-#include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
@@ -615,21 +614,15 @@ void DlgAutoDJ::refreshTangoModeUi() {
         m_pLiveModeControl->set(0.0);
     }
     refreshLiveMode();
-    // In Tango mode, disable the controls that can wreck a pre-arranged live
-    // set if triggered by accident. Dim them so they clearly read as locked,
-    // instead of vanishing or still looking clickable.
+    // In Tango mode these controls are hidden: a pre-arranged live set is never
+    // shuffled, randomised or repeated by hand, so they only add clutter and a
+    // chance to wreck the set by accident. Hiding (rather than dimming) keeps the
+    // toolbar clean during a milonga; outside Tango they return as stock Mixxx.
     for (QPushButton* pButton : {pushButtonShuffle,
                  pushButtonAddRandomTrack,
                  pushButtonRepeatPlaylist}) {
+        pButton->setVisible(!tango);
         pButton->setEnabled(!tango);
-        if (tango) {
-            auto* pDim = new QGraphicsOpacityEffect(pButton);
-            pDim->setOpacity(0.4);
-            pButton->setGraphicsEffect(pDim);
-        } else {
-            // Removes and deletes any existing effect.
-            pButton->setGraphicsEffect(nullptr);
-        }
     }
     // The stock Fade Now button becomes Fade Cortina in Tango mode. Reusing the
     // same widget preserves the skin's native hover, press, and disabled states.
@@ -638,6 +631,9 @@ void DlgAutoDJ::refreshTangoModeUi() {
     const bool fading = state == AutoDJProcessor::ADJ_LEFT_FADING ||
             state == AutoDJProcessor::ADJ_RIGHT_FADING ||
             state == AutoDJProcessor::ADJ_ENABLE_P1LOADED;
+    // Skip is hidden in Tango mode too (Auto DJ advances tandas on its own), and
+    // returns to its stock running-dependent enabled state outside Tango.
+    pushButtonSkipNext->setVisible(!tango);
     pushButtonSkipNext->setEnabled(running && !tango);
     setEnabledIfChanged(pushButtonFadeNow,
             tango ? m_pAutoDJProcessor->canFadePlayingCortinaNow()
