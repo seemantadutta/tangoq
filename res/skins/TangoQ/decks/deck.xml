@@ -10,54 +10,19 @@
         <SetVariable name="Group">[Channel<Variable name="ChanNum"/>]</SetVariable>
       </Template>
 
-      <WidgetStack currentpage="[Skin],show_mixer" persist="true">
+      <!-- Deck size is locked to Full for the Tango DJ: compact/mini omit the
+           Set Start / Reset transport buttons (and show a cue button instead),
+           which are critical to keep. The size selector is removed from the skin
+           settings to match; bring the sizes back only if those buttons can be
+           retained in every size. -->
+      <WidgetGroup>
+        <Layout>horizontal</Layout>
         <Children>
-
-          <!-- no mixer -->
-          <WidgetStack currentpage="[TangoQ],deck_size_without_mixer" persist="true">
-            <Children>
-              <!-- minimal deck selected -->
-              <WidgetGroup trigger="[TangoQ],show_mini_deck">
-                <Layout>horizontal</Layout>
-                <Children>
-                  <SingletonContainer>
-                    <ObjectName>Deck<Variable name="ChanNum"/>_Mini</ObjectName>
-                  </SingletonContainer>
-                </Children>
-              </WidgetGroup>
-              <!-- Compact deck selected -->
-              <WidgetGroup trigger="[TangoQ],show_compact_deck">
-                <Layout>horizontal</Layout>
-                <Children>
-                <SingletonContainer>
-                  <ObjectName>Deck<Variable name="ChanNum"/>_Compact</ObjectName>
-                </SingletonContainer>
-                </Children>
-              </WidgetGroup>
-              <!-- Full deck selected -->
-              <WidgetGroup trigger="[TangoQ],show_full_deck">
-                <Layout>horizontal</Layout>
-                <Children>
-                  <SingletonContainer>
-                    <ObjectName>Deck<Variable name="ChanNum"/>_Full</ObjectName>
-                  </SingletonContainer>
-                </Children>
-              </WidgetGroup>
-            </Children>
-          </WidgetStack>
-
-          <!-- mixer shown = full deck -->
-          <WidgetGroup trigger="[Skin],show_mixer" on_hide_select="0">
-            <Layout>horizontal</Layout>
-            <Children>
-              <SingletonContainer>
-                <ObjectName>Deck<Variable name="ChanNum"/>_Full</ObjectName>
-              </SingletonContainer>
-            </Children>
-          </WidgetGroup>
-
+          <SingletonContainer>
+            <ObjectName>Deck<Variable name="ChanNum"/>_Full</ObjectName>
+          </SingletonContainer>
         </Children>
-      </WidgetStack>
+      </WidgetGroup>
 
     </Children>
   </WidgetGroup>

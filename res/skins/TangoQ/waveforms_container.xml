@@ -80,13 +80,8 @@
 
           <WidgetGroup><Size>1f,1min</Size></WidgetGroup>
 
-          <Template src="skins:TangoQ/controls/button_2state_persist.xml">
-            <SetVariable name="TooltipId">show_beatgrid_controls</SetVariable>
-            <SetVariable name="ObjectName">BeatgridControlsToggle</SetVariable>
-            <SetVariable name="Size">26f,52f</SetVariable>
-            <SetVariable name="BtnSize"></SetVariable>
-            <SetVariable name="ConfigKey">[Skin],show_beatgrid_controls</SetVariable>
-          </Template>
+          <!-- BeatgridControlsToggle removed for the Tango DJ build: the beatgrid
+               controls it revealed are gone (see waveform.xml). -->
 
           <WidgetGroup>
             <Size>2f,1min</Size>

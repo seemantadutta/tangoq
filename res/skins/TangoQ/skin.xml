@@ -44,31 +44,33 @@
 
     <!-- Decks -->
       <!-- general -->
-      <attribute persist="true" config_key="[Skin],show_4decks">0</attribute>
-      <attribute persist="true" config_key="[Skin],show_hotcues">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_8_hotcues">1</attribute>
+      <!-- Tango: lock to 2 decks and strip the controllerist deck surface
+           (hotcues, loops, beatjump, rate, key, vinyl) by forcing these off every
+           load (persist="false"). Spinny and cover art stay user-toggleable. -->
+      <attribute persist="false" config_key="[Skin],show_4decks">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_hotcues">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_8_hotcues">0</attribute>
       <attribute persist="true" config_key="[Skin],show_intro_outro_cues">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_loop_controls">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_beatjump_controls">1</attribute>
+      <attribute persist="false" config_key="[Skin],show_loop_controls">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_beatjump_controls">0</attribute>
       <attribute persist="true" config_key="[Skin],show_spinnies">1</attribute>
       <attribute persist="true" config_key="[Skin],show_coverart">1</attribute>
       <attribute persist="true" config_key="[Skin],select_big_spinny_or_cover">0</attribute>
-      <!-- ToDo: deck-independent vinyl controls? -->
-      <attribute persist="true" config_key="[Skin],show_vinylcontrol">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_vinylcontrol">0</attribute>
       <!-- Deck variant that is shown as soon as the mixer is hidden.
           See deck.xml and /helpers/skin_helper_deck_size.xml for documentation.
           0=mini 1=compact(default) 2=full deck -->
       <attribute persist="true" config_key="[TangoQ],deck_size_without_mixer">1</attribute>
       <!-- Full deck -->
-      <attribute persist="true" config_key="[Skin],show_rate_controls">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_rate_control_buttons">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_beatgrid_controls">1</attribute>
+      <attribute persist="false" config_key="[Skin],show_rate_controls">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_rate_control_buttons">0</attribute>
+      <attribute persist="false" config_key="[Skin],show_beatgrid_controls">0</attribute>
       <!-- Compact deck -->
       <attribute persist="true" config_key="[Skin],show_rate_controls_compact">1</attribute>
       <attribute persist="true" config_key="[Skin],show_loop_controls_compact">1</attribute>
       <attribute persist="true" config_key="[Skin],show_beatjump_controls_compact">1</attribute>
       <attribute persist="true" config_key="[Skin],show_sync_button_compact">1</attribute>
-      <attribute persist="true" config_key="[Skin],show_key_controls">1</attribute>
+      <attribute persist="false" config_key="[Skin],show_key_controls">0</attribute>
       <attribute persist="true" config_key="[Skin],show_key_controls_compact">1</attribute>
       <attribute persist="true" config_key="[Skin],show_vumeters_compact">1</attribute>
 
@@ -80,7 +82,7 @@
       <attribute persist="true" config_key="[Skin],show_xfader">1</attribute>
       <attribute persist="true" config_key="[TangoQ],show_vumeters_compact">1</attribute>
     <!-- Effects -->
-      <attribute persist="true" config_key="[Skin],show_effectrack">1</attribute>
+      <attribute persist="false" config_key="[Skin],show_effectrack">0</attribute>
       <attribute persist="true" config_key="[Skin],show_4effectunits">0</attribute>
       <attribute persist="true" config_key="[Skin],show_superknobs">0</attribute>
     <!-- Samplers -->

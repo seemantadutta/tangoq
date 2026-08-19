@@ -5,7 +5,8 @@
     <SizePolicy>me,max</SizePolicy>
     <Children>
 
-      <Template src="skins:TangoQ/fx/assign_buttons.xml"/>
+      <!-- FX1/FX2 assign buttons removed for the Tango DJ build: a tanda set
+           routes through no effect units. -->
 
       <WidgetGroup><Size>2f,0min</Size></WidgetGroup>
 
