@@ -35,6 +35,19 @@
 # New bugs
 * Feature: Show and hide different parts in the toolbar like timing information
 * Feature: Curated right click menu in the toolbar area (QMainWindow based)
+* Feature: Audible/start-cue-based durations everywhere the set time is shown.
+  - Selection-duration line (near LIVE): today whole-file, plus cortina length
+    counted as min(CortinaLength, file). Upgrade each non-cortina track to its
+    audible span: LAS - FAS from the N60dBSound cue when analyzed, and LAS - S
+    when a Tango start (S) cue exists; fall back to whole file otherwise. A
+    selection is small, so loading those tracks' cues is cheap.
+  - Set over/under (recomputeKeepQueueUpcomingDuration / getRemainingSetDuration):
+    already uses cortina length and LAS - FAS (mode-aware: Skip-Silence /
+    Tanda Transition only; cache-limited to avoid loading every row). Gap: it
+    does NOT subtract the S start cue - add LAS - S so the estimate matches what
+    plays. Keep the "don't getTrack() every row" rule (only refine cached rows).
+  - Reuse keepQueueAudibleSeconds / keepQueueTrackPlaySeconds; keep the selection
+    line and the set calc agreeing on what a queued track costs.
 
 * carry on with removing the HUD and making it bigger
 * App icon tooltip needs to have the tag line correctly

@@ -17,6 +17,7 @@
 
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/autodj/autodjfeature.h"
+#include "library/autodj/cortinaregistry.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/wtandaqueueview.h"
 #include "library/library.h"
@@ -101,6 +102,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &DlgAutoDJ::trackSelected);
     connect(m_pTrackTableView,
             &WTrackTableView::trackSelected,
+            this,
+            &DlgAutoDJ::updateSelectionInfo);
+    // Tagging the selected track as a cortina (or back to a track) changes what
+    // its selected time should read, so re-total on cortina mark changes.
+    connect(&CortinaRegistry::instance(),
+            &CortinaRegistry::cortinaMarksChanged,
             this,
             &DlgAutoDJ::updateSelectionInfo);
 
@@ -313,6 +320,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             ConfigKey("[AutoDJ]", "cortina_length"), this);
     m_pCortinaLengthControl->connectValueChanged(this, [this](double) {
         updateCortinaLengthReadout();
+        // A selected cortina counts as its length, so re-total the selection when
+        // the length is nudged.
+        updateSelectionInfo();
     });
     // Live-editable nudge step (1..10 s). Kept in the cockpit (not the stop-only
     // Preferences) so it can be tuned during a set; persisted so it is remembered.
@@ -665,8 +675,10 @@ void DlgAutoDJ::nudgeCortinaLength(int delta) {
         m_pCortinaLengthControl->set(next);
     }
     // The control does not echo its own set back to this proxy, so refresh the
-    // readout directly (a change from Preferences arrives via connectValueChanged).
+    // readout and the selection total directly (a change from Preferences arrives
+    // via connectValueChanged instead).
     updateCortinaLengthReadout();
+    updateSelectionInfo();
 }
 
 void DlgAutoDJ::updateCortinaLengthReadout() {
@@ -888,18 +900,45 @@ void DlgAutoDJ::refreshTransitionControls() {
 void DlgAutoDJ::updateSelectionInfo() {
     QModelIndexList indices = m_pTrackTableView->selectionModel()->selectedRows();
 
-    if (m_pTrackTableView->model() == m_pTandaQueueModel) {
+    const bool tangoList = m_pTrackTableView->model() == m_pTandaQueueModel;
+    if (tangoList) {
         indices = m_pTandaQueueModel->mapSelectionToSource(indices);
     }
 
-    // Derive total duration from the table model. This is much faster than
-    // getting the duration from individual track objects.
-    mixxx::Duration duration = m_pAutoDJTableModel->getTotalDuration(indices);
+    double totalSeconds = 0.0;
+    if (tangoList) {
+        // A cortina only plays for its configured cortina length (clamped to the
+        // file), not the whole file, so count that. Non-cortina tracks use their
+        // full duration. (Durations are still whole-file, not LAS/FAS - a later
+        // release may switch to the audible span.)
+        // Read the length from the control the nudge buttons drive, so a live
+        // nudge is reflected immediately without depending on the config write
+        // ordering.
+        const double cortinaLength = m_pCortinaLengthControl
+                ? m_pCortinaLengthControl->get()
+                : static_cast<double>(m_pConfig->getValue(
+                          ConfigKey("[Auto DJ]", "CortinaLength"), 45));
+        for (const QModelIndex& index : indices) {
+            const double full =
+                    m_pAutoDJTableModel->durationSecondsForRow(index.row());
+            if (CortinaRegistry::instance().contains(
+                        m_pAutoDJTableModel->getTrackId(index))) {
+                totalSeconds += std::min(full, cortinaLength);
+            } else {
+                totalSeconds += full;
+            }
+        }
+    } else {
+        // Derive total duration from the table model. This is much faster than
+        // getting the duration from individual track objects.
+        totalSeconds =
+                m_pAutoDJTableModel->getTotalDuration(indices).toDoubleSeconds();
+    }
 
     QString label;
 
     if (!indices.isEmpty()) {
-        label.append(mixxx::DurationBase::formatTime(duration.toDoubleSeconds()));
+        label.append(mixxx::DurationBase::formatTime(totalSeconds));
         label.append(QString(" (%1)").arg(indices.size()));
         labelSelectionInfo->setToolTip(tr("Displays the duration and number of selected tracks."));
         labelSelectionInfo->setText(label);
