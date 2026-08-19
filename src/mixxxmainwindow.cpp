@@ -91,7 +91,6 @@ inline bool supportsGlobalMenu() {
 #endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
-const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -629,47 +628,11 @@ void MixxxMainWindow::initializeWindow() {
 
 #ifndef __APPLE__
 void MixxxMainWindow::alwaysHideMenuBarDlg() {
-    // Don't show the dialog if the user unchecked "Ask me again"
-    if (!m_pCoreServices->getSettings()->getValue<bool>(
-                kMenuBarHintConfigKey, true)) {
-        return;
-    }
-    QString title = tr("Allow TangoQ to hide the menu bar?");
-    //: Always show the menu bar?
-    QString hideBtnLabel = tr("Hide");
-    QString showBtnLabel = tr("Always show");
-    //: Keep formatting tags <b> (bold text) and <br> (linebreak).
-    //: %1 is the placeholder for the 'Always show' button label
-    QString desc = tr(
-            "The TangoQ menu bar is hidden and can be toggled with a single press "
-            "of the <b>Alt</b> key.<br><br>"
-            "Click <b>%1</b> to agree.<br><br>"
-            "Click <b>%2</b> to disable that, for example if you don't use TangoQ "
-            "with a keyboard.<br><br>"
-            "You can change this setting any time in Preferences -> Interface."
-            "<br>") // line break for some extra margin to the checkbox
-                           .arg(hideBtnLabel, showBtnLabel);
-
-    QMessageBox msg;
-    msg.setIcon(QMessageBox::Question);
-    msg.setWindowTitle(title);
-    msg.setText(desc);
-    QCheckBox askAgainCheckBox;
-    askAgainCheckBox.setText(tr("Ask me again"));
-    askAgainCheckBox.setCheckState(Qt::Checked);
-    msg.setCheckBox(&askAgainCheckBox);
-    QPushButton* pHideBtn = msg.addButton(hideBtnLabel, QMessageBox::AcceptRole);
-    QPushButton* pShowBtn = msg.addButton(showBtnLabel, QMessageBox::RejectRole);
-    msg.setDefaultButton(pShowBtn);
-    msg.exec();
-
-    m_pCoreServices->getSettings()->setValue(
-            kMenuBarHintConfigKey,
-            askAgainCheckBox.checkState() == Qt::Checked ? 1 : 0);
-
-    m_pCoreServices->getSettings()->setValue(
-            kHideMenuBarConfigKey,
-            msg.clickedButton() == pHideBtn ? 1 : 0);
+    // TangoQ never auto-hides the menu bar - WMainMenuBar forces
+    // [Config],hide_menubar off on every launch and does not offer the toggle -
+    // so the first-run prompt that asks permission to hide it is suppressed
+    // entirely. Losing the menu bar mid-gig is unacceptable, so the DJ is never
+    // even offered the option. The callers are left in place, calling this no-op.
 }
 #endif
 
