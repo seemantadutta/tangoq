@@ -271,8 +271,19 @@ Qt::ItemFlags TandaQueueModel::flags(const QModelIndex& proxyIndex) const {
     if (sourceIndex.isValid()) {
         return m_pPlaylistModel->flags(sourceIndex);
     }
-    return proxyIndex.isValid() ? Qt::ItemIsEnabled | Qt::ItemIsSelectable
-                                : Qt::NoItemFlags;
+    if (!proxyIndex.isValid()) {
+        return Qt::NoItemFlags;
+    }
+    // Header rows have no source track. They stay enabled and selectable, but the
+    // Preview cell is disabled: the preview button previews a single track, and a
+    // tanda header is not one. The delegate paints a disabled preview cell dimmed
+    // and ignores clicks, so the icon stays visible - a track or cortina row still
+    // has a working one - but does nothing on a header.
+    Qt::ItemFlags headerFlags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    if (proxyIndex.column() == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW)) {
+        headerFlags &= ~Qt::ItemIsEnabled;
+    }
+    return headerFlags;
 }
 
 QMimeData* TandaQueueModel::mimeData(const QModelIndexList& indexes) const {
