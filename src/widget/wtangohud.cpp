@@ -4,6 +4,8 @@
 #include <QPainter>
 #include <QString>
 
+#include <cmath>
+
 #include "control/controlproxy.h"
 #include "library/autodj/tandaprogresspip.h"
 #include "preferences/configobject.h"
@@ -24,6 +26,12 @@ constexpr int kSidePadding = 20;
 constexpr int kPipRowGap = 3;
 // Breathing room above and below the stacked lines.
 constexpr int kVerticalPadding = 4;
+
+// Final-30 s "breathe": a calm sinusoidal in-out of the time value between a
+// faint and a full red, one cycle every kBreathPeriodMs.
+constexpr double kTwoPi = 6.283185307179586;
+constexpr double kBreathPeriodMs = 2400.0;
+constexpr int kBreathMinAlpha = 90; // faintest point of the breath (still legible)
 
 const QString kGroup = QStringLiteral("[AutoDJ]");
 
@@ -102,6 +110,18 @@ WTangoHud::WTangoHud(QWidget* pParent)
     m_pNextKind = makeProxy(QStringLiteral("hud_next_kind"));
     m_pTandaTrackCount = makeProxy(QStringLiteral("hud_tanda_track_count"));
     m_pTandaPlayingIndex = makeProxy(QStringLiteral("hud_tanda_playing_index"));
+
+    // Final-30 s breathe: advance the phase at ~25 fps and repaint. Runs only
+    // while inside the window (started/stopped from slotControlChanged), so the
+    // extra repaints cost nothing the rest of the time.
+    m_flashTimer.setInterval(40);
+    connect(&m_flashTimer, &QTimer::timeout, this, [this]() {
+        m_breathPhase += m_flashTimer.interval() / kBreathPeriodMs;
+        if (m_breathPhase >= 1.0) {
+            m_breathPhase -= 1.0;
+        }
+        update();
+    });
 }
 
 void WTangoHud::setup(const QDomNode& node, const SkinContext& context) {
@@ -111,11 +131,25 @@ void WTangoHud::setup(const QDomNode& node, const SkinContext& context) {
     // handled by commonWidgetSetup().
 }
 
+bool WTangoHud::inFlashWindow() const {
+    const double seconds = m_pCountdownSeconds->get();
+    return seconds >= 0.0 && seconds < 30.0;
+}
+
 void WTangoHud::slotControlChanged(double value) {
     Q_UNUSED(value);
     // The content width can change (label text, pip count), so re-query the
     // layout as well as repaint. This keeps the HUD from ever clipping.
     updateGeometry();
+    // Run the breathe timer only during the final-30 s window.
+    if (inFlashWindow()) {
+        if (!m_flashTimer.isActive()) {
+            m_breathPhase = 0.0; // start faint and breathe up
+            m_flashTimer.start();
+        }
+    } else if (m_flashTimer.isActive()) {
+        m_flashTimer.stop();
+    }
     update();
 }
 
@@ -187,6 +221,19 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
             countdownLabel(nextKind));
 
     // --- Time line (large, fixed-width so digits never jitter), centered -
+    // In the final 30 s the whole time value breathes red (a smooth faint <-> full
+    // pulse) to warn the DJ; otherwise it is the normal white.
+    QColor timeColor = kColorText;
+    if (inFlashWindow()) {
+        const double factor = 0.5 - 0.5 * std::cos(kTwoPi * m_breathPhase);
+        const int alpha = kBreathMinAlpha +
+                static_cast<int>(factor * (255 - kBreathMinAlpha));
+        timeColor = QColor(kColorAccent.red(),
+                kColorAccent.green(),
+                kColorAccent.blue(),
+                alpha);
+    }
+    p.setPen(timeColor);
     p.setFont(tf);
     drawFixedWidthTime(&p,
             QRect((w - timeWidth) / 2, stackTop + labelH, timeWidth, timeH),

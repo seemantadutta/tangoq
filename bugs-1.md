@@ -1,5 +1,6 @@
 # Fixed
 
+* HUD countdown breathes red in its final 30 s (track, cortina or set-ends), a smooth faint-to-full pulse to warn the DJ; steady white otherwise.
 * Lit dancer icon is hard to make out in ON and OFF state, maybe make it red in color.
 * Dancer icon should disappear in non tango mode, so that plain mixxx does not show this behavior. So the fix then becomes showing a red couple in the icon in tango mode, removing it completely when in non tango mode
 * AutoDJ reset should also eject the decks so that we can start with a truly clean slate and maybe the menu option should be called 'Eject decks and reset AutoDJ queue state'
@@ -49,7 +50,11 @@
   - Reuse keepQueueAudibleSeconds / keepQueueTrackPlaySeconds; keep the selection
     line and the set calc agreeing on what a queued track costs.
 
-* carry on with removing the HUD and making it bigger
-* App icon tooltip needs to have the tag line correctly
 
+* App icon tooltip needs to have the tag line correctly
 * app wide skinning changes
+
+
+* Minor bugs - future release
+* The waveform also changes color to purple during the last ~30s, but this color change is not in sync with the 'breathing' timer, would be nice if it was in sync
+* Make the breathing/beating behavior and duration configurable from settings, also make the cortina breathing time separately settable from tracking breathing time in settings

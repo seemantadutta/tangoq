@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QTimer>
+
 #include "widget/wwidget.h"
 
 class QDomNode;
@@ -30,6 +32,14 @@ class WTangoHud : public WWidget {
     // Width the current content needs, so the widget sizes to fit and never
     // clips (used by sizeHint()).
     int contentWidth() const;
+
+    // True when the countdown is in its final-30 s flash window (0 <= s < 30).
+    bool inFlashWindow() const;
+
+    // Drives the final-30 s red "breathe" of the time value.
+    QTimer m_flashTimer;
+    // Breath phase in [0, 1); advanced by the timer while inside the window.
+    double m_breathPhase{0.0};
 
     ControlProxy* m_pCountdownSeconds;
     ControlProxy* m_pNextKind;
