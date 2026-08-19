@@ -86,7 +86,6 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
                   backgroundColorOpacity),
           m_pAutoDJFeature(pAutoDJFeature),
           m_pChangeTandaTypeMenu(new QMenu(tr("Change tanda type"), this)),
-          m_pSetFlowPositionMenu(new QMenu(tr("Set flow position"), this)),
           m_pTandaSeparator(new QAction(this)),
           m_pToggleCollapsedAction(new QAction(this)),
           m_pUngroupAction(new QAction(tr("Unmake Tanda"), this)),
@@ -133,13 +132,6 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
         }
     };
     addChangeTypeActions();
-
-    // The flow-position slots depend on the configured pattern and the tanda, so
-    // the submenu is regenerated each time it is shown.
-    connect(m_pSetFlowPositionMenu,
-            &QMenu::aboutToShow,
-            this,
-            &WTandaQueueView::rebuildSetFlowPositionMenu);
 
     connect(m_pToggleCollapsedAction, &QAction::triggered, this, [this] {
         toggleTanda(m_contextTandaId);
@@ -613,50 +605,12 @@ void WTandaQueueView::showTandaHeaderMenu(
     menu.setObjectName(QStringLiteral("AutoDJContextMenu"));
     menu.addAction(m_pToggleCollapsedAction);
     menu.addMenu(m_pChangeTandaTypeMenu);
-    menu.addMenu(m_pSetFlowPositionMenu);
     menu.addAction(m_pUngroupAction);
     menu.addAction(m_pRemoveAction);
     menu.addSeparator();
     menu.addAction(m_pMoveUpAction);
     menu.addAction(m_pMoveDownAction);
     menu.exec(globalPos);
-}
-
-void WTandaQueueView::rebuildSetFlowPositionMenu() {
-    m_pSetFlowPositionMenu->clear();
-    TandaQueueModel* pModel = tandaModel();
-    if (!pModel) {
-        return;
-    }
-    // Slot labels come from the configured pattern's ideal types, so bare
-    // repeated letters (T T V T T M) are disambiguated as "1 - Tango" etc.
-    const auto typeName = [](int code) -> QString {
-        switch (code) {
-        case 1:
-            return tr("Vals");
-        case 2:
-            return tr("Milonga");
-        case 3:
-            return tr("Nuevo / Alternative");
-        default:
-            return tr("Tango");
-        }
-    };
-    const QVector<int> types = pModel->flowPatternTypes();
-    const int current = pModel->currentFlowSlot(m_contextTandaId);
-    for (int i = 0; i < types.size(); ++i) {
-        QAction* pAction = m_pSetFlowPositionMenu->addAction(
-                tr("%1 - %2").arg(i + 1).arg(typeName(types.at(i))));
-        pAction->setCheckable(true);
-        pAction->setChecked(i == current);
-        connect(pAction, &QAction::triggered, this, [this, slot = i] {
-            if (!m_contextTandaId.isNull()) {
-                if (TandaQueueModel* pModel = tandaModel()) {
-                    pModel->setFlowAnchor(m_contextTandaId, slot);
-                }
-            }
-        });
-    }
 }
 
 void WTandaQueueView::showError(const QString& message) {

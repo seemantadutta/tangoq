@@ -366,16 +366,6 @@ bool TandaQueueState::changeType(const QUuid& id, TandaType type) {
     return true;
 }
 
-void TandaQueueState::setFlowAnchor(const QUuid& id, int slot) {
-    if (m_flowAnchorTandaId == id && m_flowAnchorSlot == slot) {
-        return;
-    }
-    m_flowAnchorTandaId = id;
-    m_flowAnchorSlot = slot;
-    // Session-only: deliberately not save()d, so it never survives a restart.
-    emit flowAnchorChanged();
-}
-
 bool TandaQueueState::setCollapsed(const QUuid& id, bool collapsed) {
     const int index = indexById(id);
     if (index < 0 || m_spans.at(index).collapsed == collapsed) {

@@ -71,21 +71,8 @@ class TandaQueueState : public QObject {
 
     static QString typeToString(TandaType type);
 
-    /// Session-only flow anchor for the HUD ("Set flow position"). Pins one tanda
-    /// to a flow slot so the HUD rebases the idealized strip around it. Most
-    /// recent set wins; keyed by tanda id so it survives queue edits. Deliberately
-    /// NOT persisted - it resets to "none" each launch (the DJ re-syncs per set).
-    void setFlowAnchor(const QUuid& id, int slot);
-    QUuid flowAnchorTandaId() const {
-        return m_flowAnchorTandaId;
-    }
-    int flowAnchorSlot() const {
-        return m_flowAnchorSlot;
-    }
-
   signals:
     void spansChanged();
-    void flowAnchorChanged();
 
   private:
     static bool sequenceMatches(const QVector<TrackId>& queue,
@@ -108,7 +95,4 @@ class TandaQueueState : public QObject {
     QVector<TandaSpan> m_spans;
     QVector<TrackId> m_queueSnapshot;
     bool m_preserveUnchangedSpansOnNextReconcile{false};
-    // Session-only HUD flow anchor (see setFlowAnchor); not saved or restored.
-    QUuid m_flowAnchorTandaId;
-    int m_flowAnchorSlot{-1};
 };

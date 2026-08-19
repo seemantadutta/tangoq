@@ -10,27 +10,6 @@
 #include "control/controlproxy.h"
 #include "moc_dlgprefautodj.cpp"
 
-namespace {
-// The idealized milonga flow the HUD falls back to when nothing is configured.
-const QString kDefaultTandaFlowPattern = QStringLiteral("TTVTTM");
-
-// Keep only valid tanda-type letters (T/V/M/N), upper-cased, capped at 8. A
-// hand-edited config value or pasted text can never wedge the HUD this way; an
-// empty result is allowed as an in-progress edit and defaulted on apply.
-QString normalizeFlowPattern(const QString& raw) {
-    QString out;
-    for (const QChar c : raw.toUpper()) {
-        if (c == 'T' || c == 'V' || c == 'M' || c == 'N') {
-            out.append(c);
-            if (out.size() >= 8) {
-                break;
-            }
-        }
-    }
-    return out;
-}
-} // namespace
-
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
                              UserSettingsPointer pConfig)
         : DlgPreferencePage(pParent),
@@ -182,20 +161,6 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             this,
             &DlgPrefAutoDJ::slotSetCortinaFadeOut);
 
-    // Idealized milonga flow pattern for the toolbar HUD (T/V/M/N letters).
-    // Normalized on load so a hand-edited config value can never wedge the HUD.
-    QString flowPattern = normalizeFlowPattern(
-            m_pConfig->getValueString(ConfigKey("[Auto DJ]", "TandaFlowPattern")));
-    if (flowPattern.isEmpty()) {
-        flowPattern = kDefaultTandaFlowPattern;
-    }
-    TandaFlowPatternLineEdit->setText(flowPattern);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff"), flowPattern);
-    connect(TandaFlowPatternLineEdit,
-            &QLineEdit::textEdited,
-            this,
-            &DlgPrefAutoDJ::slotSetTandaFlowPattern);
-
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
 
@@ -226,15 +191,6 @@ void DlgPrefAutoDJ::slotSetCortinaFadeOut(int seconds) {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), seconds);
     updateCortinaHoldLabel();
 }
-
-void DlgPrefAutoDJ::slotSetTandaFlowPattern(const QString& text) {
-    // Buffer the normalized value; the visible field is left as typed and
-    // canonicalized on apply, so live editing (including a momentary empty box)
-    // does not fight the cursor.
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff"),
-            normalizeFlowPattern(text));
-}
-
 
 void DlgPrefAutoDJ::updateCortinaHoldLabel() {
     const int cortinaLength = CortinaLengthSpinBox->value();
@@ -321,17 +277,6 @@ void DlgPrefAutoDJ::slotApply() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "EnableRandomQueue"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "EnableRandomQueueBuff"), false));
-
-    // Canonicalize the flow pattern on commit: an empty buffer falls back to the
-    // default, and the visible field is updated to match what was stored.
-    QString flowPattern = normalizeFlowPattern(
-            m_pConfig->getValueString(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff")));
-    if (flowPattern.isEmpty()) {
-        flowPattern = kDefaultTandaFlowPattern;
-    }
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPattern"), flowPattern);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff"), flowPattern);
-    TandaFlowPatternLineEdit->setText(flowPattern);
 }
 
 void DlgPrefAutoDJ::slotCancel() {
@@ -359,14 +304,6 @@ void DlgPrefAutoDJ::slotCancel() {
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"), 5);
     CortinaFadeOutSpinBox->setValue(cortinaFadeOut);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), cortinaFadeOut);
-
-    QString flowPattern = normalizeFlowPattern(
-            m_pConfig->getValueString(ConfigKey("[Auto DJ]", "TandaFlowPattern")));
-    if (flowPattern.isEmpty()) {
-        flowPattern = kDefaultTandaFlowPattern;
-    }
-    TandaFlowPatternLineEdit->setText(flowPattern);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff"), flowPattern);
 
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
@@ -424,10 +361,6 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), 5);
     CortinaFadeOutSpinBox->setValue(5);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), 5);
-
-    TandaFlowPatternLineEdit->setText(kDefaultTandaFlowPattern);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "TandaFlowPatternBuff"),
-            kDefaultTandaFlowPattern);
 
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();

@@ -56,13 +56,6 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     bool isHeaderRow(int proxyRow) const;
     QUuid tandaIdForRow(int proxyRow) const;
 
-    // "Set flow position" support. setFlowAnchor pins a tanda to a HUD flow slot
-    // (session-only); flowPatternTypes returns the ideal pattern's type codes to
-    // label the menu; currentFlowSlot is the slot a tanda maps to now (for the
-    // menu's tick), or -1 if it has none.
-    void setFlowAnchor(const QUuid& tandaId, int slot);
-    QVector<int> flowPatternTypes() const;
-    int currentFlowSlot(const QUuid& tandaId) const;
     int sourceRowForVisibleRow(int proxyRow) const;
     int disclosureColumn() const;
     int summaryColumn() const;
@@ -144,9 +137,6 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     // Computes the current tanda's state (track count, playing index, ordinal in
     // the set) and pushes it to the processor for the toolbar HUD.
     void publishHudTandaState();
-    // Ordinal (0-based) of a tanda among the spans in queue order, or -1 if the
-    // id is not a current tanda.
-    int ordinalForTanda(const QUuid& tandaId) const;
     QString tandaDuration(const QUuid& id) const;
 
     PlaylistTableModel* const m_pPlaylistModel;

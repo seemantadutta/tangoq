@@ -10,35 +10,22 @@
 
 namespace {
 // Brand palette, matching the TangoQ logo and the rest of the HUD.
-const QColor kColorText(0xe8, 0xec, 0xf6);        // white: countdown
-const QColor kColorDim(0x8a, 0x93, 0xab);         // grey: inactive tandas
-const QColor kColorAccent(0xe6, 0x31, 0x4e);      // red: current tanda + pips
+const QColor kColorText(0xe8, 0xec, 0xf6);           // white: countdown
+const QColor kColorAccent(0xe6, 0x31, 0x4e);         // red: pips
 const QColor kColorAccentDim(0xe6, 0x31, 0x4e, 110); // dimmed red: previewed pips
 
-// Horizontal gap between the flow letters and the pip cluster.
-constexpr int kFlowPipsGap = 18;
-constexpr int kPixelSize = 14;
+// The label rides above the time; the time is large so the countdown is hard to
+// miss across a dim room. The track pips sit centered below the time, so the
+// whole HUD reads as one centered stack rather than an off-axis cluster.
+constexpr int kLabelPixelSize = 13;
+constexpr int kTimePixelSize = 24;
 constexpr int kSidePadding = 20;
-constexpr int kCountdownGap = 6;
+// Vertical gap between the time and the pip row.
+constexpr int kPipRowGap = 3;
+// Breathing room above and below the stacked lines.
+constexpr int kVerticalPadding = 4;
 
 const QString kGroup = QStringLiteral("[AutoDJ]");
-
-// Maps a slot type code (0=T,1=V,2=M,3=N) to its flow letter. Unknown/empty
-// slots render as a space so the strip keeps its shape.
-QChar flowLetterForType(int type) {
-    switch (type) {
-    case 0:
-        return QLatin1Char('T');
-    case 1:
-        return QLatin1Char('V');
-    case 2:
-        return QLatin1Char('M');
-    case 3:
-        return QLatin1Char('N');
-    default:
-        return QLatin1Char(' ');
-    }
-}
 
 QString formatCountdown(double seconds) {
     if (seconds < 0.0) {
@@ -89,9 +76,16 @@ void drawFixedWidthTime(QPainter* p, const QRect& rect, const QFontMetrics& fm, 
     }
 }
 
-QFont hudFont(const QFont& base) {
+QFont labelFont(const QFont& base) {
     QFont f = base;
-    f.setPixelSize(kPixelSize);
+    f.setPixelSize(kLabelPixelSize);
+    f.setBold(true);
+    return f;
+}
+
+QFont timeFont(const QFont& base) {
+    QFont f = base;
+    f.setPixelSize(kTimePixelSize);
     f.setBold(true);
     return f;
 }
@@ -108,12 +102,6 @@ WTangoHud::WTangoHud(QWidget* pParent)
     m_pNextKind = makeProxy(QStringLiteral("hud_next_kind"));
     m_pTandaTrackCount = makeProxy(QStringLiteral("hud_tanda_track_count"));
     m_pTandaPlayingIndex = makeProxy(QStringLiteral("hud_tanda_playing_index"));
-    m_pFlowLen = makeProxy(QStringLiteral("hud_flow_len"));
-    m_pFlowHighlight = makeProxy(QStringLiteral("hud_flow_highlight"));
-    m_pFlowMismatch = makeProxy(QStringLiteral("hud_flow_mismatch"));
-    for (int i = 0; i < kMaxFlowSlots; ++i) {
-        m_pFlowSlots[i] = makeProxy(QStringLiteral("hud_flow_slot_%1").arg(i));
-    }
 }
 
 void WTangoHud::setup(const QDomNode& node, const SkinContext& context) {
@@ -131,53 +119,30 @@ void WTangoHud::slotControlChanged(double value) {
     update();
 }
 
-QString WTangoHud::flowLetters() const {
-    int len = static_cast<int>(m_pFlowLen->get());
-    len = qBound(0, len, kMaxFlowSlots);
-    QString letters;
-    letters.reserve(len);
-    for (int i = 0; i < len; ++i) {
-        letters.append(flowLetterForType(static_cast<int>(m_pFlowSlots[i]->get())));
-    }
-    return letters;
-}
-
 int WTangoHud::contentWidth() const {
-    const QFontMetrics fm(hudFont(font()));
+    const QFontMetrics lm(labelFont(font()));
+    const QFontMetrics tm(timeFont(font()));
 
-    // Row 1: countdown text.
-    const int row1Width =
-            countdownLabelWidth(fm) + kCountdownGap + countdownTimeWidth(fm);
-
-    // Row 2: flow letters + pips.
-    const QString flow = flowLetters();
-    const int letterGap = fm.horizontalAdvance(QChar(' '));
-    int lettersWidth = 0;
-    for (int i = 0; i < flow.size(); ++i) {
-        lettersWidth += fm.horizontalAdvance(flow.at(i));
-        if (i != flow.size() - 1) {
-            lettersWidth += letterGap;
-        }
-    }
-    // Reserve a fixed cell for the "!" at the left of the strip, shown or not, so
-    // toggling the mark never shifts the letters.
-    const int bangCell = flow.isEmpty()
-            ? 0
-            : fm.horizontalAdvance(QLatin1Char('!')) + letterGap;
-    const int flowWidth = bangCell + lettersWidth;
     const int trackCount = static_cast<int>(m_pTandaTrackCount->get());
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
     const int pipsWidth =
             trackCount > 0 ? trackCount * pipD + (trackCount - 1) * pipGap : 0;
-    const int betweenGap = pipsWidth > 0 ? kFlowPipsGap : 0;
-    const int row2Width = flowWidth + betweenGap + pipsWidth;
 
-    return qMax(row1Width, row2Width) + kSidePadding;
+    // The stack is as wide as its widest row (label, time, or pips).
+    const int contentW = qMax(qMax(countdownLabelWidth(lm), countdownTimeWidth(tm)),
+            pipsWidth);
+    return contentW + kSidePadding;
 }
 
 QSize WTangoHud::sizeHint() const {
-    return QSize(contentWidth(), 34);
+    const QFontMetrics lm(labelFont(font()));
+    const QFontMetrics tm(timeFont(font()));
+    // Always reserve the pip row so the toolbar height does not jump when a tanda
+    // becomes active or idle.
+    const int pipRow = mixxx::kTandaProgressPipDiameter + kPipRowGap;
+    return QSize(contentWidth(),
+            lm.height() + tm.height() + pipRow + kVerticalPadding);
 }
 
 void WTangoHud::paintEvent(QPaintEvent* pEvent) {
@@ -188,7 +153,6 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
 
     const int w = width();
     const int h = height();
-    const int rowH = h / 2;
 
     // Live state.
     const double seconds = m_pCountdownSeconds->get();
@@ -199,96 +163,57 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     // (a cortina/loose track is active): pips are drawn dimmed.
     const bool preview = playingIndex < 0 && trackCount > 0;
 
-    const QFont f = hudFont(font());
+    const QFont lf = labelFont(font());
+    const QFont tf = timeFont(font());
+    const QFontMetrics lm(lf);
+    const QFontMetrics tm(tf);
 
-    // --- Row 1: countdown ------------------------------------------------
-    p.setFont(f);
-    p.setPen(kColorText);
-    const QFontMetrics row1Metrics(f);
-    const int labelWidth = countdownLabelWidth(row1Metrics);
-    const int timeWidth = countdownTimeWidth(row1Metrics);
-    const int row1Width = labelWidth + kCountdownGap + timeWidth;
-    const int row1X = (w - row1Width) / 2;
-    p.drawText(QRect(row1X, 0, labelWidth, rowH),
-            Qt::AlignRight | Qt::AlignVCenter,
-            countdownLabel(nextKind));
-    drawFixedWidthTime(&p,
-            QRect(row1X + labelWidth + kCountdownGap, 0, timeWidth, rowH),
-            row1Metrics,
-            formatCountdown(seconds));
-
-    // --- Row 2: T/V/M flow (current red) + track pips --------------------
-    const QFontMetrics fm(f);
-    const int letterGap = fm.horizontalAdvance(QChar(' '));
-    const QString flow = flowLetters();
-    const int flowLen = flow.size();
-    const int highlight = static_cast<int>(m_pFlowHighlight->get());
-    const bool mismatch = m_pFlowMismatch->toBool() && flowLen > 0;
-    const int bangAdvance = fm.horizontalAdvance(QLatin1Char('!'));
-    // Fixed "!" cell at the left of the strip, always reserved so toggling the
-    // mark never shifts the letters.
-    const int bangCell = flowLen > 0 ? bangAdvance + letterGap : 0;
-
-    int lettersWidth = 0;
-    for (int i = 0; i < flowLen; ++i) {
-        lettersWidth += fm.horizontalAdvance(flow.at(i));
-        if (i != flowLen - 1) {
-            lettersWidth += letterGap;
-        }
-    }
-    const int flowWidth = bangCell + lettersWidth;
-
+    const int timeWidth = countdownTimeWidth(tm);
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
-    const int pipsWidth =
-            trackCount > 0 ? trackCount * pipD + (trackCount - 1) * pipGap : 0;
-    const int betweenGap = pipsWidth > 0 ? kFlowPipsGap : 0;
-    const int totalWidth = flowWidth + betweenGap + pipsWidth;
-    const int startX = (w - totalWidth) / 2;
-    const int row2Top = rowH;
-    const int row2CenterY = row2Top + rowH / 2;
 
-    // "!" in its reserved left cell (drawn only when set; the space is always
-    // reserved so the letters hold still).
-    if (mismatch) {
-        p.setPen(kColorAccent);
-        p.drawText(QRect(startX, row2Top, bangAdvance, rowH),
-                Qt::AlignVCenter | Qt::AlignHCenter,
-                QStringLiteral("!"));
-    }
-    // Flow letters, starting after the reserved "!" cell. The highlighted marker
-    // matches the pip colour: full red while its tanda plays, dimmed red while a
-    // cortina/loose track previews the upcoming tanda.
-    const QColor highlightColor = preview ? kColorAccentDim : kColorAccent;
-    int x = startX + bangCell;
-    for (int i = 0; i < flowLen; ++i) {
-        p.setPen(i == highlight ? highlightColor : kColorDim);
-        const QChar ch = flow.at(i);
-        const int advance = fm.horizontalAdvance(ch);
-        p.drawText(QRect(x, row2Top, advance, rowH),
-                Qt::AlignVCenter | Qt::AlignHCenter,
-                QString(ch));
-        x += advance + letterGap;
-    }
+    // Three centered rows stacked on one vertical axis: label, large time, pips.
+    // The pip row is always reserved (see sizeHint) so the stack height is fixed.
+    const int labelH = lm.height();
+    const int timeH = tm.height();
+    const int pipRow = pipD + kPipRowGap;
+    const int stackTop = (h - (labelH + timeH + pipRow)) / 2;
 
-    // Track pips for the current (or, when previewing, the upcoming) tanda.
-    const QColor pipColor = preview ? kColorAccentDim : kColorAccent;
-    int pipX = startX + flowWidth + betweenGap;
-    const qreal pipTop = row2CenterY - pipD / 2.0;
-    for (int i = 0; i < trackCount; ++i) {
-        QChar state = QLatin1Char('0'); // unplayed
-        if (playingIndex >= 0) {
-            if (i < playingIndex) {
-                state = QLatin1Char('1'); // played
-            } else if (i == playingIndex) {
-                state = QLatin1Char('h'); // playing
+    // --- Label line, centered --------------------------------------------
+    p.setFont(lf);
+    p.setPen(kColorText);
+    p.drawText(QRect(0, stackTop, w, labelH),
+            Qt::AlignHCenter | Qt::AlignVCenter,
+            countdownLabel(nextKind));
+
+    // --- Time line (large, fixed-width so digits never jitter), centered -
+    p.setFont(tf);
+    drawFixedWidthTime(&p,
+            QRect((w - timeWidth) / 2, stackTop + labelH, timeWidth, timeH),
+            tm,
+            formatCountdown(seconds));
+
+    // --- Track pips, centered below the time -----------------------------
+    if (trackCount > 0) {
+        const QColor pipColor = preview ? kColorAccentDim : kColorAccent;
+        const int pipsWidth = trackCount * pipD + (trackCount - 1) * pipGap;
+        int pipX = (w - pipsWidth) / 2;
+        const qreal pipTop = stackTop + labelH + timeH + kPipRowGap;
+        for (int i = 0; i < trackCount; ++i) {
+            QChar state = QLatin1Char('0'); // unplayed
+            if (playingIndex >= 0) {
+                if (i < playingIndex) {
+                    state = QLatin1Char('1'); // played
+                } else if (i == playingIndex) {
+                    state = QLatin1Char('h'); // playing
+                }
             }
+            mixxx::drawTandaProgressPip(&p,
+                    QRectF(pipX, pipTop, pipD, pipD),
+                    pipColor,
+                    state);
+            pipX += pipD + pipGap;
         }
-        mixxx::drawTandaProgressPip(&p,
-                QRectF(pipX, pipTop, pipD, pipD),
-                pipColor,
-                state);
-        pipX += pipD + pipGap;
     }
 }
 

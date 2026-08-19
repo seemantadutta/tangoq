@@ -396,6 +396,31 @@ between the left mode toggles and the right clock/REC/SETTINGS cluster) with an
 at-a-glance orientation display for the milonga DJ. Read-only: it reflects Auto
 DJ / Tango state and never touches transition logic.
 
+### What shipped (supersedes the flow-strip design below)
+
+The **flow strip** — an idealized `TTVTTM` pattern painted in the toolbar with a
+highlight, a mismatch `!`, a configurable Preferences pattern, and a "Set flow
+position" re-anchor menu — was built, then **removed**. In use it added cognitive
+load and the toolbar could not hold the set's full, growing history. It was
+replaced by an ordinary, user-selectable **Item Type** column in the Auto DJ
+list:
+
+- Each tanda header shows its type letter (**T/V/M/N**); a cortina shows a dim
+  blue **`c`**, a performance track a dim green **`p`**; loose tracks and a
+  tanda's own member rows stay blank. The lowercase marks are deliberately
+  subordinate so the eye rides the tanda rhythm.
+- It behaves like any column (header menu, movable, persists) and exists only in
+  Tango mode, so stock Auto DJ is byte-for-byte unchanged.
+- Performance tracks (new session-only `PerformanceRegistry`, mutually exclusive
+  with cortinas) also get a green `[-- PERFORMANCE --]` title prefix and pauses
+  **before and after** the track.
+
+**Removed with the strip:** the `hud_flow_*` controls, `publishHudFlow`, the
+`[Auto DJ],TandaFlowPattern` preference, the mismatch `!`, and the session flow
+anchor in `TandaQueueState`. **Kept in the HUD:** the countdown (now a two-line
+label-over-large-time) and the track pips. The design notes below are retained
+as history; the countdown/pip/flash decisions still apply to the HUD that remains.
+
 ### Decided
 
 - **Countdown — one switching line.** A single line that counts down to the next
