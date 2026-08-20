@@ -4031,7 +4031,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BI
 set(CPACK_PACKAGE_NAME "TangoQ")
 set(CPACK_PACKAGE_VENDOR "TangoQ")
 set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/mixxx/issues>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Argentine Tango DJ Software")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "DJ software purpose-built for tango DJs")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoQ")
 # Must match the OUTPUT_NAME set on the mixxx target above: this names the
