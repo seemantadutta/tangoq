@@ -15,6 +15,7 @@
 #include "util/cmdlineargs.h"
 #include "util/desktophelper.h"
 #include "util/experiment.h"
+#include "util/versionstore.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
 
 namespace {
@@ -85,6 +86,10 @@ void WMainMenuBar::initialize() {
     // previous run.
     m_pConfig->setValue(ConfigKey("[Config]", "hide_menubar"), 0);
 
+    // Product name for user-facing menu text, so items read "TangoQ" rather than
+    // "Mixxx".
+    const QString appName = VersionStore::applicationName();
+
     // FILE MENU
     QMenu* pFileMenu = new QMenu(tr("&File"), this);
 #ifndef __APPLE__
@@ -121,7 +126,7 @@ void WMainMenuBar::initialize() {
     pFileMenu->addSeparator();
 
     QString quitTitle = tr("&Exit");
-    QString quitText = tr("Quits Mixxx");
+    QString quitText = tr("Quits %1").arg(appName);
     auto* pFileQuit = new QAction(quitTitle, this);
     pFileQuit->setShortcut(
             QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]", "FileMenu_Quit"),
@@ -236,7 +241,7 @@ void WMainMenuBar::initialize() {
     // skin.
 
     QString showPreviewDeckTitle = tr("Show Preview Deck");
-    QString showPreviewDeckText = tr("Show the preview deck in the Mixxx interface.") +
+    QString showPreviewDeckText = tr("Show the preview deck in the %1 interface.").arg(appName) +
             " " + mayNotBeSupported;
     auto* pViewShowPreviewDeck = new QAction(showPreviewDeckTitle, this);
     pViewShowPreviewDeck->setCheckable(true);
@@ -251,7 +256,7 @@ void WMainMenuBar::initialize() {
     pViewMenu->addAction(pViewShowPreviewDeck);
 
     QString showCoverArtTitle = tr("Show Cover Art");
-    QString showCoverArtText = tr("Show cover art in the Mixxx interface.") +
+    QString showCoverArtText = tr("Show cover art in the %1 interface.").arg(appName) +
             " " + mayNotBeSupported;
     auto* pViewShowCoverArt = new QAction(showCoverArtTitle, this);
     pViewShowCoverArt->setCheckable(true);
@@ -311,7 +316,7 @@ void WMainMenuBar::initialize() {
     pViewMenu->addSeparator();
 
     QString fullScreenTitle = tr("&Full Screen");
-    QString fullScreenText = tr("Display Mixxx using the full screen");
+    QString fullScreenText = tr("Display %1 using the full screen").arg(appName);
     auto* pViewFullScreen = new QAction(fullScreenTitle, this);
     QList<QKeySequence> shortcuts;
     // We use F11 _AND_ the OS shortcut only on Linux and Windows because on
@@ -394,7 +399,7 @@ void WMainMenuBar::initialize() {
     pOptionsMenu->addSeparator();
 
     QString preferencesTitle = tr("&Preferences");
-    QString preferencesText = tr("Change Mixxx settings (e.g. playback, MIDI, controls)");
+    QString preferencesText = tr("Change %1 settings (e.g. playback, MIDI, controls)").arg(appName);
     auto* pOptionsPreferences = new QAction(preferencesTitle, this);
     pOptionsPreferences->setShortcut(
             QKeySequence(m_pKbdConfig->getValue(
@@ -554,7 +559,7 @@ void WMainMenuBar::initialize() {
     // User Settings Directory
     const QString& settingsDirPath = m_pConfig->getSettingsPath();
     QString settingsDirTitle = tr("&Settings directory");
-    QString settingsDirText = tr("Open the Mixxx user settings directory.");
+    QString settingsDirText = tr("Open the %1 user settings directory.").arg(appName);
     auto* pHelpSettingsDir = new QAction(settingsDirTitle, this);
     pHelpSettingsDir->setMenuRole(QAction::NoRole);
     pHelpSettingsDir->setStatusTip(settingsDirText);

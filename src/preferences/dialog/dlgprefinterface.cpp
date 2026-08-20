@@ -20,6 +20,7 @@
 #include "util/cmdlineargs.h"
 #include "util/screensaver.h"
 #include "util/screensavermanager.h"
+#include "util/versionstore.h"
 #include "util/widgethelper.h"
 
 using mixxx::skin::SkinManifest;
@@ -394,8 +395,9 @@ void DlgPrefInterface::notifyRebootNecessary() {
     // make the fact that you have to restart mixxx more obvious
     QMessageBox::information(this,
             tr("Information"),
-            tr("Mixxx must be restarted before the new locale, scaling or multi-sampling "
-               "settings will take effect."));
+            tr("%1 must be restarted before the new locale, scaling or multi-sampling "
+               "settings will take effect.")
+                    .arg(VersionStore::applicationName()));
 }
 
 void DlgPrefInterface::slotSetScheme(int) {

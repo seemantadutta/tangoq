@@ -684,10 +684,12 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 }
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
+    const QString appName = VersionStore::applicationName();
     QString title(tr("Sound Device Busy"));
     QString text(
             "<html> <p>" %
-                    tr("Mixxx was unable to open all the configured sound devices.") +
+                    tr("%1 was unable to open all the configured sound devices.")
+                            .arg(appName) +
             "</p> <p>" %
                     m_pCoreServices->getSoundManager()->getErrorDeviceName() %
                     " is used by another application or not plugged in."
@@ -697,13 +699,13 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
                        "or reconnecting a sound device") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) %
                     "</li>"
                     "<li>" %
                     tr("Get <b>Help</b> from the Mixxx Wiki.") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Exit</b> Mixxx.") %
+                    tr("<b>Exit</b> %1.").arg(appName) %
                     "</li>"
                     "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
@@ -711,10 +713,11 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
         SoundDeviceStatus status, bool* retryClicked) {
+    const QString appName = VersionStore::applicationName();
     QString title(tr("Sound Device Error"));
     QString text("<html> <p>" %
-                    tr("Mixxx was unable to open all the configured sound "
-                       "devices.") +
+                    tr("%1 was unable to open all the configured sound "
+                       "devices.").arg(appName) +
             "</p> <p>" %
                     m_pCoreServices->getSoundManager()
                             ->getLastErrorMessage(status)
@@ -724,13 +727,13 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
                     tr("<b>Retry</b> after fixing an issue") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) %
                     "</li>"
                     "<li>" %
                     tr("Get <b>Help</b> from the Mixxx Wiki.") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Exit</b> Mixxx.") %
+                    tr("<b>Exit</b> %1.").arg(appName) %
                     "</li>"
                     "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
@@ -739,19 +742,21 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
 QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Warning);
+    const QString appName = VersionStore::applicationName();
     msgBox.setWindowTitle(tr("No Output Devices"));
     msgBox.setText(
-            "<html>" + tr("Mixxx was configured without any output sound devices. "
-            "Audio processing will be disabled without a configured output device.") +
+            "<html>" + tr("%1 was configured without any output sound devices. "
+            "Audio processing will be disabled without a configured output device.")
+                            .arg(appName) +
             "<ul>"
                 "<li>" +
                     tr("<b>Continue</b> without any outputs.") +
                 "</li>"
                 "<li>" +
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
+                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) +
                 "</li>"
                 "<li>" +
-                    tr("<b>Exit</b> Mixxx.") +
+                    tr("<b>Exit</b> %1.").arg(appName) +
                 "</li>"
             "</ul></html>"
     );
@@ -1526,10 +1531,11 @@ bool MixxxMainWindow::confirmExit() {
             break;
         }
     }
+    const QString appName = VersionStore::applicationName();
     if (playing) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
             tr("Confirm Exit"),
-            tr("A deck is currently playing. Exit Mixxx?"),
+            tr("A deck is currently playing. Exit %1?").arg(appName),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
@@ -1537,7 +1543,7 @@ bool MixxxMainWindow::confirmExit() {
     } else if (playingSampler) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
             tr("Confirm Exit"),
-            tr("A sampler is currently playing. Exit Mixxx?"),
+            tr("A sampler is currently playing. Exit %1?").arg(appName),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
@@ -1547,7 +1553,7 @@ bool MixxxMainWindow::confirmExit() {
         QMessageBox::StandardButton btn = QMessageBox::question(
             this, tr("Confirm Exit"),
             tr("The preferences window is still open.") + "<br>" +
-            tr("Discard any changes and exit Mixxx?"),
+            tr("Discard any changes and exit %1?").arg(appName),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
