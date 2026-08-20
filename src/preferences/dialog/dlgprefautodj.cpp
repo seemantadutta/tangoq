@@ -4,8 +4,6 @@
 #include <QTimeZone>
 #endif
 
-#include <QKeySequence>
-
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "moc_dlgprefautodj.cpp"
@@ -86,26 +84,8 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             this,
             &DlgPrefAutoDJ::slotSetRandomQueueMin);
 
-    // Tango DJ mode (persisted as [Auto DJ], KeepQueue; the toolbar shows a
-    // read-only indicator and the queue/transition behavior follows it).
-    bool tangoMode = m_pConfig->getValue<bool>(ConfigKey("[Auto DJ]", "KeepQueue"));
-    // Spell the shortcut the way the platform does. The .ui file can only carry
-    // one spelling, and hardcoding the Windows one told macOS users to press
-    // Control - which is not what the binding does there. Qt follows the usual
-    // cross-platform convention (Ctrl -> Command, Alt -> Option), so the same
-    // sequence renders as "Ctrl+Alt+Shift+T" on Windows and Linux and as the
-    // native symbols on macOS. Generated from the sequence rather than written
-    // out, so the label cannot drift from the binding in en_US.kbd.cfg.
-    TangoModeCheckBox->setText(
-            tr("Enable Tango DJ mode (%1)")
-                    .arg(QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_T)
-                                    .toString(QKeySequence::NativeText)));
-    TangoModeCheckBox->setChecked(tangoMode);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), tangoMode);
-    connect(TangoModeCheckBox,
-            &QCheckBox::toggled,
-            this,
-            &DlgPrefAutoDJ::slotToggleTangoMode);
+    // Tango DJ mode is hardcoded on in this build (see AutoDJProcessor), so there
+    // is no enable/disable control here. The cortina settings below still apply.
 
     // Default cortina length, used only to estimate the Tango set length / end
     // time (cortinas are faded out manually, so only this budget is counted).
@@ -167,10 +147,6 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
     setScrollSafeGuardForAllInputWidgets(this);
 }
 
-void DlgPrefAutoDJ::slotToggleTangoMode(bool checked) {
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), checked);
-}
-
 void DlgPrefAutoDJ::slotSetCortinaLength(int seconds) {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), seconds);
     // The hold time depends on the cortina length, so keep its readout current.
@@ -223,13 +199,10 @@ void DlgPrefAutoDJ::updateCortinaFadeEnabled() {
 }
 
 void DlgPrefAutoDJ::slotUpdate() {
-    // Tango DJ mode switches the Auto DJ queue between two incompatible
-    // behaviors, so only allow changing it while Auto DJ is stopped.
     const bool autoDJRunning =
             ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
-    TangoModeCheckBox->setEnabled(!autoDJRunning);
     // The cortina length feeds the set-length estimate, which is only recomputed
-    // when Auto DJ is stopped; lock it while running like the Tango mode toggle.
+    // when Auto DJ is stopped; lock it while a set is running.
     CortinaLengthSpinBox->setEnabled(!autoDJRunning);
     // Cortina transition mode and its fade inputs likewise change behavior that
     // is only safe to alter while Auto DJ is stopped.
@@ -239,15 +212,9 @@ void DlgPrefAutoDJ::slotUpdate() {
 
 void DlgPrefAutoDJ::slotApply() {
     //Copy from Buffer to actual values
-    // Set the live control; the AutoDJProcessor persists it to [Auto DJ],KeepQueue
-    // and the Auto DJ toolbar refreshes immediately.
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"),
-            m_pConfig->getValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), false)
-                    ? 1.0
-                    : 0.0);
     // Route cortina length through the live control so the AutoDJProcessor
     // persists it to [Auto DJ],CortinaLength and the cockpit readout updates
-    // immediately (mirrors the Tango mode toggle above).
+    // immediately.
     ControlObject::set(ConfigKey("[AutoDJ]", "cortina_length"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45));
@@ -281,10 +248,6 @@ void DlgPrefAutoDJ::slotApply() {
 
 void DlgPrefAutoDJ::slotCancel() {
     // Load actual values and reset Buffer Values where ever needed
-    bool tangoMode = m_pConfig->getValue<bool>(ConfigKey("[Auto DJ]", "KeepQueue"));
-    TangoModeCheckBox->setChecked(tangoMode);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), tangoMode);
-
     int cortinaLength =
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaLength"), 45);
     CortinaLengthSpinBox->setValue(cortinaLength);
@@ -348,10 +311,6 @@ void DlgPrefAutoDJ::slotCancel() {
 }
 
 void DlgPrefAutoDJ::slotResetToDefaults() {
-    // Tango DJ mode is off by default.
-    TangoModeCheckBox->setChecked(false);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "KeepQueueBuff"), false);
-
     CortinaLengthSpinBox->setValue(45);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
 

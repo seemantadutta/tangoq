@@ -172,6 +172,13 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             &QAction::triggered,
             this,
             &AutoDJFeature::slotRemoveCrateFromAutoDj);
+
+    // TangoQ is a tango-only build: lock Tango DJ mode permanently on. The
+    // preferences checkbox and keyboard shortcut that used to toggle it are gone,
+    // and from here keep_queue can never be turned off. Everything above is
+    // connected first so the dock gating and toolbar react to the forced-on state.
+    // Reverting the commit that added this restores the user-switchable mode.
+    m_pAutoDJProcessor->lockTangoModeOn();
 }
 
 AutoDJFeature::~AutoDJFeature() {

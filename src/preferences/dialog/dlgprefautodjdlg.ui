@@ -18,29 +18,19 @@
    <item>
     <widget class="QGroupBox" name="TangoOptions">
       <property name="title">
-       <string>Tango DJ Mode</string>
+       <string>Cortina Settings</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
       </property>
       <layout class="QVBoxLayout" name="TangoLayout">
        <item>
-        <widget class="QCheckBox" name="TangoModeCheckBox">
-         <property name="toolTip">
-          <string>Can only be changed while Auto DJ is stopped, whether from here, the keyboard shortcut or a controller.</string>
-         </property>
-         <property name="text">
-          <string>Enable Tango DJ mode (Ctrl+Alt+Shift+T)</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QLabel" name="TangoModeHelpLabel">
          <property name="wordWrap">
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>Plays the Auto DJ list in order, keeps played tracks, and stops at the end. Locks shuffle, skip, random, re-queue and list sorting. Trims silence and adds a 3-second gap between tracks by default — you can still change the fade mode and gap in the Auto DJ toolbar. Can only be changed while Auto DJ is stopped.</string>
+          <string>Tanda transitions insert a fixed silent gap between every pair of tracks, set by the gap spinner in the Auto DJ toolbar (3 seconds by default). The same gap applies to every boundary: tanda→tanda, tanda→cortina and cortina→tanda. The settings below govern the cortina itself.</string>
          </property>
         </widget>
        </item>

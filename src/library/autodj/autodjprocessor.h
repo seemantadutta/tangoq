@@ -200,6 +200,13 @@ class AutoDJProcessor : public QObject {
         return m_eState;
     }
 
+    // Lock Tango DJ mode permanently on. TangoQ ships tango-only, so the running
+    // application calls this once at startup; afterwards keep_queue can never be
+    // turned off. The unit tests never call it, so they can still toggle
+    // keep_queue to verify the stock Auto DJ path. Reverting the commit that
+    // introduced this restores the user-switchable Tango mode.
+    void lockTangoModeOn();
+
     // Tango DJ mode set timing: the estimated remaining playback time of the
     // current Auto DJ set, i.e. the unplayed part of the current (playing or
     // paused) track plus all upcoming tracks from the cursor onward, adjusted for
@@ -603,6 +610,11 @@ class AutoDJProcessor : public QObject {
     // cannot express "not Tango" on its own. Used to drop the main cue marker in
     // Tango, where the start-point marker is the only one that should show.
     ControlObject m_keepQueueOff;
+    // Set by lockTangoModeOn() in the running application to pin Tango DJ mode on
+    // permanently; the change-request handler then refuses every attempt to turn
+    // keep_queue off. Left false in the unit tests so the stock Auto DJ path stays
+    // testable.
+    bool m_tangoModeLocked = false;
     // Index (1-based) of the deck holding a track marked "pause after", 0 for
     // none. Read by the deck's title widget, which cannot resolve a positional
     // mark by itself.

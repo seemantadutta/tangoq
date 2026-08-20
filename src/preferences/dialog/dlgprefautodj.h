@@ -19,7 +19,6 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void slotCancel() override;
 
   private slots:
-    void slotToggleTangoMode(bool checked);
     void slotSetCortinaLength(int);
     void slotSetCortinaFadeMode(int);
     void slotSetCortinaFadeIn(int);

@@ -2602,6 +2602,18 @@ void AutoDJProcessor::controlKeepQueue(double value) {
 }
 
 void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
+    const bool enabled = value > 0.0;
+    // TangoQ locks Tango DJ mode on for the running application (see
+    // lockTangoModeOn()). Once locked it can never be turned off: confirm it back
+    // on for any disable request, e.g. a stray controller binding. The unit tests
+    // leave it unlocked so the stock (non-Tango) Auto DJ path stays exercised,
+    // which is what keeps a revert of this commit safe. Reverting this commit
+    // drops the lock and restores the user-switchable behaviour below.
+    if (m_tangoModeLocked && !enabled) {
+        m_keepQueue.setAndConfirm(1.0);
+        m_keepQueueOff.set(0.0);
+        return;
+    }
     // Tango mode switches the Auto DJ queue between two incompatible behaviours
     // (cursor-based versus consume-from-the-top), so it may only change while
     // Auto DJ is stopped - the same rule the preferences checkbox enforces by
@@ -2612,7 +2624,6 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
         m_keepQueue.setAndConfirm(m_keepQueue.get());
         return;
     }
-    const bool enabled = value > 0.0;
     resetAllAutoDJFadeGains();
     stopTandaCrossfaderAnimation();
     if (enabled) {
@@ -2628,6 +2639,18 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
     // *request* and lands here, so this is the path that actually runs.
     m_keepQueueOff.set(enabled ? 0.0 : 1.0);
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")), enabled);
+}
+
+void AutoDJProcessor::lockTangoModeOn() {
+    // TangoQ ships tango-only: lock Tango DJ mode on for good. Setting the control
+    // routes through controlKeepQueueChangeRequest() above, which selects the
+    // Tanda transition and updates the keep_queue_off mirror; the lock then
+    // refuses every later attempt to turn it off. Only the running application
+    // calls this - the unit tests never do, so they can still toggle keep_queue to
+    // verify the stock Auto DJ path. Reverting the commit that added this call
+    // restores the user-switchable Tango mode.
+    m_tangoModeLocked = true;
+    m_keepQueue.set(1.0);
 }
 
 void AutoDJProcessor::controlCortinaLength(double value) {

@@ -408,6 +408,34 @@ TEST_F(AutoDJProcessorTest, TangoMode_EnableSelectsTandaTransitionAndRestoresSto
             pProcessor->getTransitionMode());
 }
 
+// TangoQ ships tango-only: the running application locks Tango DJ mode on at
+// startup (AutoDJFeature calls lockTangoModeOn()), after which keep_queue can
+// never be turned off - the preferences checkbox and keyboard shortcut that used
+// to toggle it are gone. The lock stays off in every other test so the stock
+// Auto DJ path is still exercised; here we pin it and prove a disable is refused.
+TEST_F(AutoDJProcessorTest, TangoMode_LockPinsItOnAndRefusesDisable) {
+    auto keepQueue = std::make_unique<ControlProxy>("[AutoDJ]", "keep_queue");
+    auto keepQueueOff = std::make_unique<ControlProxy>("[AutoDJ]", "keep_queue_off");
+
+    pProcessor->lockTangoModeOn();
+    EXPECT_TRUE(keepQueue->toBool());
+    EXPECT_FALSE(keepQueueOff->toBool());
+    // Locking selects the Tanda transition, exactly as enabling Tango normally does.
+    EXPECT_EQ(AutoDJProcessor::TransitionMode::TandaTransition,
+            pProcessor->getTransitionMode());
+
+    // A later disable request - a stray controller binding, say - is refused and
+    // the mode (and its mirror) snap back on.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+    EXPECT_TRUE(keepQueue->toBool());
+    EXPECT_FALSE(keepQueueOff->toBool());
+
+    // Leave the shared config as the other tests expect (Tango off) so the next
+    // fixture's processor starts in stock mode; its constructor reads this value
+    // before the change-request guard exists, resetting the control too.
+    config()->setValue(ConfigKey("[Auto DJ]", "KeepQueue"), false);
+}
+
 TEST_F(AutoDJProcessorTest, TandaMoveSafetyProtectsTheLoadedQueueRow) {
     EXPECT_EQ(1, pProcessor->firstUnloadedQueuePosition());
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
