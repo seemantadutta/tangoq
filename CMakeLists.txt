@@ -4175,7 +4175,7 @@ if(APPLE AND MACOS_BUNDLE)
     if (NOT APPLE_CODESIGN_IDENTITY STREQUAL "-")
       set(
         APPLE_CODESIGN_ENTITLEMENTS
-        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/Mixxx.entitlements"
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/TangoQ.entitlements"
       )
     else()
       set(APPLE_CODESIGN_ENTITLEMENTS "")

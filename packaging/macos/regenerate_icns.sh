@@ -11,9 +11,12 @@ fi
 input_svg="res/images/icons/scalable/apps/mixxx_macos.svg"
 tmp_dir="$(mktemp -dt mixxx_icon)"
 output_dir="$tmp_dir.iconset"
+# TangoQ ships only the app icon; the DMG uses CPack's default volume icon, so
+# there is no VolumeIcon.icns to regenerate.
+# TODO(TangoQ): point input_svg at the TangoQ macOS icon source before running
+# this — it still references the upstream Mixxx artwork.
 output_icns=(
     "res/osx/application.icns"
-    "res/osx/VolumeIcon.icns"
 )
 
 mv "$tmp_dir" "$output_dir"
