@@ -32,7 +32,7 @@ Description:
           <Label>
             <ObjectName>CategoryLabel</ObjectName>
             <Text>Decks</Text>
-            <Size>180min,23f</Size>
+            <Size>180min,26f</Size>
           </Label>
 
           <WidgetGroup>
@@ -164,6 +164,45 @@ Description:
             <Size>1min,12f</Size>
           </WidgetGroup>
 
+          <!-- Auto DJ toolbar controls (Tango cockpit): show or hide the set-time
+               readout, the end-time block (with its over/under indicator), and the
+               cortina nudge controls in the Auto DJ bar. Bound to [TangoQ],show_adj_*
+               controls owned by AutoDJProcessor and read by DlgAutoDJ. -->
+          <Label>
+            <ObjectName>CategoryLabel</ObjectName>
+            <Text>Milonga Timing</Text>
+            <Size>180min,26f</Size>
+          </Label>
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsCategory</ObjectName>
+            <SizePolicy>me,min</SizePolicy>
+            <Layout>vertical</Layout>
+            <Children>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Set Time</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_set_time</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">End Time</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_end_time</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Cortina Nudge</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_nudge</SetVariable>
+              </Template>
+
+            </Children>
+          </WidgetGroup><!-- /Auto DJ -->
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsSeparator</ObjectName>
+            <Size>1min,12f</Size>
+          </WidgetGroup>
+
           <!-- Effects and Samplers sections removed for the Tango DJ build: a
                tanda set is not mixed with effects or triggered samples, and both
                racks are force-hidden in skin.xml. -->
@@ -172,7 +211,7 @@ Description:
           <Label>
             <ObjectName>CategoryLabel</ObjectName>
             <Text>Library</Text>
-            <Size>180min,23f</Size>
+            <Size>180min,26f</Size>
           </Label>
 
           <WidgetGroup>

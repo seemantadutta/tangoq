@@ -123,6 +123,13 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Observes [AutoDJ],live_mode so the LIVE indicator and key suppression track
     // the session-only LIVE state.
     ControlProxy* m_pLiveModeControl;
+    // Auto DJ cockpit control-visibility toggles ([TangoQ],show_adj_*), set from
+    // the skin Settings panel and owned by AutoDJProcessor. refreshTangoModeUi
+    // hides the set-time readout, the end-time block, or the cortina nudge
+    // controls when the matching toggle is off.
+    ControlProxy* m_pShowAdjSetTime;
+    ControlProxy* m_pShowAdjEndTime;
+    ControlProxy* m_pShowAdjNudge;
     // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
     // stop guard is armed (parented to the button). Owned by the button.
     WCountdownOverlay* m_pStopCountdown;

@@ -261,32 +261,51 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="labelTangoSetTime">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="toolTip">
-         <string>Estimated end time of the Auto DJ set (Tango DJ mode).</string>
-        </property>
+       <widget class="QWidget" name="containerAdjSetTime">
+        <layout class="QHBoxLayout" name="layoutAdjSetTime">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="QLabel" name="labelTangoSetTime">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="toolTip">
+            <string>Estimated end time of the Auto DJ set (Tango DJ mode).</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerEndTimeGap">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>24</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacerEndTimeGap">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>24</width>
-          <height>1</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
+       <widget class="QWidget" name="containerAdjEndTime">
+        <layout class="QHBoxLayout" name="layoutAdjEndTime">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
        <widget class="QLabel" name="labelSetEndTime">
         <property name="text">
          <string>Set End Time:</string>
@@ -318,10 +337,10 @@
          <enum>Qt::ClickFocus</enum>
         </property>
         <property name="toolTip">
-         <string>Target end time for the milonga. Editable at any time, e.g. set 00:15:00 if the organizer extends the night.</string>
+         <string>Target end time for the milonga. Editable at any time, e.g. set 12:15 AM if the organizer extends the night.</string>
         </property>
         <property name="displayFormat">
-         <string>HH:mm:ss</string>
+         <string>hh:mm AP</string>
         </property>
        </widget>
       </item>
@@ -367,7 +386,18 @@
         </property>
        </spacer>
       </item>
+        </layout>
+       </widget>
+      </item>
       <item>
+       <widget class="QWidget" name="containerAdjNudge">
+        <layout class="QHBoxLayout" name="layoutAdjNudge">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
        <widget class="QLabel" name="labelCortinaLengthCaption">
         <property name="text">
          <string>Cortina:</string>
@@ -497,6 +527,9 @@
           <height>16777215</height>
          </size>
         </property>
+       </widget>
+      </item>
+        </layout>
        </widget>
       </item>
       <item>

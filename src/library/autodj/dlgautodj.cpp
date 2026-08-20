@@ -4,6 +4,8 @@
 #include <cmath>
 
 #include <QDateTime>
+#include <QFont>
+#include <QFontMetrics>
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
@@ -36,7 +38,7 @@ const char* kRepeatPlaylistPreference = "Requeue";
 const char* kEndTimePreference = "TangoEndTime";
 const char* kTandaGapPreference = "TandaGap";
 constexpr int kDefaultTandaGapSeconds = 3;
-const QString kDefaultEndTime = QStringLiteral("23:30:00");
+const QString kDefaultEndTime = QStringLiteral("00:00:00"); // 12:00 AM (midnight)
 const QString kEndTimeFormat = QStringLiteral("HH:mm:ss");
 
 void setEnabledIfChanged(QWidget* pWidget, bool enabled) {
@@ -250,6 +252,23 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     lineEditTandaGap->installEventFilter(this);
     lineEditTandaGap->installEventFilter(pKeyboard);
 
+    // The Tango end-time editor and the cortina nudge-step spin box need the same
+    // treatment, or digit keys typed into them are grabbed by the keyboard
+    // shortcut handler (hotcues etc.) and only the arrow keys work. The keyboard
+    // filter has to sit on both the widget and its internal line edit.
+    endTimeEdit->setFocusPolicy(Qt::ClickFocus);
+    endTimeEdit->installEventFilter(pKeyboard);
+    if (QLineEdit* pEndTimeEditor = endTimeEdit->findChild<QLineEdit*>()) {
+        pEndTimeEditor->setFocusPolicy(Qt::ClickFocus);
+        pEndTimeEditor->installEventFilter(pKeyboard);
+    }
+    spinBoxCortinaNudgeStep->setFocusPolicy(Qt::ClickFocus);
+    spinBoxCortinaNudgeStep->installEventFilter(pKeyboard);
+    if (QLineEdit* pNudgeStepEditor = spinBoxCortinaNudgeStep->findChild<QLineEdit*>()) {
+        pNudgeStepEditor->setFocusPolicy(Qt::ClickFocus);
+        pNudgeStepEditor->installEventFilter(pKeyboard);
+    }
+
     spinBoxTandaGap->setValue(m_pConfig->getValue(
             ConfigKey(kPreferenceGroupName, kTandaGapPreference),
             kDefaultTandaGapSeconds));
@@ -311,6 +330,18 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pKeepQueueControl->connectValueChanged(this, [this](double) {
         refreshTangoModeUi();
     });
+
+    // Cockpit control-visibility toggles (set from the skin Settings panel). Each
+    // hides a group of Tango toolbar controls when off; refreshTangoModeUi applies
+    // them (always AND-ed with Tango mode).
+    const auto makeShowProxy = [this](const QString& key) {
+        auto* pProxy = new ControlProxy(ConfigKey("[TangoQ]", key), this);
+        pProxy->connectValueChanged(this, [this](double) { refreshTangoModeUi(); });
+        return pProxy;
+    };
+    m_pShowAdjSetTime = makeShowProxy(QStringLiteral("show_adj_set_time"));
+    m_pShowAdjEndTime = makeShowProxy(QStringLiteral("show_adj_end_time"));
+    m_pShowAdjNudge = makeShowProxy(QStringLiteral("show_adj_nudge"));
 
     // Cockpit cortina-length nudge (Tango DJ mode). The − / + buttons bump the
     // shared [AutoDJ],cortina_length control by the nudge step; the value label
@@ -385,7 +416,8 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
 
     // Target end time for the milonga (Tango DJ mode). The over/under indicator
     // next to it compares the projected set end against this. Editable at any time
-    // and persisted; defaults to 23:30:00.
+    // and persisted; defaults to 12:00 AM (midnight). Shown in 12-hour form with an
+    // AM/PM section (see the endTimeEdit displayFormat in the .ui).
     QTime endTime = QTime::fromString(
             m_pConfig->getValue(ConfigKey(kPreferenceGroupName, kEndTimePreference),
                     kDefaultEndTime),
@@ -398,6 +430,18 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &QTimeEdit::timeChanged,
             this,
             &DlgAutoDJ::slotEndTimeChanged);
+
+    // Reserve the over/under readout's width so it never grows the toolbar when it
+    // goes from empty (idle) to populated (running) as Auto DJ is enabled. That
+    // growth reflows everything to its right - the visible flicker on enable.
+    // Sized from the widest text in its bold render font, so it is DPI/theme aware.
+    {
+        QFont deltaFont = labelEndTimeDelta->font();
+        deltaFont.setBold(true);
+        const QFontMetrics deltaFm(deltaFont);
+        labelEndTimeDelta->setMinimumWidth(
+                deltaFm.horizontalAdvance(QStringLiteral("Under 88:88:88")) + 8);
+    }
 
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
     // mind that AutoDJ may already be active when DlgAutoDJ is created (due to
@@ -539,6 +583,13 @@ void DlgAutoDJ::tandaGapChanged(int value) {
 }
 
 void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
+    // Batch every toolbar change here into a single repaint. Enabling Auto DJ
+    // flips the button text (Enable<->Disable, different widths) and populates the
+    // set-time / over-under readouts, each of which reflows the horizontal
+    // toolbar. Without batching, widgets are painted, then erased and repainted a
+    // few pixels over - a visible flicker, worst when a readout is hidden so the
+    // shift is unmasked. Painting is re-enabled at the end, forcing one clean pass.
+    setUpdatesEnabled(false);
     if (state == AutoDJProcessor::ADJ_DISABLED) {
         pushButtonAutoDJ->setChecked(false);
         pushButtonAutoDJ->setToolTip(m_enableBtnTooltip);
@@ -556,6 +607,7 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     // Skip / Fade Now availability and the locked-control state depend on both
     // the Auto DJ state and Tango mode.
     refreshTangoModeUi();
+    setUpdatesEnabled(true);
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
@@ -595,15 +647,18 @@ void DlgAutoDJ::refreshTangoModeUi() {
         m_pAutoDJTableModel->setShowCortinaMarks(tango);
     }
     // The set-time readout, the target end-time controls and the LIVE indicator
-    // are Tango-only.
-    labelSetEndTime->setVisible(tango);
-    endTimeEdit->setVisible(tango);
-    labelEndTimeDelta->setVisible(tango);
-    labelCortinaLengthCaption->setVisible(tango);
-    pushButtonCortinaLengthDown->setVisible(tango);
-    labelCortinaLengthValue->setVisible(tango);
-    pushButtonCortinaLengthUp->setVisible(tango);
-    spinBoxCortinaNudgeStep->setVisible(tango);
+    // are Tango-only. Within Tango mode, three of these groups can additionally be
+    // hidden from the Settings panel; each group is shown only when Tango is on
+    // AND its toggle is set. Over/under (labelEndTimeDelta) rides with the end-time
+    // block, since it is meaningless without the target time it compares against.
+    const bool showSetTime = !m_pShowAdjSetTime || m_pShowAdjSetTime->toBool();
+    const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
+    const bool showNudge = !m_pShowAdjNudge || m_pShowAdjNudge->toBool();
+    // Each group lives in its own container (with its trailing spacer) so hiding
+    // it collapses cleanly, leaving no gap in the toolbar.
+    containerAdjSetTime->setVisible(tango && showSetTime);
+    containerAdjEndTime->setVisible(tango && showEndTime);
+    containerAdjNudge->setVisible(tango && showNudge);
     labelLive->setVisible(tango);
     if (tango) {
         updateCortinaLengthReadout();
@@ -705,10 +760,20 @@ void DlgAutoDJ::updateSetEndTime() {
         // "Ends" and "Left" so the line never needs to be re-read - the off->on
         // change is purely additive, which keeps the cognitive load low live.
         const mixxx::Duration total = m_pAutoDJProcessor->getTotalSetDuration();
+        const bool running =
+                m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED;
+        // The Auto DJ model briefly reports an empty queue mid-rebuild (rowCount 0
+        // between rowsRemoved and rowsInserted). While running, treat a
+        // non-positive total as that transient and keep the last readout, instead
+        // of blanking it and repopulating a moment later - the visible flicker
+        // seen when Auto DJ is enabled.
+        if (running && total.toIntegerMillis() <= 0) {
+            return;
+        }
         // A non-positive total means the queue is empty / nothing to play.
         if (total.toIntegerMillis() > 0) {
             text = tr("Set Length: %1").arg(formatSetDuration(total));
-            if (m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED) {
+            if (running) {
                 const mixxx::Duration remaining =
                         m_pAutoDJProcessor->getRemainingSetDuration();
                 // The projected end clock is the most important number, so
@@ -732,11 +797,20 @@ void DlgAutoDJ::updateSetEndTime() {
     // Only touch the labels when the text actually changes. Re-setting them every
     // second otherwise forces a needless toolbar repaint, which can make sibling
     // widgets (e.g. the deck waveforms) flicker.
-    if (text != m_lastSetTimeText) {
+    //
+    // Skip a readout entirely when the Settings panel has hidden it. Its container
+    // is already invisible, but writing "Set Length ..." into the label still
+    // invalidates the toolbar layout, so on enable the text is briefly laid out
+    // and then removed - a visible flicker when Set Time (or End Time) is off. The
+    // matching container is shown/hidden in refreshTangoModeUi, which also calls
+    // this, so a re-enabled readout repaints with the current value right away.
+    const bool showSetTime = !m_pShowAdjSetTime || m_pShowAdjSetTime->toBool();
+    const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
+    if (showSetTime && text != m_lastSetTimeText) {
         m_lastSetTimeText = text;
         labelTangoSetTime->setText(text);
     }
-    if (deltaText != m_lastEndTimeDeltaText) {
+    if (showEndTime && deltaText != m_lastEndTimeDeltaText) {
         m_lastEndTimeDeltaText = deltaText;
         labelEndTimeDelta->setText(deltaText);
     }
@@ -758,18 +832,18 @@ QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
     }
     const qint64 deltaSecs = target.secsTo(projectedEnd);
     if (deltaSecs == 0) {
-        return tr("● on time");
+        return tr("● On time");
     }
     // Positive => the set ends after the target (running over); negative => under.
     const bool over = deltaSecs > 0;
     const QString magnitude = formatSetDuration(
             mixxx::Duration::fromMillis(qAbs(deltaSecs) * 1000));
-    return QStringLiteral("<span style=\"color:%1; font-weight:bold;\">%2 %3%4 %5</span>")
+    // Lead with the word "Over"/"Under" so the state reads at a glance; the colour
+    // (red/green) already carries the direction, so no arrow or sign is needed.
+    return QStringLiteral("<span style=\"color:%1; font-weight:bold;\">%2 %3</span>")
             .arg(over ? QStringLiteral("#ee4444") : QStringLiteral("#55aa55"),
-                    over ? QStringLiteral("▲") : QStringLiteral("▼"),
-                    over ? QStringLiteral("+") : QStringLiteral("-"),
-                    magnitude,
-                    over ? tr("over") : tr("under"));
+                    over ? tr("Over") : tr("Under"),
+                    magnitude);
 }
 
 void DlgAutoDJ::slotEndTimeChanged(const QTime& time) {

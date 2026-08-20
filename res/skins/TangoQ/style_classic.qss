@@ -691,11 +691,18 @@ WLibrary {
   #endTimeEdit,
   #spinBoxCortinaNudgeStep {
     color: #888;
+    /* QTimeEdit does not inherit the spin boxes' font, so state it here to match
+       the transition spin box. */
+    font-family: "Open Sans";
+    font-weight: bold;
     border-width: 3px 19px 2px 3px;
     border-image: url(skins:TangoQ/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
     height: 19px;
     padding: 0px -15px 0px 3px;
-    margin: 0px 2px 3px 2px;
+    /* These two live inside layout containers (for clean group hide/show), which
+       lifts them a few px versus the directly-placed transition spin box. Drop the
+       bottom margin to sit them back on the toolbar baseline. */
+    margin: 0px 2px 0px 2px;
     background-color: #0f0f0f;
     }
     #endTimeEdit:focus,

@@ -614,6 +614,16 @@ class AutoDJProcessor : public QObject {
     // budget + set-length estimate immediately. Clamped to [5, 600] s.
     ControlObject m_cortinaLength;
 
+    // Auto DJ cockpit control-visibility toggles (persistent, default shown),
+    // set from the skin Settings panel and read by DlgAutoDJ to show/hide the
+    // set-time readout, the end-time block (with over/under), and the cortina
+    // nudge controls. Owned here so they exist before any skin parses the toggle
+    // widgets that bind to them - DlgAutoDJ is built during skin load, too late
+    // to guarantee creation with the right default.
+    ControlPushButton m_showAdjSetTime;
+    ControlPushButton m_showAdjEndTime;
+    ControlPushButton m_showAdjNudge;
+
     // Momentary trigger from the Auto DJ queue "Eject decks and reset AutoDJ
     // queue state" menu action. Re-armed to 0 after each handled trigger.
     ControlPushButton m_resetQueueState;

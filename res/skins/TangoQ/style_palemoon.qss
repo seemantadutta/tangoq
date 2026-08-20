@@ -735,9 +735,16 @@ WBeatSpinBox::down-button,
     color: #a7998b;
     selection-color: #a7998b;
     selection-background-color: #111;
+    /* QTimeEdit does not inherit the spin boxes' font, so state it here to match
+       the transition spin box. */
+    font-family: "Open Sans";
+    font-weight: bold;
     height: 19px;
     padding: 0px -15px 0px 3px;
-    margin: 0px 2px 3px 2px;
+    /* These two live inside layout containers (for clean group hide/show), which
+       lifts them a few px versus the directly-placed transition spin box. Drop the
+       bottom margin to sit them back on the toolbar baseline. */
+    margin: 0px 2px 0px 2px;
     border-width: 3px 19px 2px 3px;
     border-image: url(skins:TangoQ/palemoon/buttons/btn_embedded_spinbox_autodj.svg) 3 19 2 3;
     }

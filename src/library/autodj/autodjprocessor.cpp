@@ -230,6 +230,18 @@ AutoDJProcessor::AutoDJProcessor(
           m_keepQueueOff(ConfigKey(kControlGroup, QStringLiteral("keep_queue_off"))),
           m_pauseAfterDeck(ConfigKey(kControlGroup, QStringLiteral("pause_after_deck"))),
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
+          m_showAdjSetTime(ConfigKey(QStringLiteral("[TangoQ]"),
+                                   QStringLiteral("show_adj_set_time")),
+                  true,
+                  1.0),
+          m_showAdjEndTime(ConfigKey(QStringLiteral("[TangoQ]"),
+                                   QStringLiteral("show_adj_end_time")),
+                  true,
+                  1.0),
+          m_showAdjNudge(ConfigKey(QStringLiteral("[TangoQ]"),
+                                 QStringLiteral("show_adj_nudge")),
+                  true,
+                  1.0),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_hudCountdownSeconds(
@@ -351,6 +363,15 @@ AutoDJProcessor::AutoDJProcessor(
     m_keepQueue.setButtonMode(ControlPushButton::TOGGLE);
     m_keepQueue.connectValueChangeRequest(this,
             &AutoDJProcessor::controlKeepQueueChangeRequest);
+
+    // The cockpit visibility toggles are driven by 2-state skin buttons, so the
+    // controls must be TOGGLE. In the default PUSH mode a button press is
+    // momentary - it sets 1 on press and snaps back to 0 on release, so the group
+    // only flashes into view and never stays. Skin-created controls get TOGGLE
+    // from the parser; these are created here, so set it explicitly.
+    m_showAdjSetTime.setButtonMode(ControlPushButton::TOGGLE);
+    m_showAdjEndTime.setButtonMode(ControlPushButton::TOGGLE);
+    m_showAdjNudge.setButtonMode(ControlPushButton::TOGGLE);
 
     // Live cortina length: initialize from the persistent default and keep the
     // config (and the envelope budget) in sync when it is nudged from the cockpit
