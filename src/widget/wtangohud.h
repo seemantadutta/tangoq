@@ -45,4 +45,12 @@ class WTangoHud : public WWidget {
     ControlProxy* m_pNextKind;
     ControlProxy* m_pTandaTrackCount;
     ControlProxy* m_pTandaPlayingIndex;
+    // Auto DJ running state. The HUD only has something to say while a set is
+    // playing, so when this is off it keeps its reserved size but paints nothing.
+    ControlProxy* m_pAutoDJEnabled;
+    // Settings-panel toggles (default on): hide the countdown timer (label +
+    // time) and/or the tanda progress pips independently. The widget keeps its
+    // reserved size either way so the toolbar never reflows.
+    ControlProxy* m_pShowCountdownTimer;
+    ControlProxy* m_pShowProgressPips;
 };

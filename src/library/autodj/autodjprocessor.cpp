@@ -242,6 +242,14 @@ AutoDJProcessor::AutoDJProcessor(
                                  QStringLiteral("show_adj_nudge")),
                   true,
                   1.0),
+          m_showCountdownTimer(ConfigKey(QStringLiteral("[TangoQ]"),
+                                       QStringLiteral("show_countdown_timer")),
+                  true,
+                  1.0),
+          m_showProgressPips(ConfigKey(QStringLiteral("[TangoQ]"),
+                                     QStringLiteral("show_progress_pips")),
+                  true,
+                  1.0),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_hudCountdownSeconds(
@@ -372,6 +380,8 @@ AutoDJProcessor::AutoDJProcessor(
     m_showAdjSetTime.setButtonMode(ControlPushButton::TOGGLE);
     m_showAdjEndTime.setButtonMode(ControlPushButton::TOGGLE);
     m_showAdjNudge.setButtonMode(ControlPushButton::TOGGLE);
+    m_showCountdownTimer.setButtonMode(ControlPushButton::TOGGLE);
+    m_showProgressPips.setButtonMode(ControlPushButton::TOGGLE);
 
     // Live cortina length: initialize from the persistent default and keep the
     // config (and the envelope budget) in sync when it is nudged from the cockpit

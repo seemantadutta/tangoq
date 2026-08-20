@@ -62,7 +62,10 @@
       <WidgetGroup><Size>me,min</Size></WidgetGroup>
 
       <!-- Tango HUD: centered heads-up display, painted by WTangoHud so it
-           stays crisp at any DPI. Visible only in Tango mode. -->
+           stays crisp at any DPI. Visible only in Tango mode. WTangoHud paints
+           the countdown only while Auto DJ is running; when it is stopped it
+           keeps its reserved size (so the toolbar never reflows) but draws
+           nothing. -->
       <TangoHud>
         <ObjectName>TangoHud</ObjectName>
         <SizePolicy>min,min</SizePolicy>

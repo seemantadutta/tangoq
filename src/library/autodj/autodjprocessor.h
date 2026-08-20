@@ -635,6 +635,12 @@ class AutoDJProcessor : public QObject {
     ControlPushButton m_showAdjSetTime;
     ControlPushButton m_showAdjEndTime;
     ControlPushButton m_showAdjNudge;
+    // Same idea for the Tango HUD in the toolbar: the countdown timer (label +
+    // time) and the tanda progress pips each have a persistent, default-shown
+    // toggle set from the Settings panel and read by WTangoHud. Owned here so
+    // they exist with the right default before the toolbar HUD parses.
+    ControlPushButton m_showCountdownTimer;
+    ControlPushButton m_showProgressPips;
 
     // Momentary trigger from the Auto DJ queue "Eject decks and reset AutoDJ
     // queue state" menu action. Re-armed to 0 after each handled trigger.

@@ -110,6 +110,18 @@ WTangoHud::WTangoHud(QWidget* pParent)
     m_pNextKind = makeProxy(QStringLiteral("hud_next_kind"));
     m_pTandaTrackCount = makeProxy(QStringLiteral("hud_tanda_track_count"));
     m_pTandaPlayingIndex = makeProxy(QStringLiteral("hud_tanda_playing_index"));
+    m_pAutoDJEnabled = makeProxy(QStringLiteral("enabled"));
+
+    // The show/hide toggles live in the [TangoQ] group, driven from the Settings
+    // panel. Repaint when either flips so the HUD updates live.
+    const auto makeTangoQProxy = [this](const QString& key) {
+        auto* pProxy = new ControlProxy(
+                ConfigKey(QStringLiteral("[TangoQ]"), key), this);
+        pProxy->connectValueChanged(this, &WTangoHud::slotControlChanged);
+        return pProxy;
+    };
+    m_pShowCountdownTimer = makeTangoQProxy(QStringLiteral("show_countdown_timer"));
+    m_pShowProgressPips = makeTangoQProxy(QStringLiteral("show_progress_pips"));
 
     // Final-30 s breathe: advance the phase at ~25 fps and repaint. Runs only
     // while inside the window (started/stopped from slotControlChanged), so the
@@ -181,6 +193,12 @@ QSize WTangoHud::sizeHint() const {
 
 void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     Q_UNUSED(pEvent);
+    // While Auto DJ is stopped there is no countdown to show. Keep the reserved
+    // size (so the toolbar never reflows) but paint nothing rather than sitting at
+    // "--:--".
+    if (m_pAutoDJEnabled->get() <= 0.0) {
+        return;
+    }
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -206,6 +224,12 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     const int pipD = mixxx::kTandaProgressPipDiameter;
     const int pipGap = mixxx::kTandaProgressPipGap;
 
+    // Settings-panel toggles: hide the countdown timer (label + time) and/or the
+    // pips independently. The layout below still reserves every row's space
+    // regardless, so the toolbar height never changes when a toggle flips.
+    const bool showTimer = m_pShowCountdownTimer->get() > 0.0;
+    const bool showPips = m_pShowProgressPips->get() > 0.0;
+
     // Three centered rows stacked on one vertical axis: label, large time, pips.
     // The pip row is always reserved (see sizeHint) so the stack height is fixed.
     const int labelH = lm.height();
@@ -213,35 +237,37 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     const int pipRow = pipD + kPipRowGap;
     const int stackTop = (h - (labelH + timeH + pipRow)) / 2;
 
-    // --- Label line, centered --------------------------------------------
-    p.setFont(lf);
-    p.setPen(kColorText);
-    p.drawText(QRect(0, stackTop, w, labelH),
-            Qt::AlignHCenter | Qt::AlignVCenter,
-            countdownLabel(nextKind));
+    if (showTimer) {
+        // --- Label line, centered ----------------------------------------
+        p.setFont(lf);
+        p.setPen(kColorText);
+        p.drawText(QRect(0, stackTop, w, labelH),
+                Qt::AlignHCenter | Qt::AlignVCenter,
+                countdownLabel(nextKind));
 
-    // --- Time line (large, fixed-width so digits never jitter), centered -
-    // In the final 30 s the whole time value breathes red (a smooth faint <-> full
-    // pulse) to warn the DJ; otherwise it is the normal white.
-    QColor timeColor = kColorText;
-    if (inFlashWindow()) {
-        const double factor = 0.5 - 0.5 * std::cos(kTwoPi * m_breathPhase);
-        const int alpha = kBreathMinAlpha +
-                static_cast<int>(factor * (255 - kBreathMinAlpha));
-        timeColor = QColor(kColorAccent.red(),
-                kColorAccent.green(),
-                kColorAccent.blue(),
-                alpha);
+        // --- Time line (large, fixed-width so digits never jitter), centered -
+        // In the final 30 s the whole time value breathes red (a smooth faint
+        // <-> full pulse) to warn the DJ; otherwise it is the normal white.
+        QColor timeColor = kColorText;
+        if (inFlashWindow()) {
+            const double factor = 0.5 - 0.5 * std::cos(kTwoPi * m_breathPhase);
+            const int alpha = kBreathMinAlpha +
+                    static_cast<int>(factor * (255 - kBreathMinAlpha));
+            timeColor = QColor(kColorAccent.red(),
+                    kColorAccent.green(),
+                    kColorAccent.blue(),
+                    alpha);
+        }
+        p.setPen(timeColor);
+        p.setFont(tf);
+        drawFixedWidthTime(&p,
+                QRect((w - timeWidth) / 2, stackTop + labelH, timeWidth, timeH),
+                tm,
+                formatCountdown(seconds));
     }
-    p.setPen(timeColor);
-    p.setFont(tf);
-    drawFixedWidthTime(&p,
-            QRect((w - timeWidth) / 2, stackTop + labelH, timeWidth, timeH),
-            tm,
-            formatCountdown(seconds));
 
     // --- Track pips, centered below the time -----------------------------
-    if (trackCount > 0) {
+    if (showPips && trackCount > 0) {
         const QColor pipColor = preview ? kColorAccentDim : kColorAccent;
         const int pipsWidth = trackCount * pipD + (trackCount - 1) * pipGap;
         int pipX = (w - pipsWidth) / 2;
