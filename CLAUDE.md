@@ -95,7 +95,7 @@ test first, and trace a value to its *use*, not its assignment.
 
 The feature set was frozen for a first release on **2026-07-26** and the project
 is in a hardening phase. Default to deferring a new feature idea and capturing
-it in `bugs-1.md`/`prerelease-tasks.md` rather than building it, unless the user
+it in `ROADMAP.md`/`prerelease-tasks.md` rather than building it, unless the user
 says otherwise.
 
 ## Domain context
@@ -147,7 +147,8 @@ bare ConfigKey and cannot negate.
 
 - `prerelease-tasks.md` — the live task list and design decisions, including the
   Tanda transition spec.
-- `bugs-1.md` — the fork's bug and long-term-feature list.
+- `ROADMAP.md` — the fork's roadmap: completed work, planned features, known
+  issues, and long-term ideas.
 - `RELEASE_NOTES.md`, `INSTALL.md` — user-facing, for non-technical DJs.
 - `ghostdeck-phase1-plan.md` and `tanda-insights.md` are untracked scratch files
   and unrelated to the current work — leave them alone.
