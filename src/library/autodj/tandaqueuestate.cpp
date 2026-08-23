@@ -289,7 +289,9 @@ QUuid TandaQueueState::classify(const QVector<int>& oneBasedPositions,
     }
     QVector<int> positions = oneBasedPositions;
     std::sort(positions.begin(), positions.end());
-    positions.erase(std::unique(positions.begin(), positions.end()), positions.end());
+    QVector<int>::iterator uniqueEnd = std::unique(positions.begin(), positions.end());
+    const qsizetype uniqueOffset = std::distance(positions.begin(), uniqueEnd);
+    positions.erase(positions.cbegin() + uniqueOffset, positions.cend());
     if (positions.size() != oneBasedPositions.size() || positions.first() <= 0 ||
             positions.last() > m_queueSnapshot.size()) {
         setError(pError, tr("The selection is not a valid queue range."));
@@ -387,8 +389,10 @@ bool TandaQueueState::setCollapsed(const QUuid& id, bool collapsed) {
 int TandaQueueState::dissolveIf(
         const std::function<bool(const TandaSpan&)>& predicate) {
     const int oldSize = m_spans.size();
-    m_spans.erase(std::remove_if(m_spans.begin(), m_spans.end(), predicate),
-            m_spans.end());
+    QVector<TandaSpan>::iterator removeEnd =
+            std::remove_if(m_spans.begin(), m_spans.end(), predicate);
+    const qsizetype removeOffset = std::distance(m_spans.begin(), removeEnd);
+    m_spans.erase(m_spans.cbegin() + removeOffset, m_spans.cend());
     const int removed = oldSize - m_spans.size();
     if (removed > 0) {
         save();
@@ -400,33 +404,38 @@ int TandaQueueState::dissolveIf(
 int TandaQueueState::dissolveForRemoval(
         const QVector<int>& oneBasedPositions) {
     QVector<int> positions = oneBasedPositions;
-    positions.erase(std::remove_if(positions.begin(),
-                            positions.end(),
-                            [this](int position) {
-                                return position <= 0 ||
-                                        position > m_queueSnapshot.size();
-                            }),
-            positions.end());
+    QVector<int>::iterator validEnd =
+            std::remove_if(positions.begin(),
+                    positions.end(),
+                    [this](int position) {
+                        return position <= 0 || position > m_queueSnapshot.size();
+                    });
+    const qsizetype validOffset = std::distance(positions.begin(), validEnd);
+    positions.erase(positions.cbegin() + validOffset, positions.cend());
     std::sort(positions.begin(), positions.end());
-    positions.erase(std::unique(positions.begin(), positions.end()), positions.end());
+    QVector<int>::iterator uniqueEnd = std::unique(positions.begin(), positions.end());
+    const qsizetype uniqueOffset = std::distance(positions.begin(), uniqueEnd);
+    positions.erase(positions.cbegin() + uniqueOffset, positions.cend());
     if (positions.isEmpty()) {
         return 0;
     }
 
     const int oldSize = m_spans.size();
-    m_spans.erase(std::remove_if(m_spans.begin(),
-                          m_spans.end(),
-                          [&positions](const TandaSpan& span) {
-                              for (int position : positions) {
-                                  if (span.anchorPosition <= position &&
-                                          position < span.anchorPosition +
-                                                          span.members.size()) {
-                                      return true;
-                                  }
-                              }
-                              return false;
-                          }),
-            m_spans.end());
+    QVector<TandaSpan>::iterator removeEnd =
+            std::remove_if(m_spans.begin(),
+                    m_spans.end(),
+                    [&positions](const TandaSpan& span) {
+                        for (int position : positions) {
+                            if (span.anchorPosition <= position &&
+                                    position < span.anchorPosition +
+                                                    span.members.size()) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+    const qsizetype removeOffset = std::distance(m_spans.begin(), removeEnd);
+    m_spans.erase(m_spans.cbegin() + removeOffset, m_spans.cend());
     for (TandaSpan& span : m_spans) {
         span.anchorPosition -= static_cast<int>(std::count_if(positions.cbegin(),
                 positions.cend(),
