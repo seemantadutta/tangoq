@@ -837,6 +837,15 @@ void MixxxMainWindow::slotTangoModeChanged(double value) {
     if (!pLogo) {
         return;
     }
+#ifdef Q_OS_MACOS
+    // TangoQ: on macOS the toolbar logo uses the squircle icon lockup to match
+    // the macOS app icon; other platforms keep the skin's square-icon lockup.
+    // The skin sets #ToolbarLogo's image in QSS, so override it on the widget
+    // (re-applied here because a skin reload recreates the widget).
+    pLogo->setStyleSheet(QStringLiteral(
+            "#ToolbarLogo { image: url(skins:TangoQ/palemoon/style/"
+            "tangoq_logo_small_macos.svg) no-repeat center center; }"));
+#endif
     if (!m_pLogoDim) {
         m_pLogoDim = new QGraphicsOpacityEffect(pLogo);
         pLogo->setGraphicsEffect(m_pLogoDim);

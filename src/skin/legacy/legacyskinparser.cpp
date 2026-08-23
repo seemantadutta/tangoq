@@ -451,6 +451,13 @@ LaunchImage* LegacySkinParser::parseLaunchImage(const QString& skinPath, QWidget
     QDir::setSearchPaths("skin", skinPaths);
 
     QString styleSheet = parseLaunchImageStyle(skinDocument);
+#ifdef Q_OS_MACOS
+    // TangoQ: on macOS the splash uses the squircle icon lockup, to match the
+    // macOS app icon; other platforms keep the square-icon lockup. The launch
+    // image style hard-codes the logo file name, so swap it here.
+    styleSheet.replace(QLatin1String("tangoq_logo.svg"),
+            QLatin1String("tangoq_logo_macos.svg"));
+#endif
     // Transform relative 'skin:' urls into absolute paths.
     // See stylesheetAbsIconPaths() for details.
     LaunchImage* pLaunchImage = new LaunchImage(pParent, stylesheetAbsIconPaths(styleSheet));
