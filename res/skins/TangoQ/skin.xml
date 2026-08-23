@@ -271,8 +271,11 @@
          src-windows="skins:default-menu-styles-windows.qss"/>
   <!-- MinimumSize should not be an exact monitor resolution. There needs
   to be space for the title bar or other chrome at full screen.
-  https://www.mixxx.org/wiki/doku.php/skin_guidelines#the_optimal_size_for_skins -->
-  <MinimumSize>1280,668</MinimumSize>
+  https://www.mixxx.org/wiki/doku.php/skin_guidelines#the_optimal_size_for_skins
+  TangoQ lowers the width floor so the right-docked Auto DJ Queue can be
+  widened (the central deck/mixer widgets still enforce their own real
+  minimums, so this only removes an over-constraint that pinned the dock). -->
+  <MinimumSize>800,668</MinimumSize>
   <SizePolicy>me,me</SizePolicy>
   <Layout>vertical</Layout>
   <Children>
