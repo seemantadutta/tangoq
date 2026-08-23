@@ -3,8 +3,10 @@
 set -e
 cd "$(dirname "$0")/../.."
 
-if ! command -v inkscape &> /dev/null; then
-    echo "Please make sure to have 'inkscape' on your PATH!"
+if ! command -v rsvg-convert &> /dev/null; then
+    echo "Please make sure to have 'rsvg-convert' on your PATH (brew install librsvg)!"
+    echo "It rasterizes the SVG with a transparent background; qlmanage bakes a"
+    echo "white background instead, which leaves a white border around the icon."
     exit 1
 fi
 
@@ -26,7 +28,7 @@ echo "==> Generating icons from $input_svg..."
 
 # name  width  (iconutil requires exactly these iconset members)
 render() {
-    inkscape -o "$output_dir/$1.png" -w "$2" -h "$2" "$input_svg"
+    rsvg-convert -w "$2" -h "$2" "$input_svg" -o "$output_dir/$1.png"
 }
 render icon_16x16        16
 render icon_16x16@2x     32
