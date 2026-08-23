@@ -80,7 +80,7 @@ bool MixxxDb::initDatabaseSchema(
             tr("Unable to upgrade your database schema to version %1")
             .arg(QString::number(schemaVersion));
     QString helpContact = tr("For help with database issues consult:") + "\n" +
-            "https://github.com/seemantadutta/mixxx/issues";
+            "https://github.com/seemantadutta/tangoq/issues";
 
     switch (SchemaManager(database).upgradeToSchemaVersion(schemaVersion, schemaFile)) {
     case SchemaManager::Result::CurrentVersion:

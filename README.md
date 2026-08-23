@@ -8,7 +8,7 @@ and waveform markers that help a tango DJ stay oriented while performing.
 
 > **Not affiliated with the Mixxx project.** TangoQ is a community-maintained
 > fork based on Mixxx, not an official Mixxx release. Please report TangoQ
-> problems [here](https://github.com/seemantadutta/mixxx/issues), not to the
+> problems [here](https://github.com/seemantadutta/tangoq/issues), not to the
 > upstream Mixxx project.
 
 ## Install
@@ -17,7 +17,7 @@ See **[INSTALL.md](INSTALL.md)** for step-by-step instructions, including how to
 get past the Windows SmartScreen and macOS Gatekeeper warnings. Current builds
 are unsigned, so both operating systems will warn the first time.
 
-Downloads are attached to the [Releases](https://github.com/seemantadutta/mixxx/releases)
+Downloads are attached to the [Releases](https://github.com/seemantadutta/tangoq/releases)
 page. Windows packages are named `tangoq-*.msi`; macOS packages are named
 `tangoq-*.dmg`.
 
@@ -40,7 +40,7 @@ will be cleaned up in a later pass with the rest of the behavior terminology.
 Same as Mixxx, from this fork:
 
 ```sh
-git clone https://github.com/seemantadutta/mixxx.git
+git clone https://github.com/seemantadutta/tangoq.git
 cd mixxx
 mkdir build
 cd build

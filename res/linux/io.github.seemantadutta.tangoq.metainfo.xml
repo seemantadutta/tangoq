@@ -5,7 +5,7 @@
   <metadata_license>CC-BY-SA-3.0</metadata_license>
   <project_license>GPL-2.0</project_license>
   <name>TangoQ</name>
-  <summary>DJ software purpose-built for tango DJs</summary>
+  <summary>TangoQ is a Mixxx fork, purpose-built for Tango DJing</summary>
   <description>
     <p>
       TangoQ is DJ software for Argentine tango events, based on Mixxx.
@@ -84,8 +84,8 @@
       <caption>TangoQ with the Tango skin</caption>
     </screenshot>
   </screenshots>
-  <url type="homepage">https://mixxx.org</url>
-  <url type="bugtracker">https://github.com/mixxxdj/mixxx/issues/</url>
+  <url type="homepage">https://github.com/seemantadutta/tangoq</url>
+  <url type="bugtracker">https://github.com/seemantadutta/tangoq/issues/</url>
   <url type="donation">https://mixxx.org/donate/</url>
   <url type="help">https://mixxx.org/support/</url>
   <url type="translate">https://explore.transifex.com/mixxx-dj-software/</url>

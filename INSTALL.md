@@ -8,7 +8,7 @@
 
 ## 1. Download
 
-Go to the **[Releases page](https://github.com/seemantadutta/mixxx/releases)**
+Go to the **[Releases page](https://github.com/seemantadutta/tangoq/releases)**
 and download the file for your system:
 
 | Your computer | Download this file |
@@ -88,7 +88,7 @@ Compare the printed value to the checksum published on the release page.
 TangoQ is a community-maintained fork based on
 [Mixxx](https://mixxx.org). It is not produced, supported, or endorsed by the
 Mixxx project. Please report TangoQ problems at
-https://github.com/seemantadutta/mixxx/issues.
+https://github.com/seemantadutta/tangoq/issues.
 
 Mixxx is free software under the GPL. TangoQ keeps the license and copyright
 notices intact, uses its own name and branding, and links back to the original

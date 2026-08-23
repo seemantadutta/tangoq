@@ -233,8 +233,14 @@ enable_language(C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
 
-set(CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
-set(CMAKE_PROJECT_DESCRIPTION "Mixxx is Free DJ software that gives you everything you need to perform live mixes.")
+# Copyright year, substituted into the Windows resource file and the macOS
+# Info.plist. Set here rather than in the WIN32-only resource block below: the
+# macOS plist is configured long before that block and never saw the variable,
+# so every bundle shipped "Copyright © 2001- Mixxx Development Team".
+string(TIMESTAMP MIXXX_YEAR "%Y")
+
+set(CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/seemantadutta/tangoq")
+set(CMAKE_PROJECT_DESCRIPTION "TangoQ is a Mixxx fork, purpose-built for Tango DJing")
 
 # Used for force control of color output
 set(BUILD_COLORS "auto" CACHE STRING "Try to use colors auto/always/no")
@@ -2425,8 +2431,6 @@ add_dependencies(mixxx-gitinfostore mixxx-gitinfo)
 
 # Windows-only resource file
 if(WIN32)
-  string(TIMESTAMP MIXXX_YEAR "%Y")
-
   set(MIXXX_FILEVERSION "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}")
   # File version tracks the Mixxx code base; product version is the TangoQ release.
   set(MIXXX_PRODUCTVERSION "${TANGOQ_PRODUCTVERSION}")
@@ -4030,15 +4034,15 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BI
 # which neither builds nor supports these packages.
 set(CPACK_PACKAGE_NAME "TangoQ")
 set(CPACK_PACKAGE_VENDOR "TangoQ")
-set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/mixxx/issues>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "DJ software purpose-built for tango DJs")
+set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/tangoq/issues>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TangoQ is a Mixxx fork, purpose-built for Tango DJing")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoQ")
 # Must match the OUTPUT_NAME set on the mixxx target above: this names the
 # executable the Start menu and desktop shortcuts point at.
 set(CPACK_PACKAGE_EXECUTABLES "tangoq;TangoQ")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/tangoq")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
