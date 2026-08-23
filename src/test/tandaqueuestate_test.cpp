@@ -17,6 +17,7 @@
 #include "library/trackcollection.h"
 #include "test/librarytest.h"
 #include "test/mixxxtest.h"
+#include "track/track.h"
 
 namespace {
 
