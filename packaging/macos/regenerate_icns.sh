@@ -8,16 +8,13 @@ if ! command -v inkscape &> /dev/null; then
     exit 1
 fi
 
-input_svg="res/images/icons/scalable/apps/mixxx_macos.svg"
-tmp_dir="$(mktemp -dt mixxx_icon)"
+# TangoQ macOS app icon source (a filled superellipse squircle on the macOS
+# icon grid). TangoQ ships only the app icon; the DMG uses CPack's default
+# volume icon, so there is no VolumeIcon.icns to regenerate.
+input_svg="res/osx/tangoq_icon.svg"
+tmp_dir="$(mktemp -dt tangoq_icon)"
 output_dir="$tmp_dir.iconset"
-# TangoQ ships only the app icon; the DMG uses CPack's default volume icon, so
-# there is no VolumeIcon.icns to regenerate.
-# TODO(TangoQ): point input_svg at the TangoQ macOS icon source before running
-# this — it still references the upstream Mixxx artwork.
-output_icns=(
-    "res/osx/application.icns"
-)
+output_icns="res/osx/application.icns"
 
 mv "$tmp_dir" "$output_dir"
 
@@ -27,16 +24,20 @@ trap "rm -rf '$output_dir'" EXIT
 
 echo "==> Generating icons from $input_svg..."
 
-for size in 16 32 64 128 256 512 1024; do
-    echo "Generating icon of size $size..."
-    icon_prefix="icon_${size}x${size}"
-    inkscape -o "$output_dir/$icon_prefix.png"    -w $size         "$input_svg"
-    inkscape -o "$output_dir/$icon_prefix@2x.png" -w $((size * 2)) "$input_svg"
-done
+# name  width  (iconutil requires exactly these iconset members)
+render() {
+    inkscape -o "$output_dir/$1.png" -w "$2" -h "$2" "$input_svg"
+}
+render icon_16x16        16
+render icon_16x16@2x     32
+render icon_32x32        32
+render icon_32x32@2x     64
+render icon_128x128     128
+render icon_128x128@2x  256
+render icon_256x256     256
+render icon_256x256@2x  512
+render icon_512x512     512
+render icon_512x512@2x 1024
 
-echo "==> Updating ICNS icons..."
-
-for icns in "${output_icns[@]}"; do
-    echo "Updating $icns..."
-    iconutil -c icns -o "$icns" "$output_dir"
-done
+echo "==> Updating $output_icns..."
+iconutil -c icns -o "$output_icns" "$output_dir"

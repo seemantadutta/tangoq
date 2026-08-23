@@ -4043,6 +4043,10 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoQ")
 set(CPACK_PACKAGE_EXECUTABLES "tangoq;TangoQ")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/tangoq")
+# Name the mounted DMG volume "TangoQ" rather than CPack's default
+# "TangoQ-<version>-Darwin"; this is the title the user sees on the install
+# window. Ignored by the non-DMG generators.
+set(CPACK_DMG_VOLUME_NAME "TangoQ")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
