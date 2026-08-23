@@ -155,7 +155,9 @@
         </Children>
       </WidgetGroup><!-- LatencyBatteryContainer -->
 
-      <WidgetGroup><Size>10f,1min</Size></WidgetGroup>
+      <!-- No battery widget: the OS already shows battery status, and WBattery
+           resized/vanished as its charge state updated. CPU Load therefore sits
+           flush against Settings, with no widget or spacer between them. -->
 
       <PushButton>
         <Size>80f,20f</Size>
