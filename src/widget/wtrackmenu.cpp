@@ -140,10 +140,6 @@ BaseTrackTableModel* baseTableModel(TrackModel* pTrackModel) {
     return nullptr;
 }
 
-const BaseTrackTableModel* baseTableModel(const TrackModel* pTrackModel) {
-    return baseTableModel(const_cast<TrackModel*>(pTrackModel));
-}
-
 QModelIndex baseTableIndex(
         TrackModel* pTrackModel, const QModelIndex& index) {
     if (auto* pTandaModel = dynamic_cast<TandaQueueModel*>(pTrackModel)) {

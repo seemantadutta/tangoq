@@ -1,3 +1,10 @@
+// TangoQ, a Mixxx fork purpose-built for Argentine Tango DJs.
+// Copyright © 2026 Seemanta Dutta (TangoQ).
+//
+// This file is part of TangoQ and is licensed under the GNU General Public
+// License, version 2 or later. TangoQ is based on Mixxx (Copyright © 2001-2026
+// the Mixxx Development Team); see the LICENSE file for the full text.
+
 #include "library/autodj/tracklabelregistry.h"
 
 #include "moc_tracklabelregistry.cpp"

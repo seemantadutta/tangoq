@@ -481,7 +481,12 @@ DlgAbout::DlgAbout()
                                    "Like Mixxx, TangoQ is free software, "
                                    "distributed under the same terms: the GNU "
                                    "General Public License, version 2 or later. "
-                                   "The full license text is in the License tab.")
+                                   "The full license text is in the License tab."
+                                   "<br><br>"
+                                   "TangoQ fork changes Copyright &copy; 2026 "
+                                   "Seemanta Dutta (TangoQ). Mixxx is Copyright "
+                                   "&copy; 2001&ndash;2026 the Mixxx Development "
+                                   "Team.")
                                         .arg(MIXXX_WEBSITE_URL, MIXXX_DONATE_URL))
              << sectionTemplate.arg(s_devTeam,
                                     thisReleaseDevelopers.join("<br>"))

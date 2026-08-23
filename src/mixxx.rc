@@ -8,7 +8,7 @@ IDI_ICON1               ICON    DISCARDABLE     "res/images/icons/ic_mixxx.ico"
 #define VER_FILEDESCRIPTION_STR     "DJ software purpose-built for tango DJs"
 #define VER_COMPANYNAME_STR         "TangoQ"
 // \xA9 for (c) symbol. The Microsoft Resource Compiler compiler assumes Latin-1 strings
-#define VER_LEGALCOPYRIGHT_STR      "\xA9 2001-" CUR_YEAR " Mixxx Development Team\0"
+#define VER_LEGALCOPYRIGHT_STR      "\xA9 2001-" CUR_YEAR " Mixxx Development Team / \xA9 2026 Seemanta Dutta (TangoQ), GPL v2+\0"
 #define VER_ORIGINALFILENAME_STR    "tangoq.exe"
 
 #if defined(AMD64) || defined(INTEL64) || defined(EM64T) || defined(x86_64)
