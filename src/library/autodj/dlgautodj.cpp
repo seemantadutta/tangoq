@@ -591,12 +591,21 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     // shift is unmasked. Painting is re-enabled at the end, forcing one clean pass.
     setUpdatesEnabled(false);
     if (state == AutoDJProcessor::ADJ_DISABLED) {
+        // The set is over: forget its start so the next run re-anchors the target
+        // end time to when it begins.
+        m_setStartDateTime = QDateTime();
         pushButtonAutoDJ->setChecked(false);
         pushButtonAutoDJ->setToolTip(m_enableBtnTooltip);
         if (m_bShowButtonText) {
             pushButtonAutoDJ->setText(tr("Enable"));
         }
     } else {
+        // Capture the start on the first running state and hold it for the whole
+        // session, so the over/under target stays fixed across midnight and while
+        // the set runs past its target.
+        if (!m_setStartDateTime.isValid()) {
+            m_setStartDateTime = QDateTime::currentDateTime();
+        }
         // No matter the mode, you can always disable once it is enabled.
         pushButtonAutoDJ->setChecked(true);
         pushButtonAutoDJ->setToolTip(m_disableBtnTooltip);
@@ -817,18 +826,19 @@ void DlgAutoDJ::updateSetEndTime() {
 }
 
 QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
-    // Anchor the target time-of-day to the calendar day nearest the projected end
-    // so the comparison stays correct across midnight (e.g. target 00:15 vs an end
-    // clock of 23:58). Start from the projected end (same date and time zone) and
-    // overwrite just the time of day.
-    QDateTime target = projectedEnd;
-    target.setTime(endTimeEdit->time());
-    constexpr qint64 kHalfDaySecs = 12 * 3600;
-    const qint64 toEnd = target.secsTo(projectedEnd);
-    if (toEnd > kHalfDaySecs) {
+    // The target end time is the first occurrence of the configured time-of-day
+    // at or after the set started. "Midnight" set during a 9am soundcheck means
+    // the coming midnight, not the one already ~9 hours past. Anchoring to the
+    // set start (rather than "now" or the projected end) keeps that instant fixed
+    // for the whole session, so the reading stays correct across midnight and
+    // when the set legitimately runs past its target. Fall back to now if the
+    // start was somehow not captured (the readout only shows while running).
+    const QDateTime start = m_setStartDateTime.isValid()
+            ? m_setStartDateTime
+            : QDateTime::currentDateTime();
+    QDateTime target(start.date(), endTimeEdit->time());
+    if (target < start) {
         target = target.addDays(1);
-    } else if (toEnd < -kHalfDaySecs) {
-        target = target.addDays(-1);
     }
     const qint64 deltaSecs = target.secsTo(projectedEnd);
     if (deltaSecs == 0) {

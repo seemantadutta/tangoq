@@ -84,6 +84,15 @@ void applyFirstRunDefaults(const UserSettingsPointer& config) {
     config->set(ConfigKey("[Auto DJ]", "TransitionMode"), ConfigValue("4"));
     config->set(ConfigKey("[Auto DJ]", "Transition"), ConfigValue("-3"));
     config->set(ConfigKey("[Auto DJ]", "TandaGap"), ConfigValue("3"));
+
+    // Cortinas should fade in and out by default: a hard cut onto a cortina is
+    // the jarring behaviour a tango DJ would immediately turn off. "1" selects
+    // Cortina Fade (0 is hard cut); the fade-in/out are 5 s each. Absent these
+    // keys every reader defaults to hard cut, so a fresh install would play
+    // cortinas at full volume until the DJ found the toggle in Preferences.
+    config->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), ConfigValue("1"));
+    config->set(ConfigKey("[Auto DJ]", "CortinaFadeIn"), ConfigValue("5"));
+    config->set(ConfigKey("[Auto DJ]", "CortinaFadeOut"), ConfigValue("5"));
 }
 
 } // namespace

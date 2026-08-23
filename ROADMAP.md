@@ -46,6 +46,22 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   actually built on the fly during the milonga.)
 - **Cortina settings in Preferences**: default cortina length, cortina transition
   mode (hard cut or auto fade), fade-in / fade-out, and a derived hold-time readout.
+- **Cortinas fade by default on a fresh install.** `applyFirstRunDefaults()` now
+  seeds `CortinaFadeMode = 1` with 5 s in / 5 s out (and `TandaGap = 3`). Before
+  this, every reader defaulted the absent key to hard cut, so a brand-new DJ heard
+  cortinas jump in at full volume until they found the toggle. Delete `tangoq.cfg`
+  and relaunch to re-test a genuine fresh install.
+- **Hard-cut cortina countdown reads `--:--`.** With Cortina Fade off, the time to
+  the next track depends on when the DJ manually fades the cortina out, so the HUD
+  no longer shows a fictional countdown stuck at the gap value N. Once the DJ arms
+  the manual fade-out, the countdown appears (fade-out + gap). Track→track and
+  track→cortina countdowns are unchanged.
+- **Target end time resolves to the next upcoming occurrence.** The over/under
+  readout anchors the target time-of-day to its first occurrence at or after the
+  set start, not the midnight nearest the projected end. "Midnight" set during a
+  morning soundcheck now means the coming midnight (shown correctly as ~14 h
+  *under*), instead of reading ~10 h *over* against a midnight already past. Stays
+  correct across midnight and when a set runs past its target.
 
 ### Cockpit & HUD
 - **Toolbar HUD** with a large countdown to the next track / cortina / set end, and
@@ -136,6 +152,20 @@ than a built-in second window.
   breathe time set separately from the track breathe time.
 - The countdown sits slightly left of center; it should render centered over the
   playheads.
+- **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
+  tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
+  span could then be created by classifying as Vals and changing the type to Tango
+  afterwards. Not reproducible on retry. The state layer is not the cause —
+  `TandaQueueState::classify(..., TandaType::Tango)` is exercised and passing in
+  `tandaqueuestate_test.cpp`, so any real fault is above it in the GUI path
+  (`WTandaQueueView::classifySelection` → `AutoDJFeature::makeTanda`). Most likely
+  a transient: the Auto DJ model fully rebuilds on every edit (a brief
+  `rowCount == 0` window), so a click landing mid-rebuild reads an empty selection
+  and silently no-ops. The type correlation is probably an artifact of attempt
+  order. If it recurs, instrument `classifySelection` to log the selected
+  positions and model `rowCount` at click time — one run should catch it. Optional
+  hardening: have `classifySelection` bail with a visible message on an empty
+  selection so a mid-rebuild click never no-ops silently.
 
 ---
 

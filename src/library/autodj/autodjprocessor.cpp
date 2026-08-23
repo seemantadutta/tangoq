@@ -1779,24 +1779,12 @@ void AutoDJProcessor::publishHudTiming() {
     } else if (m_cortinaGapTimer.isActive()) {
         countdown = m_cortinaGapTimer.remainingTime() / 1000.0;
     } else if (DeckAttributes* pCortinaDeck = playingCortinaDeck()) {
-        // A cortina plays for its effective window (cortina length clamped to the
-        // audible span), governed by the fade envelope - not to the file's end.
-        // Mirror the envelope's cl - elapsed. Keep in sync with
-        // maybeHandleCortinaFade().
         const double duration = getEndSecond(pCortinaDeck);
         if (duration > 0.0) {
-            const double envelopeStart =
-                    m_cortinaEnvelopeStartSecond != kKeepPosition
-                    ? m_cortinaEnvelopeStartSecond
-                    : getFirstSoundSecond(pCortinaDeck);
-            const double audible = math_max(
-                    getLastSoundSecond(pCortinaDeck) - envelopeStart, 0.0);
-            const double cl = math_min(
-                    static_cast<double>(m_keepQueueCortinaSeconds), audible);
-            const double elapsed =
-                    pCortinaDeck->playPosition() * duration - envelopeStart;
-            countdown = math_max(cl - elapsed, 0.0);
             if (m_cortinaManualFadeOutStartSecond != kKeepPosition) {
+                // The DJ has triggered the cortina fade-out (works in any mode,
+                // including hard cut): count the fade-out down from the moment it
+                // was armed, then add the silent after-gap.
                 const double manualFadeOutElapsed =
                         pCortinaDeck->playPosition() * duration -
                         m_cortinaManualFadeOutStartSecond;
@@ -1808,11 +1796,35 @@ void AutoDJProcessor::publishHudTiming() {
                 countdown = math_max(
                         manualFadeOutSeconds - manualFadeOutElapsed,
                         0.0);
+                if (hasNext) {
+                    countdown += m_cortinaGapSeconds;
+                }
+            } else if (m_cortinaFadeEnabled) {
+                // Automatic Cortina Fade: the cortina plays for its effective
+                // window (cortina length clamped to the audible span), governed
+                // by the fade envelope - not the file's end. Mirror the
+                // envelope's cl - elapsed. Keep in sync with
+                // maybeHandleCortinaFade().
+                const double envelopeStart =
+                        m_cortinaEnvelopeStartSecond != kKeepPosition
+                        ? m_cortinaEnvelopeStartSecond
+                        : getFirstSoundSecond(pCortinaDeck);
+                const double audible = math_max(
+                        getLastSoundSecond(pCortinaDeck) - envelopeStart, 0.0);
+                const double cl = math_min(
+                        static_cast<double>(m_keepQueueCortinaSeconds), audible);
+                const double elapsed =
+                        pCortinaDeck->playPosition() * duration - envelopeStart;
+                countdown = math_max(cl - elapsed, 0.0);
+                // Plus the silent after-gap before the next tanda track starts.
+                if (hasNext) {
+                    countdown += m_cortinaGapSeconds;
+                }
             }
-            // Plus the silent after-gap before the next tanda track starts.
-            if (hasNext) {
-                countdown += m_cortinaGapSeconds;
-            }
+            // Hard cut with no manual fade-out armed: when the next track becomes
+            // audible depends entirely on when the DJ fades the cortina out, so
+            // there is no honest number to show. Leave countdown at -1 and the
+            // HUD renders "--:--".
         }
     } else {
         // The main track's remaining. Prefer the flagged from-deck, but fall back

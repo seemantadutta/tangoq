@@ -144,6 +144,12 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
     QString m_lastEndTimeDeltaText;
 
+    // When the current set started running. The target end time is resolved to
+    // its first occurrence at or after this instant, so "midnight" set during a
+    // morning soundcheck means the coming midnight, not the one already past.
+    // Invalid while Auto DJ is stopped.
+    QDateTime m_setStartDateTime;
+
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;
 };
