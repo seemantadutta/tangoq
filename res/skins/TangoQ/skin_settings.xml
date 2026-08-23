@@ -188,7 +188,7 @@ Description:
               </Template>
 
               <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
-                <SetVariable name="Text">End Time</SetVariable>
+                <SetVariable name="Text">Target Time</SetVariable>
                 <SetVariable name="Setting">[TangoQ],show_adj_end_time</SetVariable>
               </Template>
 
@@ -198,12 +198,12 @@ Description:
               </Template>
 
               <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
-                <SetVariable name="Text">Show Countdown Timer</SetVariable>
+                <SetVariable name="Text">Countdown Timer</SetVariable>
                 <SetVariable name="Setting">[TangoQ],show_countdown_timer</SetVariable>
               </Template>
 
               <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
-                <SetVariable name="Text">Show Progress Pips</SetVariable>
+                <SetVariable name="Text">Progress Pips</SetVariable>
                 <SetVariable name="Setting">[TangoQ],show_progress_pips</SetVariable>
               </Template>
 

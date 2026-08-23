@@ -137,10 +137,11 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Ticks once a second to keep the Tango set end-time readout current. Only
     // runs while Tango mode is on (see refreshTangoModeUi).
     QTimer* m_pSetTimeTimer;
-    // Last text shown in labelTangoSetTime, so the per-second tick only repaints
-    // the label when the value actually changed (avoids needless toolbar repaints
-    // that can flicker sibling widgets such as the waveform).
-    QString m_lastSetTimeText;
+    // Last text shown in labelSetLength / labelEnds, so the per-second tick only
+    // repaints a label when its value actually changed (avoids needless toolbar
+    // repaints that can flicker sibling widgets such as the waveform).
+    QString m_lastSetLengthText;
+    QString m_lastEndsText;
     // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
     QString m_lastEndTimeDeltaText;
 

@@ -31,6 +31,17 @@
    </property>
    <item>
     <widget class="QWidget" name="LibraryFeatureControls">
+     <property name="minimumSize">
+      <!-- A tiny explicit minimum lets the whole Auto DJ controls row be shrunk
+           (Qt's default layout constraint won't override a minimum that is set),
+           so the Auto DJ pane can be dragged narrower than its populated toolbar
+           and the sidebar widened. The row clips from the right; the shrinkable
+           readout labels collapse first, keeping the left-hand buttons usable. -->
+      <size>
+       <width>1</width>
+       <height>0</height>
+      </size>
+     </property>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <property name="spacing">
        <number>0</number>
@@ -73,7 +84,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>10</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -177,7 +188,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>10</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -269,12 +280,53 @@
          <property name="rightMargin"><number>0</number></property>
          <property name="bottomMargin"><number>0</number></property>
          <item>
-          <widget class="QLabel" name="labelTangoSetTime">
+          <widget class="QLabel" name="labelSetLength">
            <property name="text">
             <string/>
            </property>
+           <property name="minimumSize">
+            <!-- A tiny explicit minimum overrides the QLabel's full-text minimum
+                 so the Auto DJ pane can be dragged narrower than these readouts;
+                 the text clips instead of pinning the pane width. -->
+            <size>
+             <width>1</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="toolTip">
-            <string>Estimated end time of the Auto DJ set (Tango DJ mode).</string>
+            <string>Total length of the Auto DJ set (Tango DJ mode).</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerSetLengthEnds">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>8</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelEnds">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>1</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Projected end time of the Auto DJ set (Tango DJ mode).</string>
            </property>
           </widget>
          </item>
@@ -288,7 +340,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>24</width>
+             <width>8</width>
              <height>1</height>
             </size>
            </property>
@@ -308,7 +360,7 @@
          <item>
        <widget class="QLabel" name="labelSetEndTime">
         <property name="text">
-         <string>Set End Time:</string>
+         <string>T:</string>
         </property>
         <property name="toolTip">
          <string>Target end time for the milonga (Tango DJ mode). The indicator to the right shows whether the projected end is over or under this time.</string>
@@ -325,7 +377,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>6</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -365,6 +417,12 @@
         <property name="text">
          <string/>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>1</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="toolTip">
          <string>How far the projected end is over or under the target end time.</string>
         </property>
@@ -380,7 +438,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>24</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -417,7 +475,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>6</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -549,6 +607,12 @@
        <widget class="QLabel" name="labelSelectionInfo">
         <property name="text">
          <string/>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>1</width>
+          <height>0</height>
+         </size>
         </property>
        </widget>
       </item>

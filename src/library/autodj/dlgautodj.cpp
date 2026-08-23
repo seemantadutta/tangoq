@@ -440,7 +440,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         deltaFont.setBold(true);
         const QFontMetrics deltaFm(deltaFont);
         labelEndTimeDelta->setMinimumWidth(
-                deltaFm.horizontalAdvance(QStringLiteral("Under 88:88:88")) + 8);
+                deltaFm.horizontalAdvance(QStringLiteral("U: 88:88:88")) + 8);
     }
 
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
@@ -747,7 +747,12 @@ void DlgAutoDJ::updateNowPlaying() {
 }
 
 void DlgAutoDJ::updateSetEndTime() {
-    QString text;
+    // Compact readouts to save toolbar space: "L:" = set Length, "E:" = Ends
+    // (projected end clock), "O:"/"U:" = over/under the target (see
+    // formatEndTimeDelta). Each is its own label so it clips independently on a
+    // narrow pane rather than pushing its neighbours off the toolbar.
+    QString lengthText;
+    QString endsText;
     QString deltaText;
     if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
         setEnabledIfChanged(pushButtonFadeNow,
@@ -755,10 +760,9 @@ void DlgAutoDJ::updateSetEndTime() {
     }
     // The readout is a Tango DJ mode feature only; otherwise it stays empty.
     if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
-        // "Set Length" is the constant total of the whole set; it reads the same
-        // whether Auto DJ is running or not. The running state then *appends*
-        // "Ends" and "Left" so the line never needs to be re-read - the off->on
-        // change is purely additive, which keeps the cognitive load low live.
+        // "L:" is the constant total of the whole set; it reads the same whether
+        // Auto DJ is running or not. The running state then fills in "E:" so the
+        // off->on change is purely additive, which keeps the cognitive load low live.
         const mixxx::Duration total = m_pAutoDJProcessor->getTotalSetDuration();
         const bool running =
                 m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED;
@@ -772,7 +776,7 @@ void DlgAutoDJ::updateSetEndTime() {
         }
         // A non-positive total means the queue is empty / nothing to play.
         if (total.toIntegerMillis() > 0) {
-            text = tr("Set Length: %1").arg(formatSetDuration(total));
+            lengthText = tr("L: %1").arg(formatSetDuration(total));
             if (running) {
                 const mixxx::Duration remaining =
                         m_pAutoDJProcessor->getRemainingSetDuration();
@@ -784,10 +788,10 @@ void DlgAutoDJ::updateSetEndTime() {
                         "<span style=\"color:#ee4444; font-weight:bold;\">%1</span>")
                                                .arg(end.toString(QStringLiteral(
                                                        "HH:mm:ss")));
-                // Non-breaking spaces so the rich-text label keeps the gaps.
-                const QString gap = QStringLiteral("&nbsp;&nbsp;&nbsp;");
-                text += gap + tr("Ends: %1").arg(endRed);
-                text += gap + tr("Left: %1").arg(formatSetDuration(remaining));
+                endsText = tr("E: %1").arg(endRed);
+                // The remaining "Left:" readout was dropped as redundant: the "E:"
+                // clock and the over/under delta already convey time remaining, and it
+                // was the readout being clipped at the crowded end of the toolbar.
                 // Over/under against the target end time, shown only while running
                 // (there is no projected end clock otherwise).
                 deltaText = formatEndTimeDelta(end);
@@ -799,16 +803,20 @@ void DlgAutoDJ::updateSetEndTime() {
     // widgets (e.g. the deck waveforms) flicker.
     //
     // Skip a readout entirely when the Settings panel has hidden it. Its container
-    // is already invisible, but writing "Set Length ..." into the label still
-    // invalidates the toolbar layout, so on enable the text is briefly laid out
-    // and then removed - a visible flicker when Set Time (or End Time) is off. The
-    // matching container is shown/hidden in refreshTangoModeUi, which also calls
-    // this, so a re-enabled readout repaints with the current value right away.
+    // is already invisible, but writing "L: ..." into the label still invalidates
+    // the toolbar layout, so on enable the text is briefly laid out and then
+    // removed - a visible flicker when Set Time (or End Time) is off. The matching
+    // container is shown/hidden in refreshTangoModeUi, which also calls this, so a
+    // re-enabled readout repaints with the current value right away.
     const bool showSetTime = !m_pShowAdjSetTime || m_pShowAdjSetTime->toBool();
     const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
-    if (showSetTime && text != m_lastSetTimeText) {
-        m_lastSetTimeText = text;
-        labelTangoSetTime->setText(text);
+    if (showSetTime && lengthText != m_lastSetLengthText) {
+        m_lastSetLengthText = lengthText;
+        labelSetLength->setText(lengthText);
+    }
+    if (showSetTime && endsText != m_lastEndsText) {
+        m_lastEndsText = endsText;
+        labelEnds->setText(endsText);
     }
     if (showEndTime && deltaText != m_lastEndTimeDeltaText) {
         m_lastEndTimeDeltaText = deltaText;
@@ -841,11 +849,11 @@ QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
     const bool over = deltaSecs > 0;
     const QString magnitude = formatSetDuration(
             mixxx::Duration::fromMillis(qAbs(deltaSecs) * 1000));
-    // Lead with the word "Over"/"Under" so the state reads at a glance; the colour
+    // Lead with "O:"/"U:" (over/under) to save toolbar space; the colour
     // (red/green) already carries the direction, so no arrow or sign is needed.
     return QStringLiteral("<span style=\"color:%1; font-weight:bold;\">%2 %3</span>")
             .arg(over ? QStringLiteral("#ee4444") : QStringLiteral("#55aa55"),
-                    over ? tr("Over") : tr("Under"),
+                    over ? tr("O:") : tr("U:"),
                     magnitude);
 }
 
