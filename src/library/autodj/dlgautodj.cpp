@@ -591,21 +591,12 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     // shift is unmasked. Painting is re-enabled at the end, forcing one clean pass.
     setUpdatesEnabled(false);
     if (state == AutoDJProcessor::ADJ_DISABLED) {
-        // The set is over: forget its start so the next run re-anchors the target
-        // end time to when it begins.
-        m_setStartDateTime = QDateTime();
         pushButtonAutoDJ->setChecked(false);
         pushButtonAutoDJ->setToolTip(m_enableBtnTooltip);
         if (m_bShowButtonText) {
             pushButtonAutoDJ->setText(tr("Enable"));
         }
     } else {
-        // Capture the start on the first running state and hold it for the whole
-        // session, so the over/under target stays fixed across midnight and while
-        // the set runs past its target.
-        if (!m_setStartDateTime.isValid()) {
-            m_setStartDateTime = QDateTime::currentDateTime();
-        }
         // No matter the mode, you can always disable once it is enabled.
         pushButtonAutoDJ->setChecked(true);
         pushButtonAutoDJ->setToolTip(m_disableBtnTooltip);
@@ -833,8 +824,10 @@ QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
     // for the whole session, so the reading stays correct across midnight and
     // when the set legitimately runs past its target. Fall back to now if the
     // start was somehow not captured (the readout only shows while running).
-    const QDateTime start = m_setStartDateTime.isValid()
-            ? m_setStartDateTime
+    const QDateTime sessionStart =
+            m_pAutoDJProcessor->autoDJSessionStartDateTime();
+    const QDateTime start = sessionStart.isValid()
+            ? sessionStart
             : QDateTime::currentDateTime();
     QDateTime target(start.date(), endTimeEdit->time());
     if (target < start) {

@@ -6,17 +6,16 @@ set(CMAKE_CURRENT_SOURCE_DIR "${CPACK_SOURCE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(GitInfo)
 
-if(NOT GIT_DESCRIBE)
-  set(PACKAGE_VERSION "${CPACK_MIXXX_VERSION}-unknown")
-else()
-  set(PACKAGE_VERSION "${GIT_DESCRIBE}")
-endif()
+# Git describe follows the upstream Mixxx tag lineage (for example 2.5.6-N-gSHA),
+# so it is not a TangoQ package version. Installers use the dedicated product
+# version; the commit identity remains available in the application's build info.
+set(PACKAGE_VERSION "${CPACK_TANGOQ_VERSION}")
 # TangoQ fork: names the downloadable installer, so users can tell this build
 # apart from an official Mixxx release sitting in the same Downloads folder.
 set(CPACK_PACKAGE_FILE_NAME "tangoq-${PACKAGE_VERSION}-${CPACK_SYSTEM_PROCESSOR}")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-source")
 
-# The upstream version must not contain hyphen
+# The package version must not contain a hyphen.
 # . for normal versioning + for advance and ~ for decline the version
 # dpkg --compare-versions 2.3~alpha~1234~g8163 lt 2.3~beta~1234~g8163 && echo true
 # dpkg --compare-versions 2.3~beta~1234~g8163 lt 2.3.0 && echo true
@@ -30,7 +29,7 @@ if (PACKAGE_VERSION MATCHES "^[0-9]+\\.[0-9]+[A-Za-z0-9.+~-]*$")
     string(REPLACE "-" "+r" CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_DEBIAN_PACKAGE_VERSION}")
   endif()
 else()
-  string(REPLACE "-" "~" CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_MIXXX_VERSION}")
+  string(REPLACE "-" "~" CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_TANGOQ_VERSION}")
 endif()
 
 if (CPACK_GENERATOR STREQUAL "DEB")

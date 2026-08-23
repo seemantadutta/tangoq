@@ -233,6 +233,15 @@ enable_language(C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
 
+# TangoQ product version. Keep this independent of CMAKE_PROJECT_VERSION, which
+# tracks the Mixxx base for config/schema lineage. This single value feeds the
+# application, platform bundle metadata, and installer filenames.
+set(TANGOQ_VERSION "1.0.1")
+string(REPLACE "." ";" TANGOQ_VERSION_COMPONENTS "${TANGOQ_VERSION}")
+list(GET TANGOQ_VERSION_COMPONENTS 0 TANGOQ_VERSION_MAJOR)
+list(GET TANGOQ_VERSION_COMPONENTS 1 TANGOQ_VERSION_MINOR)
+list(GET TANGOQ_VERSION_COMPONENTS 2 TANGOQ_VERSION_PATCH)
+
 # Copyright year, substituted into the Windows resource file and the macOS
 # Info.plist. Set here rather than in the WIN32-only resource block below: the
 # macOS plist is configured long before that block and never saw the variable,
@@ -1907,8 +1916,8 @@ if (APPLE)
   elseif (MACOS_BUNDLE)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/osx/application.icns" DESTINATION ${MIXXX_INSTALL_DATADIR})
 
-    set(MACOS_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-    set(MACOS_BUNDLE_SHORTVERSION "${CMAKE_PROJECT_VERSION}")
+    set(MACOS_BUNDLE_VERSION "${TANGOQ_VERSION}")
+    set(MACOS_BUNDLE_SHORTVERSION "${TANGOQ_VERSION}")
 
     set_target_properties(mixxx PROPERTIES
         MACOSX_BUNDLE true
@@ -2391,12 +2400,7 @@ else()
    set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
-# TangoQ fork product version. Shown to users (About dialog, window title,
-# startup log) and stamped into the Windows .exe "Product version". It is
-# deliberately independent of the Mixxx base version above (CMAKE_PROJECT_VERSION),
-# which the config-upgrade logic and skin lineage still rely on - so bump this
-# per TangoQ release, and leave the Mixxx base alone.
-set(TANGOQ_VERSION "1.0.1")
+# Windows resource files require a comma-separated numeric product version.
 string(REPLACE "." "," TANGOQ_PRODUCTVERSION "${TANGOQ_VERSION}")
 
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
@@ -4033,6 +4037,10 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BI
 # users are told to contact. It must not point at the upstream Mixxx project,
 # which neither builds nor supports these packages.
 set(CPACK_PACKAGE_NAME "TangoQ")
+set(CPACK_PACKAGE_VERSION "${TANGOQ_VERSION}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${TANGOQ_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${TANGOQ_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${TANGOQ_VERSION_PATCH}")
 set(CPACK_PACKAGE_VENDOR "TangoQ")
 set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/tangoq/issues>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TangoQ is a Mixxx fork, purpose-built for Tango DJing")
@@ -4051,7 +4059,7 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
 set(CPACK_CREATE_DESKTOP_LINKS "tangoq")
-set(CPACK_MIXXX_VERSION "${MIXXX_VERSION}")
+set(CPACK_TANGOQ_VERSION "${TANGOQ_VERSION}")
 # Save GIT values just in case they have been set manual via cmake
 set(CPACK_GIT_DESCRIBE "${GIT_DESCRIBE}")
 if(CMAKE_SYSTEM_PROCESSOR)
@@ -4193,4 +4201,3 @@ if(APPLE AND MACOS_BUNDLE)
     configure_file(cmake/modules/BundleInstall.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake" @ONLY)
     install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake")
 endif()
-

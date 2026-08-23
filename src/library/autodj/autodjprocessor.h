@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QString>
@@ -198,6 +199,14 @@ class AutoDJProcessor : public QObject {
 
     AutoDJState getState() const {
         return m_eState;
+    }
+
+    // Start of the current Tango Auto DJ session. This belongs to the processor,
+    // rather than DlgAutoDJ, so rebuilding the dialog during a running set cannot
+    // move a time-of-day target to the following day. Invalid outside a running
+    // Tango session.
+    QDateTime autoDJSessionStartDateTime() const {
+        return m_autoDJSessionStartDateTime;
     }
 
     // Lock Tango DJ mode permanently on. TangoQ ships tango-only, so the running
@@ -515,6 +524,7 @@ class AutoDJProcessor : public QObject {
     parented_ptr<PlaylistTableModel> m_pAutoDJTableModel;
 
     AutoDJState m_eState;
+    QDateTime m_autoDJSessionStartDateTime;
     double m_transitionProgress;
     double m_transitionTime; // the desired value set by the user
     int m_tandaGapSeconds;

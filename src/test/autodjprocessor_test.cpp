@@ -260,6 +260,33 @@ class AutoDJProcessorTest : public LibraryTest {
     QScopedPointer<MockAutoDJProcessor> pProcessor;
 };
 
+TEST_F(AutoDJProcessorTest, TangoSessionStartBelongsToProcessorLifetime) {
+    EXPECT_FALSE(pProcessor->autoDJSessionStartDateTime().isValid());
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+
+    const TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+    pProcessor->getTableModel()->appendTrack(testId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true));
+    EXPECT_CALL(*pProcessor,
+            emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    const QDateTime beforeEnable = QDateTime::currentDateTime();
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    const QDateTime afterEnable = QDateTime::currentDateTime();
+
+    const QDateTime sessionStart = pProcessor->autoDJSessionStartDateTime();
+    EXPECT_TRUE(sessionStart.isValid());
+    EXPECT_GE(sessionStart, beforeEnable);
+    EXPECT_LE(sessionStart, afterEnable);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(false));
+    EXPECT_FALSE(pProcessor->autoDJSessionStartDateTime().isValid());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, FullIntroOutro_LongerIntro) {
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
 

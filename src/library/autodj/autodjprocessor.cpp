@@ -984,6 +984,13 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         m_enabledAutoDJ.setAndConfirm(1.0);
         qDebug() << "Auto DJ enabled";
 
+        // Own the set-start timestamp with the Auto DJ session, not with its
+        // dialog. The dialog can be destroyed and rebuilt during a skin change
+        // while this processor and the running set remain alive.
+        if (keepQueueEnabled() && m_eState == ADJ_DISABLED) {
+            m_autoDJSessionStartDateTime = QDateTime::currentDateTime();
+        }
+
         m_coCrossfader.connectValueChanged(this, &AutoDJProcessor::crossfaderChanged);
 
         connect(pLeftDeck,
@@ -1125,6 +1132,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         m_enabledAutoDJ.setAndConfirm(0.0);
         qDebug() << "Auto DJ disabled";
         m_eState = ADJ_DISABLED;
+        m_autoDJSessionStartDateTime = QDateTime();
         // Cancel any running cortina gap/envelope so a pending gap timer can't
         // start a deck after Auto DJ has been turned off.
         cancelTandaGap();
@@ -4102,5 +4110,4 @@ int AutoDJProcessor::activeKeepQueuePosition() {
 
     return 0;
 }
-
 
