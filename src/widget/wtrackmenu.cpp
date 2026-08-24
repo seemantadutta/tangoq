@@ -1,18 +1,28 @@
 #include "widget/wtrackmenu.h"
 
+#include <QActionGroup>
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QInputDialog>
+#include <QLabel>
+#include <QLineEdit>
 #include <QList>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QModelIndex>
+#include <QTimeEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "analyzer/analyzerscheduledtrack.h"
 #include "analyzer/analyzersilence.h"
 #include "analyzer/analyzertrack.h"
 #include "control/controlobject.h"
+#include "library/autodj/autodjqueuereset.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
+#include "library/autodj/tandaqueuemodel.h"
+#include "library/autodj/tracklabelregistry.h"
 #include "library/basetracktablemodel.h"
 #include "library/coverartutils.h"
 #include "library/dao/trackschema.h"
@@ -22,6 +32,7 @@
 #include "library/dlgtrackmetadataexport.h"
 #include "library/externaltrackcollection.h"
 #include "library/library.h"
+#include "library/playlisttablemodel.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackmodel.h"
@@ -37,6 +48,7 @@
 #include "preferences/configobject.h"
 #include "preferences/dialog/dlgprefdeck.h"
 #include "sources/soundsourceproxy.h"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/defs.h"
 #include "util/desktophelper.h"
@@ -101,12 +113,11 @@ void storeActionTextAndScaleInProperties(QAction* pAction, const double scale) {
 // database access). Returns empty for a non-tabular model or empty selection.
 mixxx::Duration sumTracksDuration(
         TrackModel* pTrackModel, const QModelIndexList& indices) {
-    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(pTrackModel);
-    if (!pTableModel || indices.isEmpty()) {
+    if (!pTrackModel || indices.isEmpty()) {
         return mixxx::Duration::empty();
     }
     const int durationColumn =
-            pTableModel->fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION);
+            pTrackModel->fieldIndex(LIBRARYTABLE_DURATION);
     if (durationColumn < 0) {
         return mixxx::Duration::empty();
     }
@@ -117,6 +128,24 @@ mixxx::Duration sumTracksDuration(
                                 .toDouble();
     }
     return mixxx::Duration::fromSeconds(totalSeconds);
+}
+
+BaseTrackTableModel* baseTableModel(TrackModel* pTrackModel) {
+    if (auto* pTableModel = dynamic_cast<BaseTrackTableModel*>(pTrackModel)) {
+        return pTableModel;
+    }
+    if (auto* pTandaModel = dynamic_cast<TandaQueueModel*>(pTrackModel)) {
+        return pTandaModel->playlistModel();
+    }
+    return nullptr;
+}
+
+QModelIndex baseTableIndex(
+        TrackModel* pTrackModel, const QModelIndex& index) {
+    if (auto* pTandaModel = dynamic_cast<TandaQueueModel*>(pTrackModel)) {
+        return pTandaModel->mapToSource(index);
+    }
+    return index;
 }
 
 } // namespace
@@ -341,6 +370,77 @@ void WTrackMenu::createActions() {
     m_pCortinaToggleAct = make_parented<QAction>(tr("Set as Cortina"), this);
     m_pCortinaToggleAct->setVisible(false);
     connect(m_pCortinaToggleAct, &QAction::triggered, this, &WTrackMenu::slotToggleCortina);
+
+    // The in-place performance-track toggle: like the cortina toggle, but marks a
+    // one-off (a show or special request) that sits outside the tanda structure.
+    // Marking it also inserts a pause before and after the track. Its label flips
+    // between "Set as Performance Track" and "Set as Track".
+    m_pPerformanceToggleAct =
+            make_parented<QAction>(tr("Set as Performance Track"), this);
+    m_pPerformanceToggleAct->setVisible(false);
+    connect(m_pPerformanceToggleAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotTogglePerformance);
+
+    // Stop the set after this track so the organiser can make an announcement,
+    // then continue by re-enabling Auto DJ. Shown on the Auto DJ queue list in
+    // Tango mode only, like the cortina toggle above.
+    m_pPauseAfterToggleAct = make_parented<QAction>(tr("Pause after this track"), this);
+    m_pPauseAfterToggleAct->setVisible(false);
+    connect(m_pPauseAfterToggleAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotTogglePauseAfter);
+
+    // Give a track a name that says what it is doing tonight - a performance
+    // piece, an intro, an outro - since its real title usually does not. Shown
+    // in the Auto DJ list only; the file's metadata is never touched.
+    m_pDisplayNameAct = make_parented<QAction>(tr("Set display name..."), this);
+    m_pDisplayNameAct->setVisible(false);
+    connect(m_pDisplayNameAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetDisplayName);
+
+    // Tango DJ mode: a track's start point, settable without loading a deck.
+    // "Set start point..." takes a typed time, for the case where the DJ already
+    // knows the number ("this El Choclo has 15 seconds of announcement");
+    // "Set start here" captures the preview deck's playhead, for finding it by
+    // ear. Clearing is deliberately left to the stock Clear Metadata > Intro,
+    // which already does exactly that and stays visible in Tango.
+    m_pSetStartPointAct = make_parented<QAction>(tr("Set DJ start..."), this);
+    m_pSetStartPointAct->setVisible(false);
+    connect(m_pSetStartPointAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetStartPoint);
+
+    m_pSetStartPointHereAct = make_parented<QAction>(tr("Set DJ start here"), this);
+    m_pSetStartPointHereAct->setVisible(false);
+    connect(m_pSetStartPointHereAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotSetStartPointHere);
+
+    m_pStartAtBeginningAct = make_parented<QAction>(tr("Start at file beginning"), this);
+    m_pStartAtBeginningAct->setVisible(false);
+    connect(m_pStartAtBeginningAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotStartAtBeginning);
+
+    // Reset the Tango set state (mark all unplayed + restart from the top). Like
+    // the cortina toggle it lives on the Auto DJ queue list, so create it
+    // unconditionally, hidden, and reveal it only there (and only while Auto DJ is
+    // stopped and not LIVE) in updateMenus().
+    m_pResetAutoDJQueueStateAct = make_parented<QAction>(
+            tr("Eject decks and reset AutoDJ queue state"), this);
+    m_pResetAutoDJQueueStateAct->setVisible(false);
+    connect(m_pResetAutoDJQueueStateAct,
+            &QAction::triggered,
+            this,
+            &WTrackMenu::slotResetAutoDJQueueState);
 
     // Non-clickable info line with the total duration of the selected tracks.
     // Like the cortina toggle it must also work in the Auto DJ queue list (not a
@@ -653,6 +753,14 @@ void WTrackMenu::setupActions() {
 
     // Shown only in Tango mode (updateMenus), including in the Auto DJ queue list.
     addAction(m_pCortinaToggleAct);
+    addAction(m_pPerformanceToggleAct);
+
+    // Eject decks and reset AutoDJ queue state: Auto DJ queue list only, revealed
+    // in updateMenus() with its own leading separator so it reads as a distinct,
+    // deliberate action.
+    m_pResetAutoDJQueueStateSeparator = addSeparator();
+    m_pResetAutoDJQueueStateSeparator->setVisible(false);
+    addAction(m_pResetAutoDJQueueStateAct);
 
     if (featureIsEnabled(Feature::LoadTo)) {
         m_pLoadToMenu->addMenu(m_pDeckMenu);
@@ -714,6 +822,20 @@ void WTrackMenu::setupActions() {
         m_pColorMenu->addAction(m_pColorPickerAction);
         addMenu(m_pColorMenu);
     }
+
+    // Pause after this track sits down here, in a group of its own between the
+    // colour and metadata sections, deliberately far from "Set as Cortina". That
+    // is used constantly while building a set, and a stray click on a neighbour
+    // would plant a pause the DJ never asked for and would not discover until the
+    // music stopped in front of a floor. Distance is the protection: a separator
+    // alone was not, because the actions between them are usually hidden.
+    m_pPauseAfterSeparator = addSeparator();
+    m_pPauseAfterSeparator->setVisible(false);
+    addAction(m_pPauseAfterToggleAct);
+    addAction(m_pDisplayNameAct);
+    addAction(m_pSetStartPointAct);
+    addAction(m_pSetStartPointHereAct);
+    addAction(m_pStartAtBeginningAct);
 
     if (featureIsEnabled(Feature::Metadata)) {
         m_pMetadataMenu->addAction(m_pImportMetadataFromFileAct);
@@ -992,8 +1114,10 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
+        const bool containsPlayingTrack = selectionContainsPlayingTrack();
         m_pAutoDJTopAct->setEnabled(!tangoMode);
         m_pAutoDJReplaceAct->setEnabled(!tangoMode);
+        m_pAutoDJCortinaAct->setEnabled(!containsPlayingTrack);
     }
 
     // The in-place cortina toggle is independent of Feature::AutoDJ so it can
@@ -1004,7 +1128,10 @@ void WTrackMenu::updateMenus() {
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
-        const bool show = tangoMode && isCortinaList();
+        const bool containsPlayingTrack = selectionContainsPlayingTrack();
+        const bool show = tangoMode && isCortinaList() &&
+                m_cortinaToggleAllowed &&
+                !containsPlayingTrack;
         m_pCortinaToggleAct->setVisible(show);
         if (show) {
             const TrackIdList trackIds = getTrackIds();
@@ -1017,6 +1144,115 @@ void WTrackMenu::updateMenus() {
             }
             m_pCortinaToggleAct->setText(
                     allCortina ? tr("Set as Track") : tr("Set as Cortina"));
+        }
+    }
+
+    // The performance-track toggle: same scoping as the cortina toggle, but it
+    // also inserts pauses around the track, which are positional, so restrict it
+    // to a single row like the pause-after mark. The label flips to "Set as
+    // Track" once the row is a performance track.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        auto* pTableModel = baseTableModel(m_pTrackModel);
+        const bool singleRow = m_trackIndexList.size() == 1;
+        const QModelIndex baseIndex = singleRow
+                ? baseTableIndex(m_pTrackModel, m_trackIndexList.first())
+                : QModelIndex();
+        const bool show = tangoMode && isCortinaList() &&
+                m_cortinaToggleAllowed && pTableModel && baseIndex.isValid() &&
+                !selectionContainsPlayingTrack();
+        m_pPerformanceToggleAct->setVisible(show);
+        if (show) {
+            const bool isPerformance = PerformanceRegistry::instance().contains(
+                    pTableModel->getTrackId(baseIndex));
+            m_pPerformanceToggleAct->setText(isPerformance
+                            ? tr("Set as Track")
+                            : tr("Set as Performance Track"));
+        }
+    }
+
+    // Pause after this track: same scoping as the cortina toggle, but a mark is
+    // positional rather than per-track, so it applies to exactly one row. Hide it
+    // for a multi-row selection instead of guessing which row was meant.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        auto* pTableModel = baseTableModel(m_pTrackModel);
+        const bool singleRow = m_trackIndexList.size() == 1;
+        const QModelIndex baseIndex = singleRow
+                ? baseTableIndex(m_pTrackModel, m_trackIndexList.first())
+                : QModelIndex();
+        const bool show = tangoMode && isCortinaList() && pTableModel &&
+                baseIndex.isValid();
+        m_pPauseAfterToggleAct->setVisible(show);
+        m_pDisplayNameAct->setVisible(show);
+        if (m_pPauseAfterSeparator) {
+            m_pPauseAfterSeparator->setVisible(show);
+        }
+        // The start point applies to any single track in Tango mode, not just
+        // the Auto DJ queue: the DJ wants to trim a track's lead-in while
+        // building the set, before it is ever enqueued. Unlike a pause mark it
+        // is a property of the track, so it needs no positional context.
+        const bool showStart = tangoMode && singleRow;
+        m_pSetStartPointAct->setVisible(showStart);
+        m_pSetStartPointHereAct->setVisible(showStart);
+        m_pStartAtBeginningAct->setVisible(showStart);
+        if (showStart) {
+            // Shown but disabled when nothing is previewing, rather than hidden:
+            // a DJ who has never used the preview button would otherwise never
+            // discover the capability, and an item that appears and vanishes on
+            // invisible state is harder to reason about than a dimmed one.
+            const bool previewing = !previewDeckGroupForSelectedTrack().isEmpty();
+            m_pSetStartPointHereAct->setEnabled(previewing);
+            m_pSetStartPointHereAct->setToolTip(previewing
+                            ? tr("Use the previewed position as this track's "
+                                 "start point.")
+                            : tr("Preview this track first, then use its "
+                                 "position as the start point."));
+        }
+        if (show) {
+            m_pDisplayNameAct->setText(
+                    TrackLabelRegistry::instance().contains(
+                            getTrackIds().value(0))
+                            ? tr("Change display name...")
+                            : tr("Set display name..."));
+        }
+        if (show) {
+            m_pPauseAfterToggleAct->setText(
+                    pTableModel->isPauseAfterRow(baseIndex.row())
+                            ? tr("Don't pause after this track")
+                            : tr("Pause after this track"));
+        }
+    }
+
+    // Clear submenu, Tango mode. Tango has no intro/outro vocabulary - the intro
+    // cue *is* the start point - so "Intro" reads as something the DJ never set.
+    // Name it for what it does, and drop the outro entry: an outro cue exists on
+    // every analysed track (AnalyzerSilence places one at the last sound) but
+    // nothing in Tango shows or sets it, so offering to clear it is noise.
+    {
+        const bool tangoMode = ControlObject::get(ConfigKey(
+                                       QStringLiteral("[AutoDJ]"),
+                                       QStringLiteral("keep_queue"))) > 0.0;
+        if (m_pClearIntroCueAction) {
+            m_pClearIntroCueAction->setText(
+                    tangoMode ? tr("Clear DJ start (use FAS)") : tr("Intro"));
+        }
+        if (m_pClearOutroCueAction) {
+            m_pClearOutroCueAction->setVisible(!tangoMode);
+        }
+    }
+
+    // Eject decks and reset AutoDJ queue state: Auto DJ queue list, plus the
+    // Tango/stopped/not-LIVE/idle gate shared with the tanda header menu.
+    {
+        const bool show = isCortinaList() && mixxx::canResetAutoDJQueueState();
+        m_pResetAutoDJQueueStateAct->setVisible(show);
+        if (m_pResetAutoDJQueueStateSeparator) {
+            m_pResetAutoDJQueueStateSeparator->setVisible(show);
         }
     }
 
@@ -1309,6 +1545,11 @@ void WTrackMenu::loadTrackModelIndices(
     clearTrackSelection();
 
     m_trackIndexList = trackIndexList;
+    updateMenus();
+}
+
+void WTrackMenu::setCortinaToggleAllowed(bool allowed) {
+    m_cortinaToggleAllowed = allowed;
     updateMenus();
 }
 
@@ -2185,6 +2426,25 @@ class ResetIntroTrackPointerOperation : public mixxx::TrackPointerOperation {
     UserSettingsPointer m_pConfig;
 };
 
+class ClearTangoStartTrackPointerOperation : public mixxx::TrackPointerOperation {
+  private:
+    void doApply(const TrackPointer& pTrack) const override {
+        CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+        if (!pCue) {
+            pCue = pTrack->createAndAddCue(
+                    mixxx::CueType::Intro,
+                    Cue::kNoHotCue,
+                    mixxx::audio::kInvalidFramePos,
+                    mixxx::audio::kInvalidFramePos);
+        } else {
+            pCue->setStartPosition(mixxx::audio::kInvalidFramePos);
+        }
+        if (pCue) {
+            pCue->setLabel(QString());
+        }
+    }
+};
+
 class ResetOutroTrackPointerOperation : public mixxx::TrackPointerOperation {
   public:
     explicit ResetOutroTrackPointerOperation() {
@@ -2226,14 +2486,161 @@ void WTrackMenu::slotResetOutroCue() {
             &trackOperator);
 }
 
+QString WTrackMenu::previewDeckGroupForSelectedTrack() const {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.size() != 1) {
+        return QString();
+    }
+    const TrackId trackId = trackIds.first();
+    const int numPreviewDecks = static_cast<int>(ControlObject::get(
+            ConfigKey(QStringLiteral("[App]"), QStringLiteral("num_preview_decks"))));
+    for (int i = 1; i <= numPreviewDecks; ++i) {
+        const QString group = PlayerManager::groupForPreviewDeck(i - 1);
+        const TrackPointer pLoaded = PlayerInfo::instance().getTrackInfo(group);
+        if (pLoaded && pLoaded->getId() == trackId) {
+            return group;
+        }
+    }
+    return QString();
+}
+
+void WTrackMenu::applyStartPointSeconds(double seconds) {
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    if (!sampleRate.isValid()) {
+        return;
+    }
+    // Clamp into the track. A start point at or past the end would silence the
+    // track, and CueControl refuses positions beyond the outro anyway.
+    const double durationSeconds = pTrack->getDuration();
+    if (durationSeconds > 0.0) {
+        seconds = std::clamp(seconds, 0.0, durationSeconds);
+    } else if (seconds < 0.0) {
+        seconds = 0.0;
+    }
+    const auto position = mixxx::audio::FramePos(seconds * sampleRate);
+
+    // The stock intro cue, so this persists and shows up on a deck exactly as a
+    // point set with the deck's own button would. Moving an existing cue rather
+    // than replacing it keeps any intro end the DJ has set.
+    CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (pCue) {
+        pCue->setStartPosition(position);
+    } else {
+        pCue = pTrack->createAndAddCue(mixxx::CueType::Intro,
+                Cue::kNoHotCue,
+                position,
+                mixxx::audio::kInvalidFramePos);
+    }
+    if (pCue) {
+        pCue->setLabel(mixxx::tango::authoredStartCueLabel());
+    }
+    m_pLibrary->trackCollectionManager()->saveTrack(pTrack);
+    // No explicit deck refresh needed: the change reaches Track::cuesUpdated(),
+    // which CueControl already listens to, so a deck holding this track moves
+    // its start marker on its own.
+}
+
+void WTrackMenu::slotSetStartPoint() {
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+
+    // Prefill with the existing start point so reopening this is an edit rather
+    // than a retype. An analysed track always has an intro cue - AnalyzerSilence
+    // places one at first sound - so treat a point at or before first sound as
+    // "not really set" and start from 0:00 instead of showing an arbitrary
+    // fraction of a second the DJ never chose.
+    double currentSeconds = 0.0;
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    const CuePointer pCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    if (pCue && sampleRate.isValid()) {
+        const mixxx::audio::FramePos position = pCue->getPosition();
+        if (position.isValid()) {
+            currentSeconds = position.value() / sampleRate;
+        }
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Start point"));
+    auto* pLayout = new QVBoxLayout(&dialog);
+    pLayout->addWidget(new QLabel(
+            tr("Start playing %1\nat:").arg(pTrack->getTitle()), &dialog));
+
+    // A time spinner rather than a plain text field: mm:ss is what the DJ reads
+    // off the waveform, and the seconds section starts selected so a number can
+    // be typed straight in.
+    auto* pTimeEdit = new QTimeEdit(&dialog);
+    pTimeEdit->setDisplayFormat(QStringLiteral("mm:ss"));
+    pTimeEdit->setTime(QTime(0, 0).addSecs(static_cast<int>(currentSeconds)));
+    pLayout->addWidget(pTimeEdit);
+
+    auto* pButtons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    pLayout->addWidget(pButtons);
+    connect(pButtons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(pButtons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    pTimeEdit->setFocus();
+    // Selecting the seconds has to wait until the dialog is actually up:
+    // QDateTimeEdit re-selects its first section on focus-in, so doing it before
+    // exec() is silently undone and the minutes end up highlighted instead.
+    QTimer::singleShot(0, pTimeEdit, [pTimeEdit]() {
+        pTimeEdit->setSelectedSection(QDateTimeEdit::SecondSection);
+    });
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QTime time = pTimeEdit->time();
+    applyStartPointSeconds(QTime(0, 0).secsTo(time));
+}
+
+void WTrackMenu::slotSetStartPointHere() {
+    const QString group = previewDeckGroupForSelectedTrack();
+    if (group.isEmpty()) {
+        return;
+    }
+    const TrackPointer pTrack = getFirstTrackPointer();
+    if (!pTrack) {
+        return;
+    }
+    // playposition is a fraction of the track, so scale it by the duration
+    // rather than by anything the preview deck reports.
+    const double fraction = ControlObject::get(
+            ConfigKey(group, QStringLiteral("playposition")));
+    if (fraction < 0.0) {
+        return;
+    }
+    applyStartPointSeconds(fraction * pTrack->getDuration());
+}
+
 void WTrackMenu::slotResetIntroCue() {
+    const bool tangoMode = ControlObject::get(ConfigKey(
+                                   QStringLiteral("[AutoDJ]"),
+                                   QStringLiteral("keep_queue"))) > 0.0;
+    if (tangoMode) {
+        const auto progressLabelText =
+                tr("Clearing DJ start from %n track(s)", "", getTrackCount());
+        const auto trackOperator = ClearTangoStartTrackPointerOperation();
+        applyTrackPointerOperation(
+                progressLabelText,
+                &trackOperator,
+                mixxx::ModalTrackBatchOperationProcessor::Mode::ApplyAndSave);
+        return;
+    }
     const auto progressLabelText =
             tr("Removing intro cue from %n track(s)", "", getTrackCount());
     const auto trackOperator =
             ResetIntroTrackPointerOperation(m_pConfig);
     applyTrackPointerOperation(
             progressLabelText,
-            &trackOperator);
+            &trackOperator,
+            mixxx::ModalTrackBatchOperationProcessor::Mode::ApplyAndSave);
 }
 
 void WTrackMenu::slotClearLoops() {
@@ -2781,10 +3188,72 @@ void WTrackMenu::slotAddToAutoDJTop() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::TOP);
 }
 
+void WTrackMenu::slotTogglePauseAfter() {
+    // The mark belongs to a row, not a track: the same cortina sits on many rows
+    // and only one of them is where the set should stop. updateMenus() only
+    // offers this for a single row, so there is exactly one to act on.
+    auto* pTableModel = baseTableModel(m_pTrackModel);
+    if (!pTableModel || m_trackIndexList.size() != 1) {
+        return;
+    }
+    const QModelIndex baseIndex =
+            baseTableIndex(m_pTrackModel, m_trackIndexList.first());
+    if (baseIndex.isValid()) {
+        pTableModel->togglePauseAfterRow(baseIndex.row());
+    }
+}
+
+void WTrackMenu::slotSetDisplayName() {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.size() != 1) {
+        return;
+    }
+    const TrackId trackId = trackIds.first();
+
+    // Prefill with whatever the row shows right now: the label if there is one,
+    // otherwise the real title. Starting from the title means renaming a track
+    // for the first time is an edit ("add a prefix") rather than a retype.
+    const TrackPointer pTrack = getFirstTrackPointer();
+    const QString realTitle = pTrack ? pTrack->getTitle() : QString();
+    QString current = TrackLabelRegistry::instance().label(trackId);
+    if (current.isEmpty()) {
+        current = realTitle;
+    }
+
+    // Built by hand rather than via QInputDialog::getText() so the text can be
+    // preselected: typing or Delete replaces the whole name, while Home/End or
+    // an arrow key drops the selection to edit it in place. setTextValue()
+    // creates the line edit, so it can only be found after that call.
+    QInputDialog dialog(this);
+    dialog.setWindowTitle(tr("Display name"));
+    dialog.setLabelText(tr(
+            "Show this track in the Auto DJ list as:\n"
+            "(leave empty to show its real title again)"));
+    dialog.setTextValue(current);
+    if (auto* pLineEdit = dialog.findChild<QLineEdit*>()) {
+        pLineEdit->selectAll();
+    }
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    QString name = dialog.textValue();
+    if (name == realTitle) {
+        // Accepting the prefilled title unchanged means "no custom name", not a
+        // label that happens to match. Storing it would pin the row to today's
+        // metadata and flip the menu to "Change display name...".
+        name.clear();
+    }
+    TrackLabelRegistry::instance().setLabel(trackId, name);
+}
+
 void WTrackMenu::slotAddToAutoDJCortina() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
     // Add to the bottom of the queue like any other track, then tag the selected
     // tracks as cortinas (session-only) so the Auto DJ list shows the blue
-    // "!!!CORTINA!!!" styling.
+    // "[--CORTINA--]" styling.
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
     const TrackIdList trackIds = getTrackIds();
     for (const auto& trackId : trackIds) {
@@ -2793,6 +3262,9 @@ void WTrackMenu::slotAddToAutoDJCortina() {
 }
 
 void WTrackMenu::slotToggleCortina() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
     // Flip the selected track(s) between cortina and normal track in place. Lets
     // the DJ fix a mistakenly-tagged track (the registry is keyed by track id, so
     // a re-added track keeps its old mark) or promote/demote without re-adding.
@@ -2810,9 +3282,58 @@ void WTrackMenu::slotToggleCortina() {
         if (allCortina) {
             CortinaRegistry::instance().unmark(trackId);
         } else {
+            // A track is a cortina or a performance track, never both.
+            PerformanceRegistry::instance().unmark(trackId);
             CortinaRegistry::instance().mark(trackId);
         }
     }
+}
+
+void WTrackMenu::slotTogglePerformance() {
+    if (selectionContainsPlayingTrack()) {
+        return;
+    }
+    // The pause this inserts is positional, so act on the one row updateMenus()
+    // offered this for.
+    auto* pTableModel = baseTableModel(m_pTrackModel);
+    if (!pTableModel || m_trackIndexList.size() != 1) {
+        return;
+    }
+    const QModelIndex baseIndex =
+            baseTableIndex(m_pTrackModel, m_trackIndexList.first());
+    if (!baseIndex.isValid()) {
+        return;
+    }
+    const TrackId trackId = pTableModel->getTrackId(baseIndex);
+    // "Pause before" is a pause after the preceding row; -1 when the performance
+    // is the first row, where there is nothing to pause after.
+    const int row = baseIndex.row();
+    const int beforeRow = row - 1;
+    if (PerformanceRegistry::instance().contains(trackId)) {
+        // Performance track -> ordinary track: drop the mark and both pauses it
+        // added (before and after).
+        PerformanceRegistry::instance().unmark(trackId);
+        pTableModel->clearPauseAfterRow(row);
+        if (beforeRow >= 0) {
+            pTableModel->clearPauseAfterRow(beforeRow);
+        }
+    } else {
+        // Mark as a performance track: mutually exclusive with cortina, and stop
+        // the set before AND after it so the DJ can announce the one-off, play
+        // it, then bring dancers back.
+        CortinaRegistry::instance().unmark(trackId);
+        PerformanceRegistry::instance().mark(trackId);
+        if (!pTableModel->isPauseAfterRow(row)) {
+            pTableModel->togglePauseAfterRow(row);
+        }
+        if (beforeRow >= 0 && !pTableModel->isPauseAfterRow(beforeRow)) {
+            pTableModel->togglePauseAfterRow(beforeRow);
+        }
+    }
+}
+
+void WTrackMenu::slotResetAutoDJQueueState() {
+    mixxx::resetAutoDJQueueState(this);
 }
 
 void WTrackMenu::slotAddToAutoDJReplace() {
@@ -2929,8 +3450,31 @@ void WTrackMenu::clearTrackSelection() {
 bool WTrackMenu::isCortinaList() const {
     // The Auto DJ queue model is the only one that shows cortina marks, so use
     // that flag to scope the cortina toggle to the Auto DJ list.
-    const auto* pTableModel = dynamic_cast<const BaseTrackTableModel*>(m_pTrackModel);
+    const auto* pTableModel = baseTableModel(m_pTrackModel);
     return pTableModel && pTableModel->showCortinaMarks();
+}
+
+void WTrackMenu::slotStartAtBeginning() {
+    applyStartPointSeconds(0.0);
+}
+
+bool WTrackMenu::selectionContainsPlayingTrack() const {
+    const TrackIdList trackIds = getTrackIds();
+    if (trackIds.isEmpty()) {
+        return false;
+    }
+    const int numDecks = PlayerInfo::instance().numDecks();
+    for (int deck = 0; deck < numDecks; ++deck) {
+        const QString group = PlayerManager::groupForDeck(deck);
+        if (ControlObject::get(ConfigKey(group, QStringLiteral("play"))) <= 0.0) {
+            continue;
+        }
+        const TrackPointer pTrack = PlayerInfo::instance().getTrackInfo(group);
+        if (pTrack && trackIds.contains(TrackId(pTrack->getId()))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WTrackMenu::featureIsEnabled(Feature flag) const {

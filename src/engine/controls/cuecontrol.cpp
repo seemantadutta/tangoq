@@ -6,6 +6,7 @@
 #include "engine/enginebuffer.h"
 #include "moc_cuecontrol.cpp"
 #include "preferences/colorpalettesettings.h"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/color/predefinedcolorpalettes.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
@@ -148,11 +149,27 @@ void CueControl::createControls() {
 
     m_pIntroStartPosition = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_position"));
-    m_pIntroStartPosition->set(Cue::kNoPosition);
+    m_pTangoStartPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_start_position"));
+    m_pTangoFasPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_fas_position"));
+    m_pTangoLasPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_las_position"));
+    m_pTangoFileStartPosition = std::make_unique<ControlObject>(
+            ConfigKey(m_group, "tango_file_start_position"));
+    m_pTangoStartPosition->set(Cue::kNoPosition);
+    m_pTangoFasPosition->set(Cue::kNoPosition);
+    m_pTangoLasPosition->set(Cue::kNoPosition);
+    m_pTangoFileStartPosition->set(Cue::kNoPosition);
+    setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
     m_pIntroStartEnabled = std::make_unique<ControlObject>(
             ConfigKey(m_group, "intro_start_enabled"));
     m_pIntroStartEnabled->setReadOnly();
     m_pIntroStartSet = std::make_unique<ControlPushButton>(ConfigKey(m_group, "intro_start_set"));
+    m_pIntroStartSetExact = std::make_unique<ControlPushButton>(
+            ConfigKey(m_group, "intro_start_set_exact"));
+    m_pIntroStartReset = std::make_unique<ControlPushButton>(
+            ConfigKey(m_group, "intro_start_reset"));
     m_pIntroStartClear = std::make_unique<ControlPushButton>(
             ConfigKey(m_group, "intro_start_clear"));
     m_pIntroStartActivate = std::make_unique<ControlPushButton>(
@@ -260,6 +277,16 @@ void CueControl::connectControls() {
             &ControlObject::valueChanged,
             this,
             &CueControl::introStartSet,
+            Qt::DirectConnection);
+    connect(m_pIntroStartSetExact.get(),
+            &ControlObject::valueChanged,
+            this,
+            &CueControl::introStartSetExact,
+            Qt::DirectConnection);
+    connect(m_pIntroStartReset.get(),
+            &ControlObject::valueChanged,
+            this,
+            &CueControl::introStartReset,
             Qt::DirectConnection);
     connect(m_pIntroStartClear.get(),
             &ControlObject::valueChanged,
@@ -400,6 +427,8 @@ void CueControl::disconnectControls() {
     disconnect(m_pPlayStutter.get(), nullptr, this, nullptr);
 
     disconnect(m_pIntroStartSet.get(), nullptr, this, nullptr);
+    disconnect(m_pIntroStartSetExact.get(), nullptr, this, nullptr);
+    disconnect(m_pIntroStartReset.get(), nullptr, this, nullptr);
     disconnect(m_pIntroStartClear.get(), nullptr, this, nullptr);
     disconnect(m_pIntroStartActivate.get(), nullptr, this, nullptr);
     disconnect(m_pIntroEndSet.get(), nullptr, this, nullptr);
@@ -478,7 +507,10 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
 
         m_pCueIndicator->setBlinkValue(ControlIndicator::OFF);
         m_pCuePoint->set(Cue::kNoPosition);
-        m_pIntroStartPosition->set(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
+        m_pTangoStartPosition->set(Cue::kNoPosition);
+        m_pTangoFasPosition->set(Cue::kNoPosition);
+        m_pTangoFileStartPosition->set(Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
@@ -486,6 +518,7 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
         m_pOutroStartEnabled->forceSet(0.0);
         m_pOutroEndPosition->set(Cue::kNoPosition);
         m_pOutroEndEnabled->forceSet(0.0);
+        m_pTangoLasPosition->set(Cue::kNoPosition);
         m_n60dBSoundStartPosition.setValue(Cue::kNoPosition);
         setHotcueFocusIndex(Cue::kNoHotCue);
         m_pLoadedTrack.reset();
@@ -690,20 +723,51 @@ void CueControl::loadCuesFromTrack() {
         }
     }
 
+    mixxx::audio::FramePos fasPosition;
+    mixxx::audio::FramePos lasPosition;
+    if (const CuePointer pN60dBSound = m_pLoadedTrack->findCueByType(
+                mixxx::CueType::N60dBSound)) {
+        fasPosition = pN60dBSound->getPosition();
+        lasPosition = pN60dBSound->getEndPosition();
+    }
+    const auto classification = mixxx::tango::classifyStartCue(
+            pIntroCue ? pIntroCue->getPosition() : mixxx::audio::FramePos(),
+            pIntroCue ? pIntroCue->getLabel() : QString(),
+            fasPosition);
+    const auto effectiveStart = mixxx::tango::tangoEffectiveStart(classification);
+
     if (pIntroCue) {
         const auto startPosition = quantizeCuePoint(pIntroCue->getPosition());
         const auto endPosition = quantizeCuePoint(pIntroCue->getEndPosition());
 
-        m_pIntroStartPosition->set(startPosition.toEngineSamplePosMaybeInvalid());
+        // The Tango mirror gets the cue's true position, not the quantized one:
+        // a start point has to stay where the DJ placed it even if quantize is
+        // on, since the beatgrid over a spoken intro is not to be trusted.
+        setIntroStartPositionValue(startPosition.toEngineSamplePosMaybeInvalid(),
+                pIntroCue->getPosition().toEngineSamplePosMaybeInvalid());
         m_pIntroStartEnabled->forceSet(startPosition.isValid());
         m_pIntroEndPosition->set(endPosition.toEngineSamplePosMaybeInvalid());
         m_pIntroEndEnabled->forceSet(endPosition.isValid());
     } else {
-        m_pIntroStartPosition->set(Cue::kNoPosition);
+        setIntroStartPositionValue(Cue::kNoPosition, Cue::kNoPosition);
         m_pIntroStartEnabled->forceSet(0.0);
         m_pIntroEndPosition->set(Cue::kNoPosition);
         m_pIntroEndEnabled->forceSet(0.0);
     }
+
+    m_pTangoStartPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::ExplicitStart
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
+    m_pTangoFasPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::FirstAudibleSound
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
+    m_pTangoLasPosition->set(lasPosition.toEngineSamplePosMaybeInvalid());
+    m_pTangoFileStartPosition->set(
+            effectiveStart.source == mixxx::tango::EffectiveStartSource::FileStart
+                    ? effectiveStart.position.toEngineSamplePosMaybeInvalid()
+                    : Cue::kNoPosition);
 
     if (pOutroCue) {
         const auto startPosition = quantizeCuePoint(pOutroCue->getPosition());
@@ -1606,10 +1670,71 @@ void CueControl::introStartSet(double value) {
     if (value <= 0) {
         return;
     }
+    introStartSetInternal(true);
+}
+
+void CueControl::introStartSetExact(double value) {
+    if (value <= 0) {
+        return;
+    }
+    introStartSetInternal(false);
+}
+
+void CueControl::setIntroStartPositionValue(double quantizedPos, double exactPos) {
+    m_pIntroStartPosition->set(quantizedPos);
+    Q_UNUSED(exactPos);
+}
+
+void CueControl::introStartReset(double value) {
+    if (value <= 0) {
+        return;
+    }
 
     auto lock = lockMutex(&m_trackMutex);
+    const auto introEnd = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pIntroEndPosition->get());
+    const auto outroStart = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pOutroStartPosition->get());
+    const auto outroEnd = mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+            m_pOutroEndPosition->get());
+    if (introEnd.isValid() && mixxx::audio::kStartFramePos >= introEnd) {
+        qWarning() << "Trying to reset intro start cue on or after intro end cue.";
+        return;
+    }
+    if (outroStart.isValid() && mixxx::audio::kStartFramePos >= outroStart) {
+        qWarning() << "Trying to reset intro start cue on or after outro start cue.";
+        return;
+    }
+    if (outroEnd.isValid() && mixxx::audio::kStartFramePos >= outroEnd) {
+        qWarning() << "Trying to reset intro start cue on or after outro end cue.";
+        return;
+    }
 
-    const mixxx::audio::FramePos position = getQuantizedCurrentPosition();
+    TrackPointer pLoadedTrack = m_pLoadedTrack;
+    lock.unlock();
+
+    if (pLoadedTrack) {
+        CuePointer pCue = pLoadedTrack->findCueByType(mixxx::CueType::Intro);
+        if (!pCue) {
+            pCue = pLoadedTrack->createAndAddCue(
+                    mixxx::CueType::Intro,
+                    Cue::kNoHotCue,
+                    mixxx::audio::kStartFramePos,
+                    introEnd);
+        } else {
+            pCue->setStartAndEndPosition(mixxx::audio::kStartFramePos, introEnd);
+        }
+        if (pCue) {
+            pCue->setLabel(mixxx::tango::authoredStartCueLabel());
+        }
+    }
+}
+
+void CueControl::introStartSetInternal(bool quantize) {
+    auto lock = lockMutex(&m_trackMutex);
+
+    const mixxx::audio::FramePos position =
+            quantize ? getQuantizedCurrentPosition() : frameInfo().currentPosition;
     if (!position.isValid()) {
         return;
     }
@@ -1658,6 +1783,9 @@ void CueControl::introStartSet(double value) {
         } else {
             pCue->setStartAndEndPosition(position, introEnd);
         }
+        if (pCue) {
+            pCue->setLabel(mixxx::tango::authoredStartCueLabel());
+        }
     }
 }
 
@@ -1678,11 +1806,13 @@ void CueControl::introStartClear(double value) {
     // this can be done outside the locking scope
     if (pLoadedTrack) {
         CuePointer pCue = pLoadedTrack->findCueByType(mixxx::CueType::Intro);
-        if (introEndPosition.isValid()) {
-            pCue->setStartPosition(mixxx::audio::kInvalidFramePos);
-            pCue->setEndPosition(introEndPosition);
-        } else if (pCue) {
-            pLoadedTrack->removeCue(pCue);
+        if (pCue) {
+            // Keep the Intro cue as an explicit "start cleared" sentinel instead
+            // of removing it. AnalyzerSilence creates a default Intro cue at the
+            // first audible sample whenever one is missing, which would make a
+            // user-cleared Tango start marker reappear after reload/reanalysis.
+            pCue->setStartAndEndPosition(mixxx::audio::kInvalidFramePos, introEndPosition);
+            pCue->setLabel(QString());
         }
     }
 }

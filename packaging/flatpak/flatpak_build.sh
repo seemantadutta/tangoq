@@ -1,5 +1,5 @@
 #!/bin/bash
-# This is a cross-distribution script that builds Mixxx as a Flatpak.
+# This is a cross-distribution script that builds TangoQ as a Flatpak.
 set -o pipefail
 
 # Script filename
@@ -9,7 +9,7 @@ SCRIPT=$(basename "$0")
 REQUIRED_PACKAGES=("org.kde.Platform//6.10" "org.kde.Sdk//6.10")
 
 # Default manifest
-MANIFEST="packaging/flatpak/org.mixxx.Mixxx.yaml"
+MANIFEST="packaging/flatpak/io.github.seemantadutta.tangoq.yaml"
 
 # Build and repo directories
 BUILD_DIR="build_flatpak"
@@ -237,11 +237,11 @@ case "$COMMAND" in
         echo "Creating single-file Flatpak bundle..."
         flatpak build-bundle "$REPO_DIR" \
             --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            Mixxx.flatpak org.mixxx.Mixxx
-        if [[ -f "Mixxx.flatpak" ]]; then
+            TangoQ.flatpak io.github.seemantadutta.tangoq
+        if [[ -f "TangoQ.flatpak" ]]; then
             echo ""
             echo "To install the single-file bundle, run:"
-            echo "    flatpak install [--system | --user] Mixxx.flatpak"
+            echo "    flatpak install [--system | --user] TangoQ.flatpak"
         fi
         ;;
 esac
@@ -250,11 +250,11 @@ esac
 if [[ $COMMAND == "debug" ]]; then
     echo ""
     echo "Creating Flatpak debug extension..."
-    flatpak build-bundle "$REPO_DIR" --runtime Mixxx.Debug.flatpak org.mixxx.Mixxx.Debug
-    if [[ -f "Mixxx.Debug.flatpak" ]]; then
+    flatpak build-bundle "$REPO_DIR" --runtime TangoQ.Debug.flatpak io.github.seemantadutta.tangoq.Debug
+    if [[ -f "TangoQ.Debug.flatpak" ]]; then
         echo ""
         echo "To install the debug extension, run:"
-        echo "    flatpak install [--system | --user] Mixxx.Debug.flatpak"
+        echo "    flatpak install [--system | --user] TangoQ.Debug.flatpak"
     fi
 fi
 
@@ -262,9 +262,9 @@ fi
 if [[ $COMMAND == "install" ]]; then
     echo ""
     echo "Direct install build finished."
-    if flatpak info "org.mixxx.Mixxx" > /dev/null 2>&1; then
+    if flatpak info "io.github.seemantadutta.tangoq" > /dev/null 2>&1; then
         echo ""
-        echo "To start Mixxx, run:"
-        echo "    flatpak run org.mixxx.Mixxx"
+        echo "To start TangoQ, run:"
+        echo "    flatpak run io.github.seemantadutta.tangoq"
     fi
 fi

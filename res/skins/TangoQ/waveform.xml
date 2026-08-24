@@ -1,0 +1,198 @@
+<Template>
+  <SetVariable name="Group">[Channel<Variable name="ChanNum"/>]</SetVariable>
+  <SetVariable name="BtnType">embedded</SetVariable>
+  <SetVariable name="BtnSize">library</SetVariable>
+  <SetVariable name="CoverName">BeatEditCover</SetVariable>
+  <SetVariable name="CoverConfigKey"><Variable name="Group"/>,bpmlock</SetVariable>
+
+  <WidgetGroup>
+    <ObjectName>Waveform</ObjectName>
+    <Layout>horizontal</Layout>
+    <SizePolicy>me,me</SizePolicy>
+    <Children>
+      <WidgetGroup>
+        <ObjectName>WaveformBox<Variable name="ChanNum"/></ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>me,me</SizePolicy>
+        <Children>
+          <Visual>
+            <TooltipId>waveform_display</TooltipId>
+            <Channel><Variable name="ChanNum"/></Channel>
+            <BgColor><Variable name="BgColorWaveform"/></BgColor>
+            <SignalColor><Variable name="SignalColor"/></SignalColor>
+            <!-- Default colors are used for high/mid/low: blue/green/red -->
+            <SignalHighColor></SignalHighColor>
+            <SignalMidColor></SignalMidColor>
+            <SignalLowColor></SignalLowColor>
+            <SignalRGBHighColor></SignalRGBHighColor>
+            <SignalRGBMidColor></SignalRGBMidColor>
+            <SignalRGBLowColor></SignalRGBLowColor>
+            <BeatColor><Variable name="BeatColor"/></BeatColor>
+            <AxesColor><Variable name="AxesColor"/></AxesColor>
+            <BeatHighlightColor></BeatHighlightColor>
+            <PlayPosColor><Variable name="PlayPosColor"/></PlayPosColor>
+            <EndOfTrackColor><Variable name="EndOfTrackColor"/></EndOfTrackColor>
+            <SlipBorderOutlineColor><Variable name="SlipBorderOutlineColor"/></SlipBorderOutlineColor>
+            <SlipBorderTopOutlineSize>10</SlipBorderTopOutlineSize>
+            <SlipBorderBottomOutlineSize>20</SlipBorderBottomOutlineSize>
+            <PassthroughLabelColor><Variable name="PassthroughLabelColor"/></PassthroughLabelColor>
+            <DimBrightThreshold><Variable name="DimBrightThresholdWaveform"/></DimBrightThreshold>
+            <!--
+            The hotcues not represented by a button in the current skin show only in the waveform under two circumstances:
+              - if a MIDI device which supports more hotcues than buttons are in the current skin has them activated
+              - if you change from a skin which supports more hotcues than buttons are in the current skin (and has them activated)
+            -->
+            <DefaultMark>
+              <Align>bottom|right</Align>
+              <Color>#FF0000</Color>
+              <TextColor>#FFFFFF</TextColor>
+              <Text> %1 </Text>
+            </DefaultMark>
+            <!-- Cue -->
+            <Mark>
+              <Control>cue_point</Control>
+              <Text>CUE</Text>
+              <!-- Hidden in Tango DJ mode; see decks/overview.xml. -->
+              <VisibilityControl>[AutoDJ],keep_queue_off</VisibilityControl>
+              <Align>top|right</Align>
+              <Color><Variable name="CueColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <!-- Loop -->
+            <MarkRange>
+              <StartControl>loop_start_position</StartControl>
+              <EndControl>loop_end_position</EndControl>
+              <EnabledControl>loop_enabled</EnabledControl>
+              <Color><Variable name="LoopColor"/></Color>
+              <Opacity>0.8</Opacity>
+              <DisabledColor>#FFFFFF</DisabledColor>
+              <DisabledOpacity>0.5</DisabledOpacity>
+            </MarkRange>
+            <Mark>
+              <Control>loop_start_position</Control>
+              <Text>&#8635;</Text>
+              <Icon>skins:TangoQ/classic/style/mark_loop.svg</Icon>
+              <Align>top|left</Align>
+              <Color><Variable name="LoopColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <Mark>
+              <Control>loop_end_position</Control>
+              <!-- <Text>&#8635;</Text> -->
+              <Align>top|right</Align>
+              <Color><Variable name="LoopColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <!-- Intro -->
+            <MarkRange>
+              <StartControl>intro_start_position</StartControl>
+              <EndControl>intro_end_position</EndControl>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <Opacity>0.1</Opacity>
+              <DurationTextColor>#ffffff</DurationTextColor>
+              <DurationTextLocation>after</DurationTextLocation>
+            </MarkRange>
+            <Mark>
+              <Control>intro_start_position</Control>
+              <Text>&#9698;</Text>
+              <Icon>skins:TangoQ/classic/style/mark_intro.svg</Icon>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Align>top|right</Align>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <Mark>
+              <Control>intro_end_position</Control>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Text>&#9698;</Text>
+              <Icon>skins:TangoQ/classic/style/mark_intro.svg</Icon>
+              <Align>top|left</Align>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <!-- Tango DJ mode start point. Bound to tango_start_position, which
+                 mirrors intro_start_position, because WaveformMarkSet silently
+                 drops a second Mark on a control it has already seen - so a
+                 Tango-gated mark on intro_start_position would never render.
+                 Without this the "Set Start" button would be invisible in
+                 operation: show_intro_outro_cues defaults to off, so nothing on
+                 screen would move when the DJ pressed it. -->
+            <Mark>
+              <Control>tango_start_position</Control>
+              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+              <!-- Spelled out here, as the main cue marker it replaces was
+                   ("CUE"). The overview is far narrower, so it keeps "S". -->
+              <Text>START</Text>
+              <Align>top|right</Align>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <Mark>
+              <Control>tango_fas_position</Control>
+              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+              <Text>FAS</Text>
+              <Align>top|right</Align>
+              <Color>#666666</Color>
+              <TextColor>#DDDDDD</TextColor>
+            </Mark>
+            <Mark>
+              <Control>tango_las_position</Control>
+              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+              <Text>LAS</Text>
+              <Align>top|left</Align>
+              <Color>#666666</Color>
+              <TextColor>#DDDDDD</TextColor>
+            </Mark>
+            <Mark>
+              <Control>tango_file_start_position</Control>
+              <VisibilityControl>[AutoDJ],keep_queue</VisibilityControl>
+              <Text>0:0</Text>
+              <Align>top|right</Align>
+              <Color>#666666</Color>
+              <TextColor>#DDDDDD</TextColor>
+            </Mark>
+            <!-- Outro -->
+            <MarkRange>
+              <StartControl>outro_start_position</StartControl>
+              <EndControl>outro_end_position</EndControl>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <Opacity>0.1</Opacity>
+              <DurationTextColor>#ffffff</DurationTextColor>
+              <DurationTextLocation>before</DurationTextLocation>
+            </MarkRange>
+            <Mark>
+              <Control>outro_start_position</Control>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Text>&#9699;</Text>
+              <Icon>skins:TangoQ/classic/style/mark_outro.svg</Icon>
+              <Align>top|right</Align>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+            <Mark>
+              <Control>outro_end_position</Control>
+              <Text>&#9699;</Text>
+              <Icon>skins:TangoQ/classic/style/mark_outro.svg</Icon>
+              <VisibilityControl>[Skin],show_intro_outro_cues</VisibilityControl>
+              <Align>top|left</Align>
+              <Color><Variable name="IntroOutroColor"/></Color>
+              <TextColor>#FFFFFF</TextColor>
+            </Mark>
+          </Visual>
+        </Children>
+        <Connection>
+          <ConfigKey persist="true"><Variable name="Highlight"/></ConfigKey>
+          <BindProperty>highlight</BindProperty>
+        </Connection>
+      </WidgetGroup>
+
+      <!-- Beatgrid & hotcue-shift controls removed for the Tango DJ build: a
+           tanda set is not beat-gridded or nudged by hand. The toggle that used
+           to show/hide them (BeatgridControlsToggle) is removed from
+           waveforms_container.xml to match. -->
+
+    </Children>
+  </WidgetGroup>
+</Template>

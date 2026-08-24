@@ -685,48 +685,6 @@ WLibrary {
         }
 
 
-/********************** AutoDJ Tango end-time picker *************************/
-/* Match the AutoDJ transition spinbox so the Tango end-time QTimeEdit blends
-   into the toolbar instead of showing the default white field. */
-  #endTimeEdit {
-    color: #888;
-    border-width: 3px 19px 2px 3px;
-    border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border.svg) 3 19 2 3;
-    height: 19px;
-    padding: 0px -15px 0px 3px;
-    margin: 0px 2px 3px 2px;
-    background-color: #0f0f0f;
-    }
-    #endTimeEdit:focus {
-      border-image: url(skins:LateNight/classic/buttons/spinbox_embedded_border_focus_orange.svg) 3 19 2 3;
-    }
-  #endTimeEdit::up-button,
-  #endTimeEdit::down-button {
-    subcontrol-origin: content;
-    position: relative;
-    width: 17px;
-    padding: 0px;
-    }
-    #endTimeEdit::up-button {
-      height: 11px;
-      subcontrol-position: top right;
-      image: url(skins:LateNight/classic/buttons/spinbox_up.svg) no-repeat;
-      margin: -2px -3px 0px 0px;
-      }
-      #endTimeEdit::up-button:pressed {
-        image: url(skins:LateNight/classic/buttons/spinbox_up_pressed.svg) no-repeat;
-      }
-    #endTimeEdit::down-button {
-      height: 11px;
-      subcontrol-position: bottom right;
-      image: url(skins:LateNight/classic/buttons/spinbox_down.svg) no-repeat;
-      margin: 0px -3px -1px 0px;
-      }
-      #endTimeEdit::down-button:pressed {
-        image: url(skins:LateNight/classic/buttons/spinbox_down_pressed.svg) no-repeat;
-      }
-
-
 
 /************** Mixer *********************************************************/
 
@@ -1189,8 +1147,7 @@ WCoverArtMenu,
 WCueMenuPopup,
 WCueMenuPopup QLabel,
 #CueLabelEdit,
-#LatencyLabel, WTime,
-QMenu#AutoDJContextMenu {
+#LatencyLabel, WTime {
   color: #f0bb2b;
 }
 /* Override the 'missing' color in Tracks > Missing,
@@ -2110,11 +2067,11 @@ QPushButton#pushButtonSkipNext:!enabled {
     image: url(skins:LateNight/classic/buttons/btn__autodj_skip.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonShuffle {
+QPushButton#pushButtonShuffle:enabled {
   image: url(skins:LateNight/classic/buttons/btn__autodj_shuffle.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonAddRandomTrack {
+QPushButton#pushButtonAddRandomTrack:enabled {
   image: url(skins:LateNight/classic/buttons/btn__autodj_addrandom.svg) no-repeat center center;
   }
 
@@ -2123,16 +2080,6 @@ QPushButton#pushButtonRepeatPlaylist:!checked {
   }
   QPushButton#pushButtonRepeatPlaylist:checked {
     image: url(skins:LateNight/classic/buttons/btn__autodj_repeat_playlist_on.svg) no-repeat center center;
-  }
-
-/* Keep Queue (tango mode) button */
-QPushButton#pushButtonKeepQueue:!checked {
-  image: url(skins:LateNight/classic/buttons/btn__autodj_keep_queue_off.svg) no-repeat center center;
-  }
-  QPushButton#pushButtonKeepQueue:checked {
-    image: url(skins:LateNight/classic/buttons/btn__autodj_keep_queue_on.svg) no-repeat center center;
-    background-color: #888;
-    color: #000;
   }
 
 /* widgets in cue popup menu */
@@ -2372,43 +2319,6 @@ WTrackTableViewHeader {
     }
 
 
-/*********** Auto DJ Queue dock panel **************************/
-/* The detached/dockable Auto DJ queue panel copies this library stylesheet. It
-   uses a custom WDockTitleBar (instead of the native title bar) so the themed
-   gradient shows in both the docked and floating states. */
-
-QDockWidget {
-  color: #bbb;
-}
-WDockTitleBar {
-  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-    stop:0 #222,
-    stop:1 #111);
-  border-bottom: 1px solid #000;
-}
-WDockTitleBar QLabel#AutoDJDockTitleLabel {
-  color: #bbb;
-  padding-left: 2px;
-}
-WDockTitleBar QToolButton {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  padding: 1px;
-  width: 14px;
-  height: 14px;
-}
-WDockTitleBar QToolButton:hover {
-  background-color: #444;
-  border: 1px solid #555;
-}
-QToolButton#AutoDJDockFloatButton {
-  qproperty-icon: url(skins:LateNight/classic/buttons/btn__expand.svg);
-}
-QToolButton#AutoDJDockCloseButton {
-  qproperty-icon: url(skins:LateNight/classic/buttons/btn__settings_close.svg);
-}
-
 
 /*********** scrollbars *********************************/
 #LibraryContainer QScrollBar,
@@ -2643,8 +2553,7 @@ WEffectSelector QAbstractScrollArea,
 WEffectChainPresetSelector QAbstractScrollArea,
 WEffectChainPresetButton QMenu,
 WSearchLineEdit QAbstractScrollArea,
-#fadeModeCombobox QAbstractScrollArea,
-QMenu#AutoDJContextMenu {
+#fadeModeCombobox QAbstractScrollArea {
   border: 1px solid #888;
   border-radius: 2px;
 }
@@ -2687,15 +2596,8 @@ WEffectChainPresetButton QMenu QCheckBox,
 WSearchLineEdit QAbstractScrollArea,
 WSearchLineEdit::item,
 #fadeModeCombobox QAbstractScrollArea,
-#fadeModeCombobox::item,
-QMenu#AutoDJContextMenu,
-QMenu#AutoDJContextMenu::item {
+#fadeModeCombobox::item {
   background-color: #0f0f0f;
-}
-/* These menus have no icons, checkmarks or submenus, so drop the reserved side
-   columns and let each item hug its text. */
-QMenu#AutoDJContextMenu::item {
-  padding: 4px 16px 4px 16px;
 }
 WEffectSelector,
 #fadeModeCombobox {
@@ -2734,10 +2636,7 @@ WSearchLineEdit::item:selected,
 #SkinSettingsNumToggle[hover="true"],
 #SkinSettingsNumToggleHeader[hover="true"],
 #SkinSettingsMixerToggle[hover="true"],
-#SkinSettingsLabelButton[hover="true"],
-QMenu#AutoDJContextMenu::item:selected,
-QMenu#AutoDJContextMenu::item:hover,
-QMenu#AutoDJContextMenu::item:focus {
+#SkinSettingsLabelButton[hover="true"] {
   background-color: #5E4507;
   color: #fff;
   /* remove OS focus indicator */

@@ -9,6 +9,10 @@ class VersionStore {
     /// Returns the current Mixxx version string (e.g. 1.12.0-alpha)
     static QString version();
 
+    /// Returns the TangoQ fork product version (e.g. "1.0.1"). This is the
+    /// user-facing version; version() above is the Mixxx code base it is built on.
+    static QString forkVersion();
+
     /// Returns the current Mixxx version number (e.g. 1.12.0)
     static QVersionNumber versionNumber();
 

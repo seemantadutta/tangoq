@@ -20,16 +20,20 @@ DlgAbout::DlgAbout()
     setWindowIcon(QIcon(MIXXX_ICON_PATH));
 
     mixxx_icon->load(QString(MIXXX_ICON_PATH));
-    mixxx_logo->load(QString(MIXXX_LOGO_PATH));
+    // The default wordmark's "Tango" is near-white for the dark toolbar and
+    // vanishes on a light-themed dialog, so pick the dark-wordmark variant when
+    // the dialog background is light. Mirrors the heart-icon choice below.
+    const bool darkBackground = Color::isDimColor(palette().window().color());
+    mixxx_logo->load(QString(darkBackground ? MIXXX_LOGO_PATH : MIXXX_LOGO_DARK_PATH));
 
     // Let the wordmark act as a link to the project's own site, the way an About
     // box logo usually does.
     mixxx_logo->setCursor(Qt::PointingHandCursor);
-    mixxx_logo->setToolTip(TANGOMODE_SUPPORT_URL);
+    mixxx_logo->setToolTip(TANGOQ_SUPPORT_URL);
     mixxx_logo->installEventFilter(this);
 
     version_label->setText(VersionStore::applicationName() +
-            QStringLiteral(" ") + VersionStore::version());
+            QStringLiteral(" version ") + VersionStore::forkVersion());
     git_version_label->setText(VersionStore::gitVersion());
     qt_version_label->setText(VersionStore::qtVersion());
     platform_label->setText(VersionStore::platform());
@@ -454,35 +458,50 @@ DlgAbout::DlgAbout()
     QString sectionTemplate = QString(
         "<p align=\"center\"><b>%1</b></p><p align=\"center\">%2</p>");
     QStringList sections;
-    // TangoMode is a fork. Say so before Mixxx's own credits, so it is never
-    // mistaken for the official application and nobody brings TangoMode's bugs
+    // TangoQ is a fork. Say so before Mixxx's own credits, so it is never
+    // mistaken for the official application and nobody brings TangoQ's bugs
     // to the Mixxx project. The disclaimer matters more than the attribution:
     // the GPL lets us ship modified Mixxx, it does not let us imply endorsement.
     // Everything below this section is upstream's, listed unaltered.
     sections << QString("<p align=\"center\"><b>%1</b></p>"
                         "<p align=\"center\">%2</p>")
                         .arg(tr("About this build"),
-                                tr("TangoMode is a modified version of Mixxx for "
-                                   "tango DJs. It is not affiliated with, "
+                                tr("TangoQ is Argentine Tango DJ software based "
+                                   "on Mixxx. It is not affiliated with, "
                                    "supported by, or endorsed by the Mixxx "
                                    "project.<br>"
-                                   "Please report problems with TangoMode to its "
-                                   "own issue tracker rather than to Mixxx.<br>"
-                                   "The original application is at "
-                                   "<a href=\"%1\">mixxx.org</a>.<br><br>"
-                                   "TangoMode is built on the work of everyone "
-                                   "credited below.")
-                                        .arg(MIXXX_WEBSITE_URL))
+                                   "Please report problems with TangoQ to its "
+                                   "own issue tracker rather than to Mixxx.<br><br>"
+                                   "TangoQ is built on the work of the Mixxx "
+                                   "developers and everyone credited below. The "
+                                   "original application is at "
+                                   "<a href=\"%1\">mixxx.org</a> &mdash; please "
+                                   "consider supporting them with a "
+                                   "<a href=\"%2\">donation to Mixxx</a>.<br><br>"
+                                   "Like Mixxx, TangoQ is free software, "
+                                   "distributed under the same terms: the GNU "
+                                   "General Public License, version 2 or later. "
+                                   "The full license text is in the License tab."
+                                   "<br><br>"
+                                   "TangoQ fork changes Copyright &copy; 2026 "
+                                   "Seemanta Dutta (TangoQ). Mixxx is Copyright "
+                                   "&copy; 2001&ndash;2026 the Mixxx Development "
+                                   "Team.")
+                                        .arg(MIXXX_WEBSITE_URL, MIXXX_DONATE_URL))
              << sectionTemplate.arg(s_devTeam,
-                                    thisReleaseDevelopers.join("<br>"))
+                        thisReleaseDevelopers.join("<br>"))
              << sectionTemplate.arg(s_contributions,
-                                    recentContributors.join("<br>"))
+                        recentContributors.join("<br>"))
              << sectionTemplate.arg(s_pastDevs,
-                                    pastDevelopers.join("<br>"))
+                        pastDevelopers.join("<br>"))
              << sectionTemplate.arg(s_pastContribs,
-                                    pastContributors.join("<br>"))
+                        pastContributors.join("<br>"))
              << sectionTemplate.arg(s_specialThanks,
-                                    specialThanks.join("<br>"));
+                        specialThanks.join("<br>"));
+    // The credits carry the Mixxx site and donation links, so anchors must be
+    // clickable - the .ui sets NoTextInteraction - and open in the browser.
+    textBrowser->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    textBrowser->setOpenExternalLinks(true);
     textBrowser->setHtml(sections.join(""));
 
     // Make the fork maintainer contactable, in the dialog's own link colour so it
@@ -490,40 +509,29 @@ DlgAbout::DlgAbout()
     fork_maintainer_label->setTextFormat(Qt::RichText);
     fork_maintainer_label->setOpenExternalLinks(true);
     fork_maintainer_label->setText(
-            tr("TangoMode Fork Maintainer: "
+            tr("TangoQ Maintainer: "
                "<a style=\"color:%1;\" href=\"mailto:seemanta@gmail.com\">Seemanta Dutta</a>")
                     .arg(Color::blendColors(palette().link().color(),
-                                 palette().text().color())
+                            palette().text().color())
                                     .name()));
 
-    textWebsiteLink->setText(
-            QString("<a style=\"color:%1;\" href=\"%2\">%3</a>")
-                    .arg(Color::blendColors(palette().link().color(),
-                                 palette().text().color())
-                                    .name(),
-                            MIXXX_WEBSITE_URL,
-                            tr("Official Website")));
+    // One support button, for TangoQ. Mixxx's own site and donation links live in
+    // the credits text above, so a good-faith supporter of either project can
+    // reach the right place. The "Official Website" label and the separate
+    // "Donate to Mixxx" button were removed in favour of that. The heart icon
+    // (with the occasional rainbow) rides on this button now.
     if (std::rand() % 6) {
         if (!Color::isDimColor(palette().text().color())) {
-            btnDonate->setIcon(QIcon(":/images/heart_icon_light.svg"));
+            btnSupportFork->setIcon(QIcon(":/images/heart_icon_light.svg"));
         } else {
-            btnDonate->setIcon(QIcon(":/images/heart_icon_dark.svg"));
+            btnSupportFork->setIcon(QIcon(":/images/heart_icon_dark.svg"));
         }
     } else {
-        btnDonate->setIcon(QIcon(":/images/heart_icon_rainbow.svg"));
+        btnSupportFork->setIcon(QIcon(":/images/heart_icon_rainbow.svg"));
     }
-    btnDonate->setText(tr("Donate to Mixxx"));
-    connect(btnDonate, &QPushButton::clicked, this, [] {
-        mixxx::DesktopHelper::openUrl(QUrl(MIXXX_DONATE_URL));
-    });
-
-    // A separate button rather than repointing the one above. Someone clicking
-    // "Donate" in a dialog full of Mixxx's credits means to support Mixxx, and
-    // quietly redirecting that would take a donation given in good faith to
-    // someone else. Two buttons, clearly labelled, lets people choose.
-    btnSupportFork->setText(tr("Support TangoMode"));
+    btnSupportFork->setText(tr("Support TangoQ"));
     connect(btnSupportFork, &QPushButton::clicked, this, [] {
-        mixxx::DesktopHelper::openUrl(QUrl(TANGOMODE_SUPPORT_URL));
+        mixxx::DesktopHelper::openUrl(QUrl(TANGOQ_SUPPORT_URL));
     });
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &DlgAbout::accept);
@@ -537,7 +545,7 @@ bool DlgAbout::eventFilter(QObject* pObject, QEvent* pEvent) {
         const auto* pMouseEvent = static_cast<QMouseEvent*>(pEvent);
         if (pMouseEvent->button() == Qt::LeftButton &&
                 mixxx_logo->rect().contains(pMouseEvent->pos())) {
-            mixxx::DesktopHelper::openUrl(QUrl(TANGOMODE_SUPPORT_URL));
+            mixxx::DesktopHelper::openUrl(QUrl(TANGOQ_SUPPORT_URL));
             return true;
         }
     }

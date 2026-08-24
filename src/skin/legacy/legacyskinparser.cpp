@@ -74,6 +74,7 @@
 #include "widget/wsplitter.h"
 #include "widget/wstarrating.h"
 #include "widget/wstatuslight.h"
+#include "widget/wtangohud.h"
 #include "widget/wtime.h"
 #include "widget/wtrackproperty.h"
 #include "widget/wtrackwidgetgroup.h"
@@ -450,6 +451,13 @@ LaunchImage* LegacySkinParser::parseLaunchImage(const QString& skinPath, QWidget
     QDir::setSearchPaths("skin", skinPaths);
 
     QString styleSheet = parseLaunchImageStyle(skinDocument);
+#ifdef Q_OS_MACOS
+    // TangoQ: on macOS the splash uses the squircle icon lockup, to match the
+    // macOS app icon; other platforms keep the square-icon lockup. The launch
+    // image style hard-codes the logo file name, so swap it here.
+    styleSheet.replace(QLatin1String("tangoq_logo.svg"),
+            QLatin1String("tangoq_logo_macos.svg"));
+#endif
     // Transform relative 'skin:' urls into absolute paths.
     // See stylesheetAbsIconPaths() for details.
     LaunchImage* pLaunchImage = new LaunchImage(pParent, stylesheetAbsIconPaths(styleSheet));
@@ -550,6 +558,8 @@ QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
         result = wrapWidget(parseVuMeter(node));
     } else if (nodeName == "StatusLight") {
         result = wrapWidget(parseStandardWidget<WStatusLight>(node));
+    } else if (nodeName == "TangoHud") {
+        result = wrapWidget(parseStandardWidget<WTangoHud>(node));
     } else if (nodeName == "Display") {
         result = wrapWidget(parseStandardWidget<WDisplay>(node));
     } else if (nodeName == "BeatSpinBox") {

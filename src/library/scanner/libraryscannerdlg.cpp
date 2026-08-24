@@ -7,6 +7,7 @@
 
 #include "defs_urls.h"
 #include "moc_libraryscannerdlg.cpp"
+#include "util/versionstore.h"
 
 LibraryScannerDlg::LibraryScannerDlg(QWidget* parent, Qt::WindowFlags f)
         : QWidget(parent, f),
@@ -16,7 +17,10 @@ LibraryScannerDlg::LibraryScannerDlg(QWidget* parent, Qt::WindowFlags f)
     QVBoxLayout* pLayout = new QVBoxLayout(this);
 
     setWindowTitle(tr("Library Scanner"));
-    QLabel* pLabel = new QLabel(tr("It's taking Mixxx a minute to scan your music library, please wait..."),this);
+    QLabel* pLabel = new QLabel(
+            tr("It's taking %1 a minute to scan your music library, please wait...")
+                    .arg(VersionStore::applicationName()),
+            this);
     pLayout->addWidget(pLabel);
 
     QPushButton* pCancel = new QPushButton(tr("Cancel"), this);

@@ -2,10 +2,13 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QPushButton>
 #include <QSqlError>
 #include <QStandardPaths>
 #include <QtGlobal>
@@ -70,6 +73,7 @@ const mixxx::Logger kLogger("CoreServices");
 constexpr int kMicrophoneCount = 4;
 constexpr int kAuxiliaryCount = 4;
 constexpr int kSamplerCount = 4;
+const QString kMixxxDatabaseFileName = QStringLiteral("mixxxdb.sqlite");
 
 #define CLEAR_AND_CHECK_DELETED(x) clearHelper(x, #x);
 
@@ -81,6 +85,132 @@ void clearHelper(std::shared_ptr<T>& ref_ptr, const char* name) {
         qWarning() << name << "was leaked! Use count:" << shared.use_count();
         DEBUG_ASSERT(false);
     }
+}
+
+QString canonicalPathIfExists(const QString& filePath) {
+    const QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists()) {
+        return QString();
+    }
+    return fileInfo.canonicalFilePath();
+}
+
+QStringList mixxxDatabaseImportCandidates() {
+    QStringList candidates;
+    const auto addCandidate = [&candidates](const QString& filePath) {
+        if (!filePath.isEmpty() && !candidates.contains(filePath)) {
+            candidates.append(filePath);
+        }
+    };
+
+#if defined(Q_OS_WIN)
+    const QString localAppData =
+            QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
+    if (!localAppData.isEmpty()) {
+        addCandidate(QDir(localAppData)
+                        .filePath(QStringLiteral("Mixxx/%1")
+                                        .arg(kMixxxDatabaseFileName)));
+    }
+    const QString appData =
+            QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPDATA"));
+    if (!appData.isEmpty()) {
+        addCandidate(QDir(appData).filePath(
+                QStringLiteral("Mixxx/%1").arg(kMixxxDatabaseFileName)));
+    }
+#elif defined(Q_OS_MACOS)
+    addCandidate(QDir::homePath() +
+            QStringLiteral("/Library/Application Support/Mixxx/%1")
+                    .arg(kMixxxDatabaseFileName));
+    addCandidate(QDir::homePath() +
+            QStringLiteral("/.mixxx/%1").arg(kMixxxDatabaseFileName));
+#else
+    addCandidate(QDir::homePath() +
+            QStringLiteral("/.mixxx/%1").arg(kMixxxDatabaseFileName));
+#endif
+
+    return candidates;
+}
+
+QString findMixxxDatabaseForImport(const QString& tangoDbPath) {
+    const QString tangoDbCanonicalPath = canonicalPathIfExists(tangoDbPath);
+    for (const QString& candidatePath : mixxxDatabaseImportCandidates()) {
+        const QFileInfo candidateInfo(candidatePath);
+        if (!candidateInfo.isFile()) {
+            continue;
+        }
+        const QString candidateCanonicalPath = candidateInfo.canonicalFilePath();
+        if (!tangoDbCanonicalPath.isEmpty() &&
+                candidateCanonicalPath == tangoDbCanonicalPath) {
+            continue;
+        }
+        return candidateInfo.absoluteFilePath();
+    }
+    return QString();
+}
+
+bool importMixxxDatabaseIfFirstRun(const UserSettingsPointer& pConfig) {
+    const QString tangoDbPath =
+            QDir(pConfig->getSettingsPath()).absoluteFilePath(MixxxDb::kDefaultFileName);
+    if (QFileInfo::exists(tangoDbPath)) {
+        return true;
+    }
+
+    const QString mixxxDbPath = findMixxxDatabaseForImport(tangoDbPath);
+    if (mixxxDbPath.isEmpty()) {
+        return true;
+    }
+
+    const QString appName = VersionStore::applicationName();
+    QMessageBox msgBox;
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setWindowTitle(QObject::tr("Import your Mixxx library?"));
+    msgBox.setText(
+            QObject::tr("%1 found an existing Mixxx library and can copy it "
+                        "before creating "
+                        "its own library database.\n\n"
+                        "Source:\n%2\n\n"
+                        "Destination:\n%3\n\n"
+                        "The original Mixxx database will not be modified.")
+                    .arg(appName,
+                            QDir::toNativeSeparators(mixxxDbPath),
+                            QDir::toNativeSeparators(tangoDbPath)));
+    QPushButton* pImportButton =
+            msgBox.addButton(QObject::tr("Import Library"), QMessageBox::AcceptRole);
+    msgBox.addButton(QObject::tr("Start Fresh"), QMessageBox::RejectRole);
+    msgBox.setDefaultButton(pImportButton);
+    msgBox.exec();
+
+    if (msgBox.clickedButton() != pImportButton) {
+        return true;
+    }
+
+    QDir tangoSettingsDir(pConfig->getSettingsPath());
+    if (!tangoSettingsDir.exists() && !tangoSettingsDir.mkpath(QStringLiteral("."))) {
+        QMessageBox::critical(nullptr,
+                QObject::tr("Cannot import Mixxx library"),
+                QObject::tr("%1 could not create its settings folder:\n\n%2\n\n"
+                            "Click OK to exit.")
+                        .arg(appName, QDir::toNativeSeparators(tangoSettingsDir.absolutePath())),
+                QMessageBox::Ok);
+        return false;
+    }
+
+    if (!QFile::copy(mixxxDbPath, tangoDbPath)) {
+        QMessageBox::critical(nullptr,
+                QObject::tr("Cannot import Mixxx library"),
+                QObject::tr("%1 could not copy the Mixxx database.\n\n"
+                            "Source:\n%2\n\n"
+                            "Destination:\n%3\n\n"
+                            "Click OK to exit.")
+                        .arg(appName,
+                                QDir::toNativeSeparators(mixxxDbPath),
+                                QDir::toNativeSeparators(tangoDbPath)),
+                QMessageBox::Ok);
+        return false;
+    }
+
+    qInfo() << "Imported Mixxx database" << mixxxDbPath << "to" << tangoDbPath;
+    return true;
 }
 
 // hack around https://gitlab.freedesktop.org/xorg/lib/libx11/issues/25
@@ -474,6 +604,9 @@ void CoreServices::initialize(QApplication* pApp) {
     FontUtils::initializeFonts(resourcePath); // takes a long time
 
     emit initializationProgressUpdate(10, tr("database"));
+    if (!importMixxxDatabaseIfFirstRun(pConfig)) {
+        exit(-1);
+    }
     m_pDbConnectionPool = MixxxDb(pConfig).connectionPool();
     if (!m_pDbConnectionPool) {
         exit(-1);

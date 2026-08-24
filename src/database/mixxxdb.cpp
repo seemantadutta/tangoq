@@ -14,6 +14,9 @@ const QString MixxxDb::kDefaultSchemaFile(":/schema.xml");
 //static
 const int MixxxDb::kRequiredSchemaVersion = 39;
 
+// static
+const QString MixxxDb::kDefaultFileName("tangoq.db");
+
 namespace {
 
 const mixxx::Logger kLogger("MixxxDb");
@@ -23,8 +26,6 @@ const QString kType = QStringLiteral("QSQLITE");
 const QString kConnectOptions = QStringLiteral("QSQLITE_OPEN_URI");
 
 const QString kUriPrefix = QStringLiteral("file://");
-
-const QString kDefaultFileName = QStringLiteral("mixxxdb.sqlite");
 
 const QString kUserName = QStringLiteral("mixxx");
 
@@ -39,7 +40,7 @@ mixxx::DbConnection::Params dbConnectionParams(
     params.connectOptions = kConnectOptions;
     params.filePath = kUriPrefix;
     const QString absFilePath =
-            QDir(pConfig->getSettingsPath()).absoluteFilePath(kDefaultFileName);
+            QDir(pConfig->getSettingsPath()).absoluteFilePath(MixxxDb::kDefaultFileName);
     // On Windows absFilePath starts with a drive letter instead of
     // the leading '/' as required.
     // https://www.sqlite.org/c3ref/open.html#urifilenameexamples
@@ -79,7 +80,7 @@ bool MixxxDb::initDatabaseSchema(
             tr("Unable to upgrade your database schema to version %1")
             .arg(QString::number(schemaVersion));
     QString helpContact = tr("For help with database issues consult:") + "\n" +
-            "https://www.mixxx.org/support";
+            "https://github.com/seemantadutta/tangoq/issues";
 
     switch (SchemaManager(database).upgradeToSchemaVersion(schemaVersion, schemaFile)) {
     case SchemaManager::Result::CurrentVersion:
@@ -90,8 +91,8 @@ bool MixxxDb::initDatabaseSchema(
         QMessageBox::warning(nullptr,
                 upgradeFailed,
                 upgradeToVersionFailed + "\n" +
-                        tr("Your mixxxdb.sqlite file may be corrupt.") +
-                        "\n" + tr("Try renaming it and restarting Mixxx.") +
+                        tr("Your tangoq.db file may be corrupt.") +
+                        "\n" + tr("Try renaming it and restarting TangoQ.") +
                         "\n" + helpContact + "\n\n" + okToExit,
                 QMessageBox::Ok);
         return false; // abort
@@ -99,8 +100,8 @@ bool MixxxDb::initDatabaseSchema(
         QMessageBox::warning(nullptr,
                 upgradeFailed,
                 upgradeToVersionFailed + "\n" +
-                        tr("Your mixxxdb.sqlite file was created by a newer "
-                           "version of Mixxx and is incompatible.") +
+                        tr("Your tangoq.db file was created by a newer "
+                           "version of TangoQ and is incompatible.") +
                         "\n\n" + okToExit,
                 QMessageBox::Ok);
         return false; // abort

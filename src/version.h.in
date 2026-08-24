@@ -8,3 +8,5 @@
 #define MIXXX_VERSION_PATCH @CMAKE_PROJECT_VERSION_PATCH@
 #define MIXXX_VERSION_SUFFIX "@MIXXX_VERSION_PRERELEASE@"
 #define MIXXX_BUILD_FLAGS "@MIXXX_BUILD_FLAGS@"
+// TangoQ fork product version, independent of the Mixxx base version above.
+#define TANGOQ_VERSION "@TANGOQ_VERSION@"

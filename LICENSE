@@ -1,6 +1,12 @@
 Mixxx 2.5.6, Digital DJ'ing software.
 Copyright (C) 2001-2026 Mixxx Development Team
 
+TangoQ is a fork of Mixxx purpose-built for Argentine Tango DJs.
+TangoQ fork changes Copyright (C) 2026 Seemanta Dutta (TangoQ).
+TangoQ is distributed under the same terms as Mixxx (the GNU General
+Public License, version 2 or later, reproduced below) and is not
+affiliated with, supported by, or endorsed by the Mixxx project.
+
 Mixxx is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or

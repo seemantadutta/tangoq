@@ -1,0 +1,263 @@
+<!--
+Description:
+  The skin settings menu.
+
+  Bug: qss 'qproperty-layoutAlignment' is not respected for stacked layout.
+  No way to make SkinSettings float on top of main window at the right side
+  while keeping the screen area underneath clickable.
+
+  https://github.com/mixxxdj/mixxx/issues/8859
+  On OSX this widget is drawn behind main skin instead on top of it.
+  I removed the stacked layout and placed skin settings on the right hand side of main skin.
+-->
+<Template>
+  <SetVariable name="Width">-1me</SetVariable>
+
+  <WidgetGroup>
+    <ObjectName>SkinSettingsContainer</ObjectName>
+    <Layout>horizontal</Layout>
+    <SizePolicy>min,me</SizePolicy>
+    <Children>
+
+      <WidgetGroup>
+        <ObjectName>SkinSettings</ObjectName>
+        <Layout>vertical</Layout>
+        <Size>240f,1me</Size>
+        <Children>
+
+          <!-- Decks - Tango DJ build: deck count is locked to 2 and deck size to
+               Full (compact/mini omit the critical Set Start / Reset buttons), so
+               the count and size selectors are removed. Only the full-deck content
+               options remain. -->
+          <Label>
+            <ObjectName>CategoryLabel</ObjectName>
+            <Text>Decks</Text>
+            <Size>180min,26f</Size>
+          </Label>
+
+          <WidgetGroup>
+            <SizePolicy>me,f</SizePolicy>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skins:TangoQ/helpers/skin_settings_full_deck.xml"/>
+            </Children>
+          </WidgetGroup>
+<!-- Deck Options -->
+
+
+
+<!-- Other skin options -->
+          <WidgetGroup>
+            <ObjectName>SkinSettingsSeparator</ObjectName>
+            <Size>1min,12f</Size>
+          </WidgetGroup>
+
+          <!--  Waveforms -->
+          <WidgetGroup>
+            <SizePolicy>me,f</SizePolicy>
+            <Layout>stacked</Layout>
+            <Children>
+              <!-- translucent cover when Library is not maximized -->
+              <Template src="skins:TangoQ/helpers/skin_settings_cover.xml">
+                <SetVariable name="Setting">[Skin],show_maximized_library</SetVariable>
+              </Template>
+
+              <WidgetGroup>
+                <SizePolicy>me,min</SizePolicy>
+                <Layout>vertical</Layout>
+                <Children>
+                  <Template src="skins:TangoQ/helpers/skin_settings_labelbutton_2state.xml">
+                    <SetVariable name="Text">Waveforms</SetVariable>
+                    <SetVariable name="Setting">[Skin],show_waveforms</SetVariable>
+                    <SetVariable name="TooltipId">show_waveforms</SetVariable>
+                    <SetVariable name="Width">190me</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup><!-- Waveforms -->
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsSeparator</ObjectName>
+            <Size>1min,12f</Size>
+          </WidgetGroup>
+
+          <!--  Mixer -->
+          <WidgetGroup>
+            <ObjectName></ObjectName>
+            <SizePolicy>me,f</SizePolicy>
+            <Layout>stacked</Layout>
+            <Children>
+              <!-- translucent cover when Library is maximized -->
+              <Template src="skins:TangoQ/helpers/skin_settings_cover.xml">
+                <SetVariable name="Setting">[Skin],show_maximized_library</SetVariable>
+              </Template>
+
+              <WidgetGroup>
+                <SizePolicy>me,min</SizePolicy>
+                <Layout>vertical</Layout>
+                <Children>
+                  <Template src="skins:TangoQ/helpers/skin_settings_labelbutton_2state.xml">
+                    <SetVariable name="Text">Mixer</SetVariable>
+                    <SetVariable name="Setting">[Skin],show_mixer</SetVariable>
+                    <SetVariable name="TooltipId">show_mixer</SetVariable>
+                    <SetVariable name="Width">190me</SetVariable>
+                  </Template>
+
+                  <WidgetGroup>
+                    <ObjectName>SkinSettingsCategory</ObjectName>
+                    <SizePolicy>me,f</SizePolicy>
+                    <Layout>stacked</Layout>
+                    <Children>
+                      <!-- translucent cover when Channel Mixer is hidden -->
+                      <Template src="skins:TangoQ/helpers/skin_settings_cover_inverted.xml">
+                        <SetVariable name="Setting">[Skin],show_mixer</SetVariable>
+                      </Template>
+
+                      <WidgetGroup>
+                        <SizePolicy>me,min</SizePolicy>
+                        <Layout>vertical</Layout>
+                        <Children>
+
+                          <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                            <SetVariable name="Text">Main / Headphone Mixer</SetVariable>
+                            <SetVariable name="Setting">[Skin],show_main_head_mixer</SetVariable>
+                          </Template>
+
+                          <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                            <SetVariable name="Text">EQ Knobs</SetVariable>
+                            <SetVariable name="Setting">[Skin],show_eq_knobs</SetVariable>
+                          </Template>
+
+                          <WidgetGroup><!-- EQ Kill -->
+                            <ObjectName>SkinSettingsSubMenu</ObjectName>
+                            <Layout>stacked</Layout>
+                            <Size>180min,18f</Size>
+                            <Children>
+                              <!-- translucent cover when EQ knobs are hidden -->
+                              <Template src="skins:TangoQ/helpers/skin_settings_cover_inverted.xml">
+                                <SetVariable name="Setting">[Skin],show_eq_knobs</SetVariable>
+                              </Template>
+                              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                                <SetVariable name="Text">EQ Kill Buttons</SetVariable>
+                                <SetVariable name="Setting">[Skin],show_eq_kill_buttons</SetVariable>
+                              </Template>
+                            </Children>
+                          </WidgetGroup><!-- /EQ Kill -->
+
+                          <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                            <SetVariable name="Text">Crossfader</SetVariable>
+                            <SetVariable name="Setting">[Skin],show_xfader</SetVariable>
+                          </Template>
+
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup><!-- /Mixer -->
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsSeparator</ObjectName>
+            <Size>1min,12f</Size>
+          </WidgetGroup>
+
+          <!-- Auto DJ toolbar controls (Tango cockpit): show or hide the set-time
+               readout, the end-time block (with its over/under indicator), and the
+               cortina nudge controls in the Auto DJ bar (bound to [TangoQ],show_adj_*,
+               owned by AutoDJProcessor and read by DlgAutoDJ), plus the Tango HUD's
+               countdown timer and progress pips ([TangoQ],show_countdown_timer /
+               show_progress_pips, read by WTangoHud). All default on. -->
+          <Label>
+            <ObjectName>CategoryLabel</ObjectName>
+            <Text>Milonga Timing</Text>
+            <Size>180min,26f</Size>
+          </Label>
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsCategory</ObjectName>
+            <SizePolicy>me,min</SizePolicy>
+            <Layout>vertical</Layout>
+            <Children>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Set Time</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_set_time</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Target Time</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_end_time</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Cortina Nudge</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_nudge</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Countdown Timer</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_countdown_timer</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Progress Pips</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_progress_pips</SetVariable>
+              </Template>
+
+            </Children>
+          </WidgetGroup><!-- /Auto DJ -->
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsSeparator</ObjectName>
+            <Size>1min,12f</Size>
+          </WidgetGroup>
+
+          <!-- Effects and Samplers sections removed for the Tango DJ build: a
+               tanda set is not mixed with effects or triggered samples, and both
+               racks are force-hidden in skin.xml. -->
+
+          <!-- Library -->
+          <Label>
+            <ObjectName>CategoryLabel</ObjectName>
+            <Text>Library</Text>
+            <Size>180min,26f</Size>
+          </Label>
+
+          <WidgetGroup>
+            <ObjectName>SkinSettingsCategory</ObjectName>
+            <SizePolicy>me,min</SizePolicy>
+            <Layout>vertical</Layout>
+            <Children>
+
+              <!-- Preview Deck -->
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="TooltipId">show_previewdeck</SetVariable>
+                <SetVariable name="Text">Preview Deck</SetVariable>
+                <SetVariable name="Setting">[Skin],show_preview_decks</SetVariable>
+              </Template>
+
+              <!-- Cover Art -->
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="TooltipId">show_coverart</SetVariable>
+                <SetVariable name="Text">Cover Art</SetVariable>
+                <SetVariable name="Setting">[Skin],show_library_coverart</SetVariable>
+              </Template>
+
+            </Children>
+          </WidgetGroup><!-- /Library -->
+
+          <!-- push the settings up, required with Qt6 -->
+          <WidgetGroup><Size>0me,0me</Size></WidgetGroup>
+
+        </Children>
+      </WidgetGroup><!-- /SkinSettings -->
+    </Children>
+    <Connection>
+      <ConfigKey>[Skin],show_settings</ConfigKey>
+      <BindProperty>visible</BindProperty>
+    </Connection>
+  </WidgetGroup>
+</Template>

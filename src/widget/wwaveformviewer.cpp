@@ -36,6 +36,8 @@ WWaveformViewer::WWaveformViewer(
     m_pWheel = new ControlProxy(
             group, "wheel", this, ControlFlag::NoAssertIfMissing);
     m_pPlayEnabled = new ControlProxy(group, "play", this, ControlFlag::NoAssertIfMissing);
+    m_pLiveModeControl = new ControlProxy(
+            "[AutoDJ]", "live_mode", this, ControlFlag::NoAssertIfMissing);
     m_pPassthroughEnabled = make_parented<ControlProxy>(group, "passthrough", this);
     m_pPassthroughEnabled->connectValueChanged(this, &WWaveformViewer::passthroughChanged);
 
@@ -78,6 +80,10 @@ void WWaveformViewer::showEvent(QShowEvent* event) {
 
 void WWaveformViewer::mousePressEvent(QMouseEvent* event) {
     if (!m_waveformWidget || m_waveformWidget->getType() == WaveformWidgetType::EmptyWaveform) {
+        return;
+    }
+
+    if (event->button() == Qt::LeftButton && isLiveModeEnabled()) {
         return;
     }
 
@@ -129,6 +135,13 @@ void WWaveformViewer::mousePressEvent(QMouseEvent* event) {
 
 void WWaveformViewer::mouseMoveEvent(QMouseEvent* event) {
     if (!m_waveformWidget || m_waveformWidget->getType() == WaveformWidgetType::EmptyWaveform) {
+        return;
+    }
+
+    if (m_bScratching && isLiveModeEnabled()) {
+        m_pScratchPositionEnable->set(0.0);
+        m_bScratching = false;
+        setCursor(Qt::ArrowCursor);
         return;
     }
 
@@ -340,4 +353,8 @@ void WWaveformViewer::unhighlightMark(WaveformMarkPointer pMark) {
 
 bool WWaveformViewer::isPlaying() const {
     return m_pPlayEnabled->toBool();
+}
+
+bool WWaveformViewer::isLiveModeEnabled() const {
+    return m_pLiveModeControl->toBool();
 }

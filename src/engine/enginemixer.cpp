@@ -250,6 +250,7 @@ EngineMixer::~EngineMixer() {
         delete pChannelInfo->m_pChannel;
         delete pChannelInfo->m_pVolumeControl;
         delete pChannelInfo->m_pMuteControl;
+        delete pChannelInfo->m_pAutoDJFadeGainControl;
         delete pChannelInfo;
     }
 }
@@ -898,6 +899,9 @@ void EngineMixer::addChannel(EngineChannel* pChannel) {
     pChannelInfo->m_pMuteControl = new ControlPushButton(
             ConfigKey(group, "mute"));
     pChannelInfo->m_pMuteControl->setButtonMode(ControlPushButton::POWERWINDOW);
+    pChannelInfo->m_pAutoDJFadeGainControl = new ControlObject(
+            ConfigKey(group, "autodj_fade_gain"));
+    pChannelInfo->m_pAutoDJFadeGainControl->set(1.0);
     pChannelInfo->m_pBuffer = mixxx::SampleBuffer(kMaxEngineSamples);
     pChannelInfo->m_pBuffer.clear();
     m_channels.append(pChannelInfo);

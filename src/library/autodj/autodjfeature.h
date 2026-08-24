@@ -4,7 +4,9 @@
 #include <QObject>
 #include <QPointer>
 #include <QUrl>
+#include <QUuid>
 #include <QVariant>
+#include <QVector>
 #include <memory>
 
 #include "control/controlpushbutton.h"
@@ -26,6 +28,8 @@ class WLibrarySidebar;
 class QAction;
 class QModelIndex;
 class QPoint;
+class TandaQueueState;
+enum class TandaType;
 
 class AutoDJFeature : public LibraryFeature {
     Q_OBJECT
@@ -55,6 +59,21 @@ class AutoDJFeature : public LibraryFeature {
 
     TreeItemModel* sidebarModel() const override;
 
+    TandaQueueState* tandaQueueState() const {
+        return m_pTandaQueueState.get();
+    }
+    QUuid makeTanda(const QVector<int>& oneBasedPositions,
+            TandaType type,
+            QString* pError = nullptr);
+    bool ungroupTanda(const QUuid& id);
+    bool changeTandaType(const QUuid& id, TandaType type);
+    bool setTandaCollapsed(const QUuid& id, bool collapsed);
+    bool moveTanda(const QUuid& id,
+            int newAnchorPosition,
+            QString* pError = nullptr);
+    bool moveTandaUp(const QUuid& id, QString* pError = nullptr);
+    bool moveTandaDown(const QUuid& id, QString* pError = nullptr);
+
     bool hasTrackTable() override {
         return true;
     }
@@ -73,6 +92,8 @@ class AutoDJFeature : public LibraryFeature {
     // The id of the AutoDJ playlist.
     int m_iAutoDJPlaylistId;
     AutoDJProcessor* m_pAutoDJProcessor;
+    std::unique_ptr<TandaQueueState> m_pTandaQueueState;
+    bool m_tandaMoveInProgress{false};
     parented_ptr<TreeItemModel> m_pSidebarModel;
     DlgAutoDJ* m_pAutoDJView;
 
@@ -94,6 +115,12 @@ class AutoDJFeature : public LibraryFeature {
     QString libraryStyleSheet() const;
     // True while Tango mode ([AutoDJ],keep_queue) is engaged.
     bool tangoModeEnabled() const;
+    // Cached Tango-mode state. This avoids re-querying the keep_queue proxy
+    // while its own valueChanged signal is still being processed.
+    bool m_tangoModeEnabled;
+    // True when Tango mode forced the Auto DJ side panel closed and it should
+    // be restored the next time Tango mode is enabled.
+    bool m_restoreAutoDJDockOnTangoMode;
 
     // Initialize the list of crates loaded into the auto-DJ queue.
     void constructCrateChildModel();

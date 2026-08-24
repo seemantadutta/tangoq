@@ -1,0 +1,29 @@
+<Template>
+
+  <WidgetGroup>
+    <Layout>vertical</Layout>
+    <MaximumSize>,230</MaximumSize>
+    <Children>
+
+      <Template src="skins:TangoQ/decks/deck_singletons.xml">
+        <SetVariable name="Type">deck</SetVariable>
+        <SetVariable name="Group">[Channel<Variable name="ChanNum"/>]</SetVariable>
+      </Template>
+
+      <!-- Deck size is locked to Full for the Tango DJ: compact/mini omit the
+           Set Start / Reset transport buttons (and show a cue button instead),
+           which are critical to keep. The size selector is removed from the skin
+           settings to match; bring the sizes back only if those buttons can be
+           retained in every size. -->
+      <WidgetGroup>
+        <Layout>horizontal</Layout>
+        <Children>
+          <SingletonContainer>
+            <ObjectName>Deck<Variable name="ChanNum"/>_Full</ObjectName>
+          </SingletonContainer>
+        </Children>
+      </WidgetGroup>
+
+    </Children>
+  </WidgetGroup>
+</Template>

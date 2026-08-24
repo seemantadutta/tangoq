@@ -72,6 +72,7 @@ class WWaveformViewer : public WWidget, public TrackDropTarget {
     ControlProxy* m_pScratchPosition;
     ControlProxy* m_pWheel;
     ControlProxy* m_pPlayEnabled;
+    ControlProxy* m_pLiveModeControl;
     parented_ptr<ControlProxy> m_pPassthroughEnabled;
     bool m_bScratching;
     bool m_bBending;
@@ -89,4 +90,5 @@ class WWaveformViewer : public WWidget, public TrackDropTarget {
     void highlightMark(WaveformMarkPointer pMark);
     void unhighlightMark(WaveformMarkPointer pMark);
     bool isPlaying() const;
+    bool isLiveModeEnabled() const;
 };

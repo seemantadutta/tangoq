@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QString>
+
 #include "preferences/usersettings.h"
 #include "util/db/dbconnectionpool.h"
 
@@ -12,6 +14,8 @@ class MixxxDb : public QObject {
     static const QString kDefaultSchemaFile;
 
     static const int kRequiredSchemaVersion;
+
+    static const QString kDefaultFileName;
 
     static bool initDatabaseSchema(
             const QSqlDatabase& database,

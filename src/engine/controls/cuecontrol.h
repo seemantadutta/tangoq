@@ -254,6 +254,13 @@ class CueControl : public EngineControl {
     void playStutter(double v);
 
     void introStartSet(double v);
+    // Tango DJ mode: place the intro start cue at the exact play position,
+    // ignoring quantize. A tango start point marks where the music actually
+    // begins - after a spoken announcement, say - and the beatgrid over such an
+    // intro is often unreliable, so snapping to it would move the point away
+    // from where the DJ put it.
+    void introStartSetExact(double v);
+    void introStartReset(double v);
     void introStartClear(double v);
     void introStartActivate(double v);
     void introEndSet(double v);
@@ -284,6 +291,12 @@ class CueControl : public EngineControl {
     void loadCuesFromTrack();
     mixxx::audio::FramePos quantizeCuePoint(mixxx::audio::FramePos position);
     mixxx::audio::FramePos getQuantizedCurrentPosition();
+    // Shared body of introStartSet()/introStartSetExact(); the two differ only
+    // in whether the play position is snapped to the beatgrid.
+    void introStartSetInternal(bool quantize);
+    // Updates the stock Intro control. loadCuesFromTrack() then publishes the
+    // classified Tango marker whose source matches the playback entry point.
+    void setIntroStartPositionValue(double quantizedPos, double exactPos);
     TrackAt getTrackAt() const;
     void seekOnLoad(mixxx::audio::FramePos seekOnLoadPosition);
     void setHotcueFocusIndex(int hotcueIndex);
@@ -326,8 +339,21 @@ class CueControl : public EngineControl {
     std::unique_ptr<ControlPushButton> m_pCuePreview;
 
     std::unique_ptr<ControlObject> m_pIntroStartPosition;
+    // The track's start point for Tango DJ mode. Exists separately from
+    // m_pIntroStartPosition for two reasons: a skin can only bind one waveform
+    // Mark per control (WaveformMarkSet silently drops a second definition of
+    // the same item), and this one is deliberately *not* quantized. A start
+    // point marks where the music begins - after a spoken announcement, say -
+    // and the beatgrid over such an intro is unreliable, so it must stay where
+    // the DJ put it whether or not quantize is enabled.
+    std::unique_ptr<ControlObject> m_pTangoStartPosition;
+    std::unique_ptr<ControlObject> m_pTangoFasPosition;
+    std::unique_ptr<ControlObject> m_pTangoLasPosition;
+    std::unique_ptr<ControlObject> m_pTangoFileStartPosition;
     std::unique_ptr<ControlObject> m_pIntroStartEnabled;
     std::unique_ptr<ControlPushButton> m_pIntroStartSet;
+    std::unique_ptr<ControlPushButton> m_pIntroStartSetExact;
+    std::unique_ptr<ControlPushButton> m_pIntroStartReset;
     std::unique_ptr<ControlPushButton> m_pIntroStartClear;
     std::unique_ptr<ControlPushButton> m_pIntroStartActivate;
 

@@ -31,6 +31,17 @@
    </property>
    <item>
     <widget class="QWidget" name="LibraryFeatureControls">
+     <property name="minimumSize">
+      <!-- A tiny explicit minimum lets the whole Auto DJ controls row be shrunk
+           (Qt's default layout constraint won't override a minimum that is set),
+           so the Auto DJ pane can be dragged narrower than its populated toolbar
+           and the sidebar widened. The row clips from the right; the shrinkable
+           readout labels collapse first, keeping the left-hand buttons usable. -->
+      <size>
+       <width>1</width>
+       <height>0</height>
+      </size>
+     </property>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <property name="spacing">
        <number>0</number>
@@ -73,7 +84,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>10</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -139,6 +150,35 @@
        </widget>
       </item>
       <item>
+       <widget class="QSpinBox" name="spinBoxTandaGap">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="frame">
+         <bool>false</bool>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>99</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="labelTandaGapAppendix">
+        <property name="text">
+         <string>sec.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -148,7 +188,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>10</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -232,35 +272,95 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="labelTangoSetTime">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="toolTip">
-         <string>Estimated end time of the Auto DJ set (Tango DJ mode).</string>
-        </property>
+       <widget class="QWidget" name="containerAdjSetTime">
+        <layout class="QHBoxLayout" name="layoutAdjSetTime">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="QLabel" name="labelSetLength">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="minimumSize">
+            <!-- A tiny explicit minimum overrides the QLabel's full-text minimum
+                 so the Auto DJ pane can be dragged narrower than these readouts;
+                 the text clips instead of pinning the pane width. -->
+            <size>
+             <width>1</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Total length of the Auto DJ set (Tango DJ mode).</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerSetLengthEnds">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>8</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelEnds">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>1</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Projected end time of the Auto DJ set (Tango DJ mode).</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerEndTimeGap">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>8</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacerEndTimeGap">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>24</width>
-          <height>1</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
+       <widget class="QWidget" name="containerAdjEndTime">
+        <layout class="QHBoxLayout" name="layoutAdjEndTime">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
        <widget class="QLabel" name="labelSetEndTime">
         <property name="text">
-         <string>Set End Time:</string>
+         <string>T:</string>
         </property>
         <property name="toolTip">
          <string>Target end time for the milonga (Tango DJ mode). The indicator to the right shows whether the projected end is over or under this time.</string>
@@ -277,7 +377,7 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>6</width>
+          <width>8</width>
           <height>1</height>
          </size>
         </property>
@@ -289,10 +389,10 @@
          <enum>Qt::ClickFocus</enum>
         </property>
         <property name="toolTip">
-         <string>Target end time for the milonga. Editable at any time, e.g. set 00:15:00 if the organizer extends the night.</string>
+         <string>Target end time for the milonga. Editable at any time, e.g. set 12:15 AM if the organizer extends the night.</string>
         </property>
         <property name="displayFormat">
-         <string>HH:mm:ss</string>
+         <string>hh:mm AP</string>
         </property>
        </widget>
       </item>
@@ -317,9 +417,177 @@
         <property name="text">
          <string/>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>1</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="toolTip">
          <string>How far the projected end is over or under the target end time.</string>
         </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacerCortinaLengthGap">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>8</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="containerAdjNudge">
+        <layout class="QHBoxLayout" name="layoutAdjNudge">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+       <widget class="QLabel" name="labelCortinaLengthCaption">
+        <property name="text">
+         <string>Cortina:</string>
+        </property>
+        <property name="toolTip">
+         <string>Cortina length budget (Tango DJ mode). Nudge it live with the − / + buttons; the default is set in Preferences → Auto DJ.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacerCortinaLengthCaption">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>8</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonCortinaLengthDown">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Shorten the cortina length by the nudge step.</string>
+        </property>
+        <property name="text">
+         <string>−</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>28</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="labelCortinaLengthValue">
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="text">
+         <string>45 s</string>
+        </property>
+        <property name="toolTip">
+         <string>Current cortina length budget.</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>40</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonCortinaLengthUp">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Lengthen the cortina length by the nudge step.</string>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>28</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="spinBoxCortinaNudgeStep">
+        <property name="focusPolicy">
+         <enum>Qt::ClickFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Nudge step: how many seconds each − / + press changes the cortina length. Editable at any time.</string>
+        </property>
+        <property name="prefix">
+         <string>±</string>
+        </property>
+        <property name="suffix">
+         <string> s</string>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>10</number>
+        </property>
+        <property name="value">
+         <number>2</number>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>54</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>68</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+        </layout>
        </widget>
       </item>
       <item>
@@ -339,6 +607,12 @@
        <widget class="QLabel" name="labelSelectionInfo">
         <property name="text">
          <string/>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>1</width>
+          <height>0</height>
+         </size>
         </property>
        </widget>
       </item>

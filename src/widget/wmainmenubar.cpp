@@ -5,6 +5,7 @@
 #include <QWindow>
 #endif
 #include <QUrl>
+#include <algorithm>
 
 #include "config.h"
 #include "control/controlproxy.h"
@@ -13,6 +14,7 @@
 #include "util/cmdlineargs.h"
 #include "util/desktophelper.h"
 #include "util/experiment.h"
+#include "util/versionstore.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
 
 namespace {
@@ -25,25 +27,10 @@ QString buildWhatsThis(const QString& title, const QString& text) {
     return QString("%1\n\n%2").arg(preparedTitle.remove("&"), text);
 }
 
-#ifdef __VINYLCONTROL__
-QString vinylControlDefaultKeyBinding(int deck) {
-    // More bindings need to be defined if you increment
-    // kMaximumVinylControlInputs.
-    DEBUG_ASSERT(deck < kMaximumVinylControlInputs);
-    switch (deck) {
-    case 0:
-        return QObject::tr("Ctrl+t");
-    case 1:
-        return QObject::tr("Ctrl+y");
-    case 2:
-        return QObject::tr("Ctrl+u");
-    case 3:
-        return QObject::tr("Ctrl+i");
-    default:
-        return QString();
-    }
-}
-#endif // __VINYLCONTROL__
+// TangoQ: vinylControlDefaultKeyBinding() removed with the Options > Vinyl
+// Control menu it fed - an unused static function fails the -Wunused-function
+// build. Restore it from git history alongside that menu if vinyl control is
+// ever brought back.
 
 QString loadToDeckDefaultKeyBinding(int deck) {
     switch (deck) {
@@ -91,6 +78,17 @@ WMainMenuBar::WMainMenuBar(QWidget* pParent, UserSettingsPointer pConfig, Config
 }
 
 void WMainMenuBar::initialize() {
+    // TangoQ: the menu bar must never auto-hide. Losing it mid-gig - and the
+    // Alt-to-reveal trap it leaves behind - is unacceptable during a live set, so
+    // the setting is forced off on every launch and the View-menu toggle that
+    // exposed it is removed below. This also un-hides a bar left hidden by a
+    // previous run.
+    m_pConfig->setValue(ConfigKey("[Config]", "hide_menubar"), 0);
+
+    // Product name for user-facing menu text, so items read "TangoQ" rather than
+    // "Mixxx".
+    const QString appName = VersionStore::applicationName();
+
     // FILE MENU
     QMenu* pFileMenu = new QMenu(tr("&File"), this);
 #ifndef __APPLE__
@@ -127,7 +125,7 @@ void WMainMenuBar::initialize() {
     pFileMenu->addSeparator();
 
     QString quitTitle = tr("&Exit");
-    QString quitText = tr("Quits Mixxx");
+    QString quitText = tr("Quits %1").arg(appName);
     auto* pFileQuit = new QAction(quitTitle, this);
     pFileQuit->setShortcut(
             QKeySequence(m_pKbdConfig->getValue(ConfigKey("[KeyboardShortcuts]", "FileMenu_Quit"),
@@ -215,31 +213,10 @@ void WMainMenuBar::initialize() {
     connectMenuToSlotShowMenuBar(pViewMenu);
 #endif
 
-#ifndef __APPLE__
-    // Show menu bar
-    QString showMenuBarTitle = tr("Auto-hide menu bar");
-    QString showMenuBarText = tr("Auto-hide the main menu bar when it's not used.");
-    auto* pViewAutoHideMenuBar = new QAction(showMenuBarTitle, this);
-    pViewAutoHideMenuBar->setCheckable(true);
-    pViewAutoHideMenuBar->setStatusTip(showMenuBarText);
-    pViewAutoHideMenuBar->setWhatsThis(buildWhatsThis(showMenuBarTitle, showMenuBarText));
-    connect(pViewAutoHideMenuBar,
-            &QAction::triggered,
-            this,
-            &WMainMenuBar::slotAutoHideMenuBarToggled);
-    // update checked state from config each time the menu is shown
-    connect(pViewMenu,
-            &QMenu::aboutToShow,
-            this,
-            [this, pViewAutoHideMenuBar]() {
-                bool autoHide = m_pConfig->getValue<bool>(
-                        ConfigKey("[Config]", "hide_menubar"), false);
-                pViewAutoHideMenuBar->setChecked(autoHide);
-            });
-    pViewMenu->addAction(pViewAutoHideMenuBar);
-
-    pViewMenu->addSeparator();
-#endif
+    // TangoQ: the "Auto-hide menu bar" toggle is deliberately not offered - see
+    // the forced hide_menubar=0 in initialize(). slotAutoHideMenuBarToggled and
+    // hideMenuBar() are left in place but are now only reachable through a config
+    // value that is always 0.
 
     // Skin Settings Menu
     QString mayNotBeSupported = tr("May not be supported on all skins.");
@@ -258,41 +235,12 @@ void WMainMenuBar::initialize() {
             ConfigKey(kSkinGroup, QStringLiteral("show_settings")));
     pViewMenu->addAction(pViewShowSkinSettings);
 
-    // Microphone Section
-    QString showMicrophoneTitle = tr("Show Microphone Section");
-    QString showMicrophoneText = tr("Show the microphone section of the Mixxx interface.") +
-            " " + mayNotBeSupported;
-    auto* pViewShowMicrophone = new QAction(showMicrophoneTitle, this);
-    pViewShowMicrophone->setCheckable(true);
-    pViewShowMicrophone->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowMicrophone"),
-                    tr("Ctrl+2", "Menubar|View|Show Microphone Section"))));
-    pViewShowMicrophone->setStatusTip(showMicrophoneText);
-    pViewShowMicrophone->setWhatsThis(buildWhatsThis(showMicrophoneTitle, showMicrophoneText));
-    createVisibilityControl(pViewShowMicrophone,
-            ConfigKey(kSkinGroup, QStringLiteral("show_microphones")));
-    pViewMenu->addAction(pViewShowMicrophone);
-
-#ifdef __VINYLCONTROL__
-    QString showVinylControlTitle = tr("Show Vinyl Control Section");
-    QString showVinylControlText = tr("Show the vinyl control section of the Mixxx interface.") +
-            " " + mayNotBeSupported;
-    auto* pViewVinylControl = new QAction(showVinylControlTitle, this);
-    pViewVinylControl->setCheckable(true);
-    pViewVinylControl->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowVinylControl"),
-                    tr("Ctrl+3", "Menubar|View|Show Vinyl Control Section"))));
-    pViewVinylControl->setStatusTip(showVinylControlText);
-    pViewVinylControl->setWhatsThis(buildWhatsThis(showVinylControlTitle, showVinylControlText));
-    createVisibilityControl(pViewVinylControl,
-            ConfigKey(kSkinGroup, QStringLiteral("show_vinylcontrol")));
-    pViewMenu->addAction(pViewVinylControl);
-#endif
+    // TangoQ: "Show Microphone Section" and "Show Vinyl Control Section" removed -
+    // neither belongs in a tanda set, and both sections are force-hidden in the
+    // skin.
 
     QString showPreviewDeckTitle = tr("Show Preview Deck");
-    QString showPreviewDeckText = tr("Show the preview deck in the Mixxx interface.") +
+    QString showPreviewDeckText = tr("Show the preview deck in the %1 interface.").arg(appName) +
             " " + mayNotBeSupported;
     auto* pViewShowPreviewDeck = new QAction(showPreviewDeckTitle, this);
     pViewShowPreviewDeck->setCheckable(true);
@@ -307,7 +255,7 @@ void WMainMenuBar::initialize() {
     pViewMenu->addAction(pViewShowPreviewDeck);
 
     QString showCoverArtTitle = tr("Show Cover Art");
-    QString showCoverArtText = tr("Show cover art in the Mixxx interface.") +
+    QString showCoverArtText = tr("Show cover art in the %1 interface.").arg(appName) +
             " " + mayNotBeSupported;
     auto* pViewShowCoverArt = new QAction(showCoverArtTitle, this);
     pViewShowCoverArt->setCheckable(true);
@@ -321,21 +269,14 @@ void WMainMenuBar::initialize() {
             ConfigKey(kSkinGroup, QStringLiteral("show_library_coverart")));
     pViewMenu->addAction(pViewShowCoverArt);
 
-    //: menu title
+    // TangoQ: "Show Keywheel" (and its F12 shortcut) removed - harmonic mixing has
+    // no place in a tanda set. The QAction is still constructed, but with no
+    // shortcut and never added to a menu, so it can never be triggered. It is kept
+    // only so onKeywheelChange() (wired to DlgKeywheel::finished) has a valid
+    // object; that path is now unreachable but the pointer must not dangle.
     QString keywheelTitle = tr("Show Keywheel");
-    //: tooltip text
-    QString keywheelText = tr("Show keywheel");
     m_pViewKeywheel = new QAction(keywheelTitle, this);
     m_pViewKeywheel->setCheckable(true);
-    m_pViewKeywheel->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowKeywheel"),
-                    tr("F12", "Menubar|View|Show Keywheel"))));
-    m_pViewKeywheel->setShortcutContext(Qt::ApplicationShortcut);
-    m_pViewKeywheel->setStatusTip(keywheelText);
-    m_pViewKeywheel->setWhatsThis(buildWhatsThis(keywheelTitle, keywheelText));
-    connect(m_pViewKeywheel, &QAction::triggered, this, &WMainMenuBar::showKeywheel);
-    pViewMenu->addAction(m_pViewKeywheel);
 
     // Dockable, always-visible Auto DJ queue panel, toggled via the
     // [AutoDJ],show_autodj_dock control owned by AutoDJFeature. The control is
@@ -351,6 +292,11 @@ void WMainMenuBar::initialize() {
                "only.");
     auto* pViewAutoDJQueue = new QAction(autoDJQueueTitle, this);
     pViewAutoDJQueue->setCheckable(true);
+    pViewAutoDJQueue->setShortcut(
+            QKeySequence(m_pKbdConfig->getValue(
+                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_ShowAutoDJQueue"),
+                    tr("Ctrl+Shift+A", "Menubar|View|Auto DJ Side Panel"))));
+    pViewAutoDJQueue->setShortcutContext(Qt::ApplicationShortcut);
     pViewAutoDJQueue->setStatusTip(autoDJQueueText);
     pViewAutoDJQueue->setWhatsThis(buildWhatsThis(autoDJQueueTitle, autoDJQueueText));
     // Gated behind Tango mode ([AutoDJ],keep_queue): the queue panel is only
@@ -361,25 +307,15 @@ void WMainMenuBar::initialize() {
             ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")));
     pViewMenu->addAction(pViewAutoDJQueue);
 
-    QString maximizeLibraryTitle = tr("Maximize Library");
-    QString maximizeLibraryText = tr("Maximize the track library to take up all the available screen space.") +
-            " " + mayNotBeSupported;
-    auto* pViewMaximizeLibrary = new QAction(maximizeLibraryTitle, this);
-    pViewMaximizeLibrary->setCheckable(true);
-    pViewMaximizeLibrary->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "ViewMenu_MaximizeLibrary"),
-                    tr("Space", "Menubar|View|Maximize Library"))));
-    pViewMaximizeLibrary->setStatusTip(maximizeLibraryText);
-    pViewMaximizeLibrary->setWhatsThis(buildWhatsThis(maximizeLibraryTitle, maximizeLibraryText));
-    createVisibilityControl(pViewMaximizeLibrary,
-            ConfigKey(kSkinGroup, QStringLiteral("show_maximized_library")));
-    pViewMenu->addAction(pViewMaximizeLibrary);
+    // TangoQ: "Maximize Library" removed. The big-library layout hides the
+    // critical Set Start / Reset buttons (it is force-hidden in the skin), and
+    // removing the action also removes its Space shortcut - so the space bar no
+    // longer maximizes the library by accident during a set.
 
     pViewMenu->addSeparator();
 
     QString fullScreenTitle = tr("&Full Screen");
-    QString fullScreenText = tr("Display Mixxx using the full screen");
+    QString fullScreenText = tr("Display %1 using the full screen").arg(appName);
     auto* pViewFullScreen = new QAction(fullScreenTitle, this);
     QList<QKeySequence> shortcuts;
     // We use F11 _AND_ the OS shortcut only on Linux and Windows because on
@@ -420,83 +356,26 @@ void WMainMenuBar::initialize() {
     connectMenuToSlotShowMenuBar(pOptionsMenu);
 #endif
 
-#ifdef __VINYLCONTROL__
-    QMenu* pVinylControlMenu = new QMenu(tr("&Vinyl Control"), this);
-    QString vinylControlText = tr(
-            "Use timecoded vinyls on external turntables to control Mixxx");
-
-    for (int i = 0; i < kMaximumVinylControlInputs; ++i) {
-        QString vinylControlTitle = tr("Enable Vinyl Control &%1").arg(i + 1);
-        auto* vc_checkbox = new QAction(vinylControlTitle, this);
-        m_vinylControlEnabledActions.push_back(vc_checkbox);
-
-        QString binding = m_pKbdConfig->getValue(
-                ConfigKey("[KeyboardShortcuts]",
-                        QString("OptionsMenu_EnableVinyl%1").arg(i + 1)),
-                vinylControlDefaultKeyBinding(i));
-        if (!binding.isEmpty()) {
-            vc_checkbox->setShortcut(QKeySequence(binding));
-            vc_checkbox->setShortcutContext(Qt::ApplicationShortcut);
-        }
-
-        // Either check or uncheck the vinyl control menu item depending on what
-        // it was saved as.
-        vc_checkbox->setCheckable(true);
-        vc_checkbox->setChecked(false);
-        // The visibility of these actions is set in
-        // WMainMenuBar::onNumberOfDecksChanged.
-        vc_checkbox->setVisible(false);
-        vc_checkbox->setStatusTip(vinylControlText);
-        vc_checkbox->setWhatsThis(buildWhatsThis(vinylControlTitle,
-                vinylControlText));
-        connect(vc_checkbox, &QAction::triggered, this, [this, i] { emit toggleVinylControl(i); });
-        pVinylControlMenu->addAction(vc_checkbox);
-    }
-    pOptionsMenu->addMenu(pVinylControlMenu);
-    pOptionsMenu->addSeparator();
-#endif
-
-    QString recordTitle = tr("&Record Mix");
-    QString recordText = tr("Record your mix to a file");
-    auto* pOptionsRecord = new QAction(recordTitle, this);
-    pOptionsRecord->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]", "OptionsMenu_RecordMix"),
-                    tr("Ctrl+R"))));
-    pOptionsRecord->setShortcutContext(Qt::ApplicationShortcut);
-    pOptionsRecord->setCheckable(true);
-    pOptionsRecord->setStatusTip(recordText);
-    pOptionsRecord->setWhatsThis(buildWhatsThis(recordTitle, recordText));
-    connect(pOptionsRecord, &QAction::triggered, this, &WMainMenuBar::toggleRecording);
-    connect(this,
-            &WMainMenuBar::internalRecordingStateChange,
-            pOptionsRecord,
-            &QAction::setChecked);
-    pOptionsMenu->addAction(pOptionsRecord);
-
-#ifdef __BROADCAST__
-    QString broadcastingTitle = tr("Enable Live &Broadcasting");
-    QString broadcastingText = tr("Stream your mixes to a shoutcast or icecast server");
-    auto* pOptionsBroadcasting = new QAction(broadcastingTitle, this);
-    pOptionsBroadcasting->setShortcut(
-            QKeySequence(m_pKbdConfig->getValue(
-                    ConfigKey("[KeyboardShortcuts]",
-                            "OptionsMenu_EnableLiveBroadcasting"),
-                    tr("Ctrl+L"))));
-    pOptionsBroadcasting->setShortcutContext(Qt::ApplicationShortcut);
-    pOptionsBroadcasting->setCheckable(true);
-    pOptionsBroadcasting->setStatusTip(broadcastingText);
-    pOptionsBroadcasting->setWhatsThis(buildWhatsThis(broadcastingTitle, broadcastingText));
-
-    connect(pOptionsBroadcasting, &QAction::triggered, this, &WMainMenuBar::toggleBroadcasting);
-    connect(this,
-            &WMainMenuBar::internalBroadcastingStateChange,
-            pOptionsBroadcasting,
-            &QAction::setChecked);
-    pOptionsMenu->addAction(pOptionsBroadcasting);
-#endif
-
-    pOptionsMenu->addSeparator();
+    // TangoQ: "Vinyl Control", "Record Mix" and "Enable Live Broadcasting" are
+    // removed from the Options menu - a tanda set is not mixed on timecode vinyl,
+    // recorded, or streamed. Their toolbar buttons are gone too.
+    //
+    // To revive Record Mix in a future release, restore this block (it also
+    // brings back the Ctrl+R shortcut). The backing signals/slots still exist:
+    //     auto* pOptionsRecord = new QAction(tr("&Record Mix"), this);
+    //     pOptionsRecord->setShortcut(QKeySequence(m_pKbdConfig->getValue(
+    //             ConfigKey("[KeyboardShortcuts]", "OptionsMenu_RecordMix"),
+    //             tr("Ctrl+R"))));
+    //     pOptionsRecord->setShortcutContext(Qt::ApplicationShortcut);
+    //     pOptionsRecord->setCheckable(true);
+    //     connect(pOptionsRecord, &QAction::triggered,
+    //             this, &WMainMenuBar::toggleRecording);
+    //     connect(this, &WMainMenuBar::internalRecordingStateChange,
+    //             pOptionsRecord, &QAction::setChecked);
+    //     pOptionsMenu->addAction(pOptionsRecord);
+    // (toggleRecording / internalRecordingStateChange are still declared, and the
+    // record toolbar widget can be brought back from res/skins/TangoQ/toolbar.xml
+    // git history.)
 
     QString keyboardShortcutTitle = tr("Enable &Keyboard Shortcuts");
     QString keyboardShortcutText = tr("Toggles keyboard shortcuts on or off");
@@ -519,7 +398,7 @@ void WMainMenuBar::initialize() {
     pOptionsMenu->addSeparator();
 
     QString preferencesTitle = tr("&Preferences");
-    QString preferencesText = tr("Change Mixxx settings (e.g. playback, MIDI, controls)");
+    QString preferencesText = tr("Change %1 settings (e.g. playback, MIDI, controls)").arg(appName);
     auto* pOptionsPreferences = new QAction(preferencesTitle, this);
     pOptionsPreferences->setShortcut(
             QKeySequence(m_pKbdConfig->getValue(
@@ -653,32 +532,8 @@ void WMainMenuBar::initialize() {
     externalLinkSuffix = QChar(' ') + QChar(0x2197); // north-east arrow
 #endif
 
-    // Community Support
-    QString supportTitle = tr("&Community Support") + externalLinkSuffix;
-    QString supportText = tr("Get help with Mixxx");
-    auto* pHelpSupport = new QAction(supportTitle, this);
-    pHelpSupport->setStatusTip(supportText);
-    pHelpSupport->setWhatsThis(buildWhatsThis(supportTitle, supportText));
-    connect(pHelpSupport, &QAction::triggered, this, [this] {
-        slotVisitUrl(QUrl(MIXXX_SUPPORT_URL));
-    });
-    pHelpMenu->addAction(pHelpSupport);
-
-    // User Manual
-    QUrl manualUrl = documentationUrl(m_pConfig->getResourcePath(),
-            MIXXX_MANUAL_FILENAME,
-            MIXXX_MANUAL_URL);
-    QString manualSuffix = manualUrl.isLocalFile() ? QString() : externalLinkSuffix;
-
-    QString manualTitle = tr("&User Manual") + manualSuffix;
-    QString manualText = tr("Read the Mixxx user manual.");
-    auto* pHelpManual = new QAction(manualTitle, this);
-    pHelpManual->setStatusTip(manualText);
-    pHelpManual->setWhatsThis(buildWhatsThis(manualTitle, manualText));
-    connect(pHelpManual, &QAction::triggered, this, [this, manualUrl] {
-        slotVisitUrl(manualUrl);
-    });
-    pHelpMenu->addAction(pHelpManual);
+    // TangoQ: "Community Support" and "User Manual" removed - they point at the
+    // upstream Mixxx project, which does not document this fork's Tango workflow.
 
     // Keyboard Shortcuts
     QUrl keyboardShortcutsUrl = documentationUrl(m_pConfig->getResourcePath(),
@@ -703,7 +558,7 @@ void WMainMenuBar::initialize() {
     // User Settings Directory
     const QString& settingsDirPath = m_pConfig->getSettingsPath();
     QString settingsDirTitle = tr("&Settings directory");
-    QString settingsDirText = tr("Open the Mixxx user settings directory.");
+    QString settingsDirText = tr("Open the %1 user settings directory.").arg(appName);
     auto* pHelpSettingsDir = new QAction(settingsDirTitle, this);
     pHelpSettingsDir->setMenuRole(QAction::NoRole);
     pHelpSettingsDir->setStatusTip(settingsDirText);
@@ -713,16 +568,8 @@ void WMainMenuBar::initialize() {
     });
     pHelpMenu->addAction(pHelpSettingsDir);
 
-    // Translate This Application
-    QString translateTitle = tr("&Translate This Application") + externalLinkSuffix;
-    QString translateText = tr("Help translate this application into your language.");
-    auto* pHelpTranslation = new QAction(translateTitle, this);
-    pHelpTranslation->setStatusTip(translateText);
-    pHelpTranslation->setWhatsThis(buildWhatsThis(translateTitle, translateText));
-    connect(pHelpTranslation, &QAction::triggered, this, [this] {
-        slotVisitUrl(QUrl(MIXXX_TRANSLATION_URL));
-    });
-    pHelpMenu->addAction(pHelpTranslation);
+    // TangoQ: "Translate This Application" removed - it points at the upstream
+    // Mixxx translation project, not this fork.
 
     pHelpMenu->addSeparator();
 
@@ -944,13 +791,20 @@ void WMainMenuBar::createVisibilityControl(QAction* pAction,
 }
 
 void WMainMenuBar::onNumberOfDecksChanged(int decks) {
+    // TangoQ: only two decks are ever shown, even though the engine may still be
+    // configured for four. Cap the File > Load to Deck actions (and the vinyl
+    // actions, if any survive) at two so decks 3 and 4 - and their load shortcuts
+    // - never appear.
+    const int visibleDecks = std::min(decks, 2);
     int deck = 0;
     for (QAction* pVinylControlEnabled : std::as_const(m_vinylControlEnabledActions)) {
-        pVinylControlEnabled->setVisible(deck++ < decks);
+        pVinylControlEnabled->setVisible(deck++ < visibleDecks);
     }
     deck = 0;
     for (QAction* pLoadToDeck : std::as_const(m_loadToDeckActions)) {
-        pLoadToDeck->setVisible(deck++ < decks);
+        const bool show = deck++ < visibleDecks;
+        pLoadToDeck->setVisible(show);
+        pLoadToDeck->setEnabled(show);
     }
 }
 
@@ -981,12 +835,15 @@ void VisibilityControlConnection::slotReconnectControl() {
 }
 
 void VisibilityControlConnection::updateActionState() {
-    m_pAction->setEnabled(m_pControl && m_pControl->valid());
+    const bool controlAvailable = m_pControl && m_pControl->valid();
+    const bool gateOpen = !m_pGateControl || m_pGateControl->toBool();
+    m_pAction->setEnabled(controlAvailable && gateOpen);
     // A gated action (e.g. Auto DJ Queue) is hidden entirely while its gate
     // (Tango mode) is closed, so the menu is unchanged outside that mode rather
-    // than showing a greyed-out item.
+    // than showing a greyed-out item. Disable it too so its shortcut cannot
+    // toggle the hidden feature while the gate is closed.
     if (m_pGateControl) {
-        m_pAction->setVisible(m_pGateControl->toBool());
+        m_pAction->setVisible(gateOpen);
     }
 }
 

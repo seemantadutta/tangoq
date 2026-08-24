@@ -151,6 +151,24 @@ QList<TrackId> PlaylistDAO::getTrackIds(const int playlistId) const {
     return trackIds;
 }
 
+QVector<TrackId> PlaylistDAO::getTrackIdsInPlaylistOrder(
+        const int playlistId) const {
+    QVector<TrackId> trackIds;
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT track_id FROM PlaylistTracks "
+            "WHERE playlist_id = :id ORDER BY position"));
+    query.bindValue(":id", playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return trackIds;
+    }
+    while (query.next()) {
+        trackIds.append(TrackId(query.value(0)));
+    }
+    return trackIds;
+}
+
 int PlaylistDAO::getPlaylistIdFromName(const QString& name) const {
     //qDebug() << "PlaylistDAO::getPlaylistIdFromName" << QThread::currentThread() << m_database.connectionName();
 
@@ -1135,6 +1153,87 @@ void PlaylistDAO::moveTrack(const int playlistId, const int oldPosition, const i
     emit tracksMoved(QSet<int>{playlistId});
 }
 
+bool PlaylistDAO::moveTrackRange(const int playlistId,
+        int firstPosition,
+        int lastPosition,
+        int newFirstPosition) {
+    const int trackCount = tracksInPlaylist(playlistId);
+    const int length = lastPosition - firstPosition + 1;
+    if (playlistId < 0 || trackCount < 0 || length <= 0 || firstPosition <= 0 ||
+            lastPosition > trackCount || newFirstPosition <= 0 ||
+            newFirstPosition + length - 1 > trackCount) {
+        return false;
+    }
+    if (newFirstPosition == firstPosition) {
+        return true;
+    }
+
+    ScopedTransaction transaction(m_database);
+    if (!transaction.active()) {
+        return false;
+    }
+    QSqlQuery query(m_database);
+    const int markerOffset = trackCount + length + 1;
+
+    // Park the complete range outside all real positions. No intermediate
+    // state is observable outside this transaction.
+    query.prepare(QStringLiteral(
+            "UPDATE PlaylistTracks SET position = position + :marker "
+            "WHERE playlist_id = :id AND position BETWEEN :first AND :last"));
+    query.bindValue(":marker", markerOffset);
+    query.bindValue(":id", playlistId);
+    query.bindValue(":first", firstPosition);
+    query.bindValue(":last", lastPosition);
+    if (!query.exec() || query.numRowsAffected() != length) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    if (newFirstPosition < firstPosition) {
+        query.prepare(QStringLiteral(
+                "UPDATE PlaylistTracks SET position = position + :length "
+                "WHERE playlist_id = :id AND position >= :destination "
+                "AND position < :first"));
+        query.bindValue(":destination", newFirstPosition);
+        query.bindValue(":first", firstPosition);
+    } else {
+        // newFirstPosition is expressed in the final, post-removal queue. The
+        // crossed source rows therefore extend length-1 positions past it in
+        // the original queue.
+        query.prepare(QStringLiteral(
+                "UPDATE PlaylistTracks SET position = position - :length "
+                "WHERE playlist_id = :id AND position > :last "
+                "AND position < :crossed_end"));
+        query.bindValue(":last", lastPosition);
+        query.bindValue(":crossed_end", newFirstPosition + length);
+    }
+    query.bindValue(":length", length);
+    query.bindValue(":id", playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    query.prepare(QStringLiteral(
+            "UPDATE PlaylistTracks "
+            "SET position = position - :marker + :delta "
+            "WHERE playlist_id = :id AND position > :track_count"));
+    query.bindValue(":marker", markerOffset);
+    query.bindValue(":delta", newFirstPosition - firstPosition);
+    query.bindValue(":id", playlistId);
+    query.bindValue(":track_count", trackCount);
+    if (!query.exec() || query.numRowsAffected() != length) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    if (!transaction.commit()) {
+        return false;
+    }
+    emit tracksMoved(QSet<int>{playlistId});
+    return true;
+}
+
 void PlaylistDAO::searchForDuplicateTrack(const int fromPosition,
         const int toPosition,
         TrackId trackID,
@@ -1362,6 +1461,22 @@ void PlaylistDAO::setAutoDJProcessor(AutoDJProcessor* pAutoDJProcessor) {
 void PlaylistDAO::addTracksToAutoDJQueue(const QList<TrackId>& trackIds, AutoDJSendLoc loc) {
     int iAutoDJPlaylistId = getPlaylistIdFromName(AUTODJ_TABLE);
     if (iAutoDJPlaylistId == kInvalidPlaylistId) {
+        return;
+    }
+
+    // Tango (Keep Queue) mode: the queue is a set the DJ arranged in advance and
+    // the cursor tracks their position in it, so only appending is meaningful.
+    // TOP inserts near the front, which in Tango is the already-played region -
+    // the track would sit in the set history and never play. REPLACE deletes the
+    // set outright, losing hours of preparation to one stray press mid-milonga.
+    // Refused here rather than only in the track menu, because that left the
+    // controller mappings and the playlist/external-library sidebars able to do
+    // both, and every route into the Auto DJ queue passes through here.
+    if (loc != AutoDJSendLoc::BOTTOM && m_pAutoDJProcessor &&
+            m_pAutoDJProcessor->isQueueOrderLocked()) {
+        qDebug() << "Auto DJ queue: refusing"
+                 << (loc == AutoDJSendLoc::TOP ? "TOP" : "REPLACE")
+                 << "in Tango mode; only appending is allowed";
         return;
     }
 

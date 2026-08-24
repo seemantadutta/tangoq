@@ -91,7 +91,6 @@ inline bool supportsGlobalMenu() {
 #endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
-const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -629,47 +628,11 @@ void MixxxMainWindow::initializeWindow() {
 
 #ifndef __APPLE__
 void MixxxMainWindow::alwaysHideMenuBarDlg() {
-    // Don't show the dialog if the user unchecked "Ask me again"
-    if (!m_pCoreServices->getSettings()->getValue<bool>(
-                kMenuBarHintConfigKey, true)) {
-        return;
-    }
-    QString title = tr("Allow Mixxx to hide the menu bar?");
-    //: Always show the menu bar?
-    QString hideBtnLabel = tr("Hide");
-    QString showBtnLabel = tr("Always show");
-    //: Keep formatting tags <b> (bold text) and <br> (linebreak).
-    //: %1 is the placeholder for the 'Always show' button label
-    QString desc = tr(
-            "The Mixxx menu bar is hidden and can be toggled with a single press "
-            "of the <b>Alt</b> key.<br><br>"
-            "Click <b>%1</b> to agree.<br><br>"
-            "Click <b>%2</b> to disable that, for example if you don't use Mixxx "
-            "with a keyboard.<br><br>"
-            "You can change this setting any time in Preferences -> Interface."
-            "<br>") // line break for some extra margin to the checkbox
-                           .arg(hideBtnLabel, showBtnLabel);
-
-    QMessageBox msg;
-    msg.setIcon(QMessageBox::Question);
-    msg.setWindowTitle(title);
-    msg.setText(desc);
-    QCheckBox askAgainCheckBox;
-    askAgainCheckBox.setText(tr("Ask me again"));
-    askAgainCheckBox.setCheckState(Qt::Checked);
-    msg.setCheckBox(&askAgainCheckBox);
-    QPushButton* pHideBtn = msg.addButton(hideBtnLabel, QMessageBox::AcceptRole);
-    QPushButton* pShowBtn = msg.addButton(showBtnLabel, QMessageBox::RejectRole);
-    msg.setDefaultButton(pShowBtn);
-    msg.exec();
-
-    m_pCoreServices->getSettings()->setValue(
-            kMenuBarHintConfigKey,
-            askAgainCheckBox.checkState() == Qt::Checked ? 1 : 0);
-
-    m_pCoreServices->getSettings()->setValue(
-            kHideMenuBarConfigKey,
-            msg.clickedButton() == pHideBtn ? 1 : 0);
+    // TangoQ never auto-hides the menu bar - WMainMenuBar forces
+    // [Config],hide_menubar off on every launch and does not offer the toggle -
+    // so the first-run prompt that asks permission to hide it is suppressed
+    // entirely. Losing the menu bar mid-gig is unacceptable, so the DJ is never
+    // even offered the option. The callers are left in place, calling this no-op.
 }
 #endif
 
@@ -721,10 +684,12 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 }
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
+    const QString appName = VersionStore::applicationName();
     QString title(tr("Sound Device Busy"));
     QString text(
             "<html> <p>" %
-                    tr("Mixxx was unable to open all the configured sound devices.") +
+                    tr("%1 was unable to open all the configured sound devices.")
+                            .arg(appName) +
             "</p> <p>" %
                     m_pCoreServices->getSoundManager()->getErrorDeviceName() %
                     " is used by another application or not plugged in."
@@ -734,13 +699,13 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
                        "or reconnecting a sound device") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) %
                     "</li>"
                     "<li>" %
                     tr("Get <b>Help</b> from the Mixxx Wiki.") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Exit</b> Mixxx.") %
+                    tr("<b>Exit</b> %1.").arg(appName) %
                     "</li>"
                     "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
@@ -748,10 +713,12 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
         SoundDeviceStatus status, bool* retryClicked) {
+    const QString appName = VersionStore::applicationName();
     QString title(tr("Sound Device Error"));
     QString text("<html> <p>" %
-                    tr("Mixxx was unable to open all the configured sound "
-                       "devices.") +
+                    tr("%1 was unable to open all the configured sound "
+                       "devices.")
+                            .arg(appName) +
             "</p> <p>" %
                     m_pCoreServices->getSoundManager()
                             ->getLastErrorMessage(status)
@@ -761,13 +728,13 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
                     tr("<b>Retry</b> after fixing an issue") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) %
                     "</li>"
                     "<li>" %
                     tr("Get <b>Help</b> from the Mixxx Wiki.") %
                     "</li>"
                     "<li>" %
-                    tr("<b>Exit</b> Mixxx.") %
+                    tr("<b>Exit</b> %1.").arg(appName) %
                     "</li>"
                     "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
@@ -776,22 +743,23 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
 QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Warning);
+    const QString appName = VersionStore::applicationName();
     msgBox.setWindowTitle(tr("No Output Devices"));
     msgBox.setText(
-            "<html>" + tr("Mixxx was configured without any output sound devices. "
-            "Audio processing will be disabled without a configured output device.") +
+            "<html>" + tr("%1 was configured without any output sound devices. "
+                          "Audio processing will be disabled without a configured output device.")
+                               .arg(appName) +
             "<ul>"
-                "<li>" +
-                    tr("<b>Continue</b> without any outputs.") +
-                "</li>"
-                "<li>" +
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
-                "</li>"
-                "<li>" +
-                    tr("<b>Exit</b> Mixxx.") +
-                "</li>"
-            "</ul></html>"
-    );
+            "<li>" +
+            tr("<b>Continue</b> without any outputs.") +
+            "</li>"
+            "<li>" +
+            tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) +
+            "</li>"
+            "<li>" +
+            tr("<b>Exit</b> %1.").arg(appName) +
+            "</li>"
+            "</ul></html>");
 
     QPushButton* continueButton =
             msgBox.addButton(tr("Continue"), QMessageBox::ActionRole);
@@ -828,16 +796,17 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
 
 void MixxxMainWindow::slotUpdateWindowTitle(TrackPointer pTrack) {
     m_pTitleTrack = pTrack;
-    QString appTitle = VersionStore::applicationName();
+    QString appTitle = VersionStore::applicationName() +
+            QChar(' ') + VersionStore::forkVersion();
     QString filePath;
 
-    // The app is TangoMode whether or not Tango DJ mode is engaged -- the name
+    // The app is TangoQ whether or not Tango DJ mode is engaged -- the name
     // says what the software is, this suffix says how it is behaving. Deliberately
     // not swapping in upstream's name and logo when the mode is off: this build is
     // still this fork, and claiming otherwise would be both untrue and a misuse of
     // their branding.
     if (m_pTangoModeControl && !m_pTangoModeControl->toBool()) {
-        appTitle = tr("%1 — Off").arg(appTitle);
+        appTitle = tr("%1 - Off").arg(appTitle);
     }
 
     // If we have a track, use getInfo() to format a summary string and prepend
@@ -868,6 +837,15 @@ void MixxxMainWindow::slotTangoModeChanged(double value) {
     if (!pLogo) {
         return;
     }
+#ifdef Q_OS_MACOS
+    // TangoQ: on macOS the toolbar logo uses the squircle icon lockup to match
+    // the macOS app icon; other platforms keep the skin's square-icon lockup.
+    // The skin sets #ToolbarLogo's image in QSS, so override it on the widget
+    // (re-applied here because a skin reload recreates the widget).
+    pLogo->setStyleSheet(QStringLiteral(
+            "#ToolbarLogo { image: url(skins:TangoQ/palemoon/style/"
+            "tangoq_logo_small_macos.svg) no-repeat center center; }"));
+#endif
     if (!m_pLogoDim) {
         m_pLogoDim = new QGraphicsOpacityEffect(pLogo);
         pLogo->setGraphicsEffect(m_pLogoDim);
@@ -1562,29 +1540,33 @@ bool MixxxMainWindow::confirmExit() {
             break;
         }
     }
+    const QString appName = VersionStore::applicationName();
     if (playing) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A deck is currently playing. Exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A deck is currently playing. Exit %1?").arg(appName),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     } else if (playingSampler) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A sampler is currently playing. Exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A sampler is currently playing. Exit %1?").arg(appName),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
-        QMessageBox::StandardButton btn = QMessageBox::question(
-            this, tr("Confirm Exit"),
-            tr("The preferences window is still open.") + "<br>" +
-            tr("Discard any changes and exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        QMessageBox::StandardButton btn = QMessageBox::question(this,
+                tr("Confirm Exit"),
+                tr("The preferences window is still open.") + "<br>" +
+                        tr("Discard any changes and exit %1?").arg(appName),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }

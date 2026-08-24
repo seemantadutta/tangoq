@@ -217,7 +217,13 @@ void allshader::WaveformRenderMark::paintGL() {
     double nextMarkPosition = std::numeric_limits<double>::max();
 
     for (const auto& pMark : std::as_const(m_marks)) {
-        if (!pMark->isValid()) {
+        // A mark whose <VisibilityControl> is off must not be drawn.
+        // WaveformMarkSet::update() already filters on isVisible() when it
+        // builds its sorted map, but this draw loop iterated m_marks directly
+        // and so painted marks the skin had switched off. isVisible() returns
+        // true when no VisibilityControl was declared, leaving ordinary marks
+        // untouched.
+        if (!pMark->isValid() || !pMark->isVisible()) {
             continue;
         }
 

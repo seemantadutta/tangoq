@@ -112,6 +112,10 @@ class WSpinnyBase : public WGLWidget,
     ControlProxy* m_pTrackSampleRate;
     ControlProxy* m_pScratchToggle;
     ControlProxy* m_pScratchPos;
+    // Tango DJ mode ([AutoDJ],keep_queue). When on, dragging the platter to
+    // scratch is suppressed - a milonga set is not hand-scratched, and an
+    // accidental drag must not disturb a playing tanda.
+    ControlProxy* m_pKeepQueue;
     ControlProxy* m_pVinylControlSpeedType;
     ControlProxy* m_pVinylControlEnabled;
     ControlProxy* m_pSignalEnabled;

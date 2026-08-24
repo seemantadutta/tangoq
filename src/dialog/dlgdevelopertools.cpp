@@ -32,7 +32,7 @@ DlgDeveloperTools::DlgDeveloperTools(QWidget* pParent,
     m_statProxyModel.setSourceModel(&m_statModel);
     statsTable->setModel(&m_statProxyModel);
 
-    QString logFileName = QDir(pConfig->getSettingsPath()).filePath("mixxx.log");
+    QString logFileName = QDir(pConfig->getSettingsPath()).filePath("tangoq.log");
     m_logFile.setFileName(logFileName);
     if (!m_logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "ERROR: Could not open log file:" << logFileName;

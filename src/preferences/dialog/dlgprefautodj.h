@@ -5,6 +5,7 @@
 #include "preferences/usersettings.h"
 
 class QWidget;
+class ControlProxy;
 
 class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     Q_OBJECT
@@ -18,8 +19,10 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void slotCancel() override;
 
   private slots:
-    void slotToggleTangoMode(bool checked);
     void slotSetCortinaLength(int);
+    void slotSetCortinaFadeMode(int);
+    void slotSetCortinaFadeIn(int);
+    void slotSetCortinaFadeOut(int);
     void slotSetMinimumAvailable(int);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRequeueIgnore(Qt::CheckState state);
@@ -36,5 +39,16 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
 #endif
 
   private:
+    // Refreshes the read-only "Cortina hold time" (Y = cortina length - fade-in
+    // - fade-out) label from the current buffered fade-in/out and cortina length.
+    void updateCortinaHoldLabel();
+    // Enables/disables the cortina fade-in/out inputs depending on whether
+    // the Cortina Fade transition mode is selected.
+    void updateCortinaFadeEnabled();
+
     UserSettingsPointer m_pConfig;
+    // Observes the live [AutoDJ],cortina_length so the (stop-only) length field
+    // reflects cockpit nudges made while Auto DJ is running, even though it stays
+    // greyed out then.
+    ControlProxy* m_pCortinaLengthControl;
 };

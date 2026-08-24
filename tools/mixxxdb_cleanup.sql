@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------
--- !!! BACKUP YOUR mixxxdb.sqlite BEFORE RUNNING THIS SQL SCRIPT !!! --
+-- !!! BACKUP YOUR tangoq.db BEFORE RUNNING THIS SQL SCRIPT !!!      --
 -- ...as it will simply delete all inconsistent data.                --
 --                                                                   --
 -- USAGE (Unix/Bash):                                                --
 --   sqlite3 \                                                       --
---         ${HOME}/.mixxx/mixxxdb.sqlite \                           --
+--         ${HOME}/.tangoq/tangoq.db \                                --
 --         < mixxxdb_cleanup.sql                                     --
 --                                                                   --
 -- TODO: This task should actually be integrated into Mixxx.         --
@@ -70,7 +70,7 @@ WHERE library.id=q.id;
 
 -----------------------------------------------------------------------
 -- Fix referential integrity issues in external libraries (optional) --
--- Enable conditionally depending on the contents of mixxxdb.sqlite  --
+-- Enable conditionally depending on the contents of tangoq.db        --
 -----------------------------------------------------------------------
 
 -- iTunes

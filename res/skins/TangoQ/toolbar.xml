@@ -1,0 +1,195 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>ToolBar</ObjectName>
+    <Layout>horizontal</Layout>
+    <SizePolicy>e,min</SizePolicy>
+    <Children>
+
+      <WidgetGroup><!-- GUI toggles with regular library -->
+        <ObjectName>ToolBarSection</ObjectName>
+        <SizePolicy>min,min</SizePolicy>
+        <Layout>horizontal</Layout>
+        <Children>
+
+          <Template src="skins:TangoQ/controls/button_2state.xml">
+            <SetVariable name="TooltipId">show_waveforms</SetVariable>
+            <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
+            <SetVariable name="Size">80f,20f</SetVariable>
+            <SetVariable name="state_0_text">WAVEFORMS</SetVariable>
+            <SetVariable name="state_1_text">WAVEFORMS</SetVariable>
+            <SetVariable name="ConfigKey">[Skin],show_waveforms</SetVariable>
+          </Template>
+
+          <Template src="skins:TangoQ/controls/button_2state_persist.xml">
+            <SetVariable name="TooltipId">show_mixer</SetVariable>
+            <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
+            <SetVariable name="Size">48f,20f</SetVariable>
+            <SetVariable name="state_0_text">MIXER</SetVariable>
+            <SetVariable name="state_1_text">MIXER</SetVariable>
+            <SetVariable name="ConfigKey">[Skin],show_mixer</SetVariable>
+          </Template>
+
+        </Children>
+        <Connection>
+          <ConfigKey>[Skin],show_maximized_library</ConfigKey>
+          <Transform><Not/></Transform>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </WidgetGroup><!-- GUI toggles with regular library -->
+
+      <WidgetGroup><!-- GUI toggles with maximized library -->
+        <ObjectName>ToolBarSection</ObjectName>
+        <SizePolicy>min,min</SizePolicy>
+        <Layout>horizontal</Layout>
+        <Children>
+
+          <Template src="skins:TangoQ/controls/button_2state.xml">
+            <SetVariable name="TooltipId">show_waveforms</SetVariable>
+            <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
+            <SetVariable name="Size">80f,20f</SetVariable>
+            <SetVariable name="state_0_text">DECKS</SetVariable>
+            <SetVariable name="state_1_text">DECKS</SetVariable>
+            <SetVariable name="ConfigKey">[TangoQ],max_lib_show_decks</SetVariable>
+          </Template>
+
+        </Children>
+        <Connection>
+          <ConfigKey>[Skin],show_maximized_library</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </WidgetGroup><!-- GUI toggles with maximized library -->
+
+      <WidgetGroup><Size>me,min</Size></WidgetGroup>
+
+      <!-- Tango HUD: centered heads-up display, painted by WTangoHud so it
+           stays crisp at any DPI. Visible only in Tango mode. WTangoHud paints
+           the countdown only while Auto DJ is running; when it is stopped it
+           keeps its reserved size (so the toolbar never reflows) but draws
+           nothing. -->
+      <TangoHud>
+        <ObjectName>TangoHud</ObjectName>
+        <SizePolicy>min,min</SizePolicy>
+        <Connection>
+          <ConfigKey>[AutoDJ],keep_queue</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </TangoHud>
+
+      <WidgetGroup><Size>me,min</Size></WidgetGroup>
+
+      <StatusLight>
+        <TooltipId>autodj_status</TooltipId>
+        <ObjectName>AutoDjStatus</ObjectName>
+        <Size>30f,22f</Size>
+        <NumberPos>3</NumberPos>
+        <PathStatusLight1>skins:TangoQ/<Variable name="StyleScheme"/>/style/autodj_status.svg</PathStatusLight1>
+        <PathStatusLight2>skins:TangoQ/<Variable name="StyleScheme"/>/style/autodj_status.svg</PathStatusLight2>
+        <PathStatusLight3>skins:TangoQ/<Variable name="StyleScheme"/>/style/autodj_status.svg</PathStatusLight3>
+        <Connection>
+          <ConfigKey>[AutoDJ],enabled</ConfigKey>
+        </Connection>
+        <Connection>
+          <ConfigKey>[AutoDJ],enabled</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </StatusLight>
+
+      <WidgetGroup>
+        <ObjectName>ClockWidget</ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>min,min</SizePolicy>
+        <Children>
+          <Time>
+            <TooltipId>time</TooltipId>
+          </Time>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup><Size>7f,1min</Size></WidgetGroup>
+
+      <WidgetGroup>
+        <ObjectName>LatencyBatteryContainer</ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>min,min</SizePolicy>
+        <Children>
+
+          <WidgetGroup>
+            <ObjectName></ObjectName>
+            <Layout>vertical</Layout>
+            <Children>
+              <WidgetGroup><Size>,0min</Size></WidgetGroup>
+              <WidgetGroup>
+                <ObjectName>LatencyMeterBox</ObjectName>
+                <Size>61f,7f</Size>
+                <Layout>vertical</Layout>
+                <Children>
+                  <VuMeter>
+                    <TooltipId>audio_latency_usage</TooltipId>
+                    <Size>59f,5f</Size>
+                    <PathBack>skins:TangoQ/<Variable name="StyleScheme"/>/style/latency_bg.png</PathBack>
+                    <PathVu>skins:TangoQ/<Variable name="StyleScheme"/>/style/latency_over.png</PathVu>
+                    <Horizontal>true</Horizontal>
+                    <PeakHoldSize>5</PeakHoldSize>
+                    <PeakHoldTime>1000</PeakHoldTime>
+                    <PeakFallTime>100</PeakFallTime>
+                    <PeakFallStep>1</PeakFallStep>
+                    <Connection>
+                      <ConfigKey>[App],audio_latency_usage</ConfigKey>
+                    </Connection>
+                  </VuMeter>
+                </Children>
+                <Connection>
+                  <ConfigKey>[App],audio_latency_overload</ConfigKey>
+                  <BindProperty>highlight</BindProperty>
+                </Connection>
+              </WidgetGroup><!-- LatencyMeterBox -->
+              <Label>
+                <ObjectName>LatencyLabel</ObjectName>
+                <TooltipId>audio_latency_usage</TooltipId>
+                <Size>0min,10f</Size>
+                <Alignment>center</Alignment>
+                <Text>CPU Load</Text>
+              </Label>
+            </Children>
+          </WidgetGroup><!-- LatencyMeterBox -->
+        </Children>
+      </WidgetGroup><!-- LatencyBatteryContainer -->
+
+      <!-- No battery widget: the OS already shows battery status, and WBattery
+           resized/vanished as its charge state updated. CPU Load therefore sits
+           flush against Settings, with no widget or spacer between them. -->
+
+      <PushButton>
+        <Size>80f,20f</Size>
+        <TooltipId>skin_settings</TooltipId>
+        <ObjectName>SkinSettingsToggle</ObjectName>
+        <NumberStates>2</NumberStates>
+        <State>
+          <Number>0</Number>
+          <Text>      SETTINGS</Text>
+        </State>
+        <State>
+          <Number>1</Number>
+          <Text>      SETTINGS</Text>
+        </State>
+        <Connection>
+          <ConfigKey>[Skin],show_settings</ConfigKey>
+        </Connection>
+      </PushButton>
+
+      <WidgetGroup><Size>7f,min</Size></WidgetGroup>
+
+      <Label>
+        <ObjectName>ToolbarLogo</ObjectName>
+        <Size>104f,28f</Size>
+      </Label>
+
+      <WidgetGroup><Size>2f,min</Size></WidgetGroup>
+
+    </Children>
+    <Connection>
+      <ConfigKey>[Skin],show_waveforms</ConfigKey>
+      <BindProperty>highlight</BindProperty>
+    </Connection>
+  </WidgetGroup>
+</Template>

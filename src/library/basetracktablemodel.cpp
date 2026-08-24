@@ -6,6 +6,8 @@
 #include <QScreen>
 
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
+#include "library/autodj/tracklabelregistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
 #include "library/starrating.h"
@@ -23,6 +25,7 @@
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_basetracktablemodel.cpp"
+#include "track/tangostartcue.h"
 #include "track/track.h"
 #include "util/assert.h"
 #include "util/clipboard.h"
@@ -66,6 +69,25 @@ QSqlDatabase cloneDatabase(
     }
     return cloneDatabase(
             pTrackCollectionManager->internalCollection()->database());
+}
+
+QString formatTangoStartTime(double seconds) {
+    qint64 roundedSeconds = static_cast<qint64>(seconds + 0.5);
+    if (roundedSeconds < 0) {
+        roundedSeconds = 0;
+    }
+    const qint64 hours = roundedSeconds / 3600;
+    const qint64 minutes = (roundedSeconds / 60) % 60;
+    const qint64 remainingSeconds = roundedSeconds % 60;
+    if (hours > 0) {
+        return QStringLiteral("%1:%2:%3")
+                .arg(hours)
+                .arg(minutes, 2, 10, QLatin1Char('0'))
+                .arg(remainingSeconds, 2, 10, QLatin1Char('0'));
+    }
+    return QStringLiteral("%1:%2")
+            .arg(minutes, 2, 10, QLatin1Char('0'))
+            .arg(remainingSeconds, 2, 10, QLatin1Char('0'));
 }
 
 } // anonymous namespace
@@ -373,14 +395,174 @@ void BaseTrackTableModel::setNowPlayingTrack(TrackId trackId) {
     }
 }
 
+void BaseTrackTableModel::invalidateDuplicateTrackIds() {
+    m_duplicateTrackIdsDirty = true;
+}
+
+const QSet<TrackId>& BaseTrackTableModel::duplicateTrackIds() const {
+    if (!m_duplicateTrackIdsDirty) {
+        return m_duplicateTrackIds;
+    }
+    m_duplicateTrackIds.clear();
+    QSet<TrackId> seen;
+    const int rows = rowCount();
+    for (int row = 0; row < rows; ++row) {
+        const TrackId trackId(
+                rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        if (!trackId.isValid()) {
+            continue;
+        }
+        // A cortina between every tanda is the whole point, so repeats of one
+        // are never duplicates.
+        if (CortinaRegistry::instance().contains(trackId)) {
+            continue;
+        }
+        // Record every occurrence of a repeated id, not just the later ones, so
+        // both rows of a pair are marked and the repeat is obvious from either.
+        if (seen.contains(trackId)) {
+            m_duplicateTrackIds.insert(trackId);
+        } else {
+            seen.insert(trackId);
+        }
+    }
+    m_duplicateTrackIdsDirty = false;
+    return m_duplicateTrackIds;
+}
+
+bool BaseTrackTableModel::isPauseAfterRow(int row) const {
+    return m_pauseAfterRows.contains(row);
+}
+
+void BaseTrackTableModel::togglePauseAfterRow(int row) {
+    // QHash::remove() returns bool in Qt 6; "did not remove" means it was not
+    // marked, so this toggles it on. Comparing the result against 0 reads as a
+    // count and MSVC flags the bool/int mix.
+    if (!m_pauseAfterRows.remove(row)) {
+        const TrackId trackId(
+                rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        m_pauseAfterRows.insert(row, trackId);
+    }
+    emit pauseAfterRowsChanged();
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
+void BaseTrackTableModel::clearPauseAfterRow(int row) {
+    if (!m_pauseAfterRows.remove(row)) {
+        // Nothing was marked on this row, so there is nothing to announce.
+        return;
+    }
+    emit pauseAfterRowsChanged();
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
+void BaseTrackTableModel::setActivePauseAfterRow(int row) {
+    if (m_activePauseAfterRow == row) {
+        return;
+    }
+    m_activePauseAfterRow = row;
+    emit pauseAfterRowsChanged();
+}
+
+void BaseTrackTableModel::clearActivePauseAfterRow() {
+    if (m_activePauseAfterRow < 0) {
+        return;
+    }
+    m_activePauseAfterRow = -1;
+    emit pauseAfterRowsChanged();
+}
+
+void BaseTrackTableModel::reanchorPauseAfterRows() {
+    if (m_pauseAfterRows.isEmpty()) {
+        if (m_activePauseAfterRow >= rowCount()) {
+            clearActivePauseAfterRow();
+        }
+        return;
+    }
+    const int rows = rowCount();
+    // The model goes momentarily empty in the middle of every rebuild: a
+    // transient clear followed by a full insert. Re-anchoring against nothing
+    // would find no occurrence of any marked track and conclude they had all
+    // been deleted, so every edit would silently drop the marks. Wait for the
+    // insert pass, which re-anchors properly. AutoDJProcessor::
+    // reanchorKeepQueueCursor() sidesteps the same trap.
+    if (rows == 0) {
+        return;
+    }
+    QHash<int, TrackId> reanchored;
+    for (auto it = m_pauseAfterRows.constBegin();
+            it != m_pauseAfterRows.constEnd();
+            ++it) {
+        const int oldRow = it.key();
+        const TrackId trackId = it.value();
+        if (!trackId.isValid()) {
+            // Nothing to anchor to; keep the row if it still exists.
+            if (oldRow < rows) {
+                reanchored.insert(oldRow, trackId);
+            }
+            continue;
+        }
+        const QVector<int> candidates = getTrackRows(trackId);
+        if (candidates.isEmpty()) {
+            // The marked track was removed from the queue, so the pause it
+            // described no longer has a place to happen. Drop it rather than
+            // stopping the set at some unrelated row.
+            continue;
+        }
+        int bestRow = candidates.first();
+        for (int candidate : candidates) {
+            if (qAbs(candidate - oldRow) < qAbs(bestRow - oldRow)) {
+                bestRow = candidate;
+            }
+        }
+        reanchored.insert(bestRow, trackId);
+    }
+    if (reanchored == m_pauseAfterRows) {
+        if (m_activePauseAfterRow >= rowCount()) {
+            clearActivePauseAfterRow();
+        }
+        return;
+    }
+    m_pauseAfterRows = reanchored;
+    if (m_activePauseAfterRow >= rowCount()) {
+        m_activePauseAfterRow = -1;
+    }
+    emit pauseAfterRowsChanged();
+    // The tag moved to a different row, and rows that did not otherwise change
+    // are not repainted on their own.
+    if (rows > 0) {
+        emit dataChanged(index(0, 0),
+                index(rows - 1, columnCount() - 1),
+                {Qt::DisplayRole});
+    }
+}
+
 void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
     if (m_showCortinaMarks == enable) {
         return;
     }
     m_showCortinaMarks = enable;
+    refreshTangoStartCueObservers();
     if (enable) {
         // Repaint the whole table (text color + title prefix) whenever the set of
         // tagged tracks changes.
+        connect(&TrackLabelRegistry::instance(),
+                &TrackLabelRegistry::trackLabelsChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::DisplayRole});
+                    }
+                });
         connect(&CortinaRegistry::instance(),
                 &CortinaRegistry::cortinaMarksChanged,
                 this,
@@ -391,9 +573,144 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
                                 {Qt::ForegroundRole, Qt::DisplayRole});
                     }
                 });
+        connect(&PerformanceRegistry::instance(),
+                &PerformanceRegistry::performanceMarksChanged,
+                this,
+                [this]() {
+                    if (rowCount() > 0) {
+                        emit dataChanged(index(0, 0),
+                                index(rowCount() - 1, columnCount() - 1),
+                                {Qt::ForegroundRole, Qt::DisplayRole});
+                    }
+                });
     } else {
         disconnect(&CortinaRegistry::instance(), nullptr, this, nullptr);
+        disconnect(&PerformanceRegistry::instance(), nullptr, this, nullptr);
     }
+    if (enable) {
+        // Any queue edit can create or resolve a duplicate, and tagging a track
+        // as a cortina takes it out of the reckoning, so recompute after both.
+        connect(this,
+                &QAbstractItemModel::rowsInserted,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(this,
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(this,
+                &QAbstractItemModel::modelReset,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(&CortinaRegistry::instance(),
+                &CortinaRegistry::cortinaMarksChanged,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        connect(&PerformanceRegistry::instance(),
+                &PerformanceRegistry::performanceMarksChanged,
+                this,
+                &BaseTrackTableModel::invalidateDuplicateTrackIds);
+        // Rows renumber on every queue edit, so the marks have to follow their
+        // tracks or they would come to describe unrelated rows.
+        connect(this,
+                &QAbstractItemModel::rowsInserted,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+        connect(this,
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+        connect(this,
+                &QAbstractItemModel::modelReset,
+                this,
+                &BaseTrackTableModel::reanchorPauseAfterRows);
+    } else {
+        // Leaving Tango mode drops the marks: they are a Tango concept, and a
+        // stale one would fire the next time Tango came back on.
+        if (!m_pauseAfterRows.isEmpty()) {
+            m_pauseAfterRows.clear();
+            emit pauseAfterRowsChanged();
+        }
+    }
+    invalidateDuplicateTrackIds();
+    // The flag itself decides the title prefix and row colour, so the rows on
+    // screen are stale either way round - repaint them, not just when the set of
+    // tagged tracks changes.
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0),
+                index(rowCount() - 1, columnCount() - 1),
+                {Qt::ForegroundRole, Qt::DisplayRole});
+    }
+}
+
+QString BaseTrackTableModel::tangoStartTimeMark(const QModelIndex& index) const {
+    const TrackPointer pTrack = getTrack(index);
+    if (!pTrack) {
+        return QString();
+    }
+
+    const CuePointer pStartCue = pTrack->findCueByType(mixxx::CueType::Intro);
+    const CuePointer pFirstSoundCue = pTrack->findCueByType(mixxx::CueType::N60dBSound);
+    const auto classification = mixxx::tango::classifyStartCue(
+            pStartCue ? pStartCue->getPosition() : mixxx::audio::FramePos(),
+            pStartCue ? pStartCue->getLabel() : QString(),
+            pFirstSoundCue ? pFirstSoundCue->getPosition() : mixxx::audio::FramePos());
+    if (!classification.hasExplicitStart()) {
+        return QString();
+    }
+
+    const auto sampleRate = pTrack->getSampleRate();
+    if (!sampleRate.isValid()) {
+        return QString();
+    }
+    return formatTangoStartTime(classification.explicitStart.value() / sampleRate);
+}
+
+void BaseTrackTableModel::refreshTangoStartCueObservers() {
+    while (!m_tangoStartCueTracksByGroup.isEmpty()) {
+        stopObservingTangoStartCueTrack(m_tangoStartCueTracksByGroup.constBegin().key());
+    }
+    if (!m_showCortinaMarks) {
+        return;
+    }
+
+    const auto loadedTracks = PlayerInfo::instance().getLoadedTracks();
+    for (auto it = loadedTracks.constBegin(); it != loadedTracks.constEnd(); ++it) {
+        observeTangoStartCueTrack(it.key(), it.value());
+    }
+}
+
+void BaseTrackTableModel::observeTangoStartCueTrack(
+        const QString& group,
+        const TrackPointer& pTrack) {
+    stopObservingTangoStartCueTrack(group);
+    if (!m_showCortinaMarks || !pTrack) {
+        return;
+    }
+    m_tangoStartCueTracksByGroup.insert(group, pTrack);
+    connect(pTrack.get(),
+            &Track::cuesUpdated,
+            this,
+            &BaseTrackTableModel::slotTrackCuesUpdated,
+            Qt::UniqueConnection);
+}
+
+void BaseTrackTableModel::stopObservingTangoStartCueTrack(const QString& group) {
+    const TrackPointer pOldTrack = m_tangoStartCueTracksByGroup.take(group);
+    if (!pOldTrack) {
+        return;
+    }
+    for (auto it = m_tangoStartCueTracksByGroup.constBegin();
+            it != m_tangoStartCueTracksByGroup.constEnd();
+            ++it) {
+        if (it.value() == pOldTrack) {
+            return;
+        }
+    }
+    disconnect(pOldTrack.get(),
+            &Track::cuesUpdated,
+            this,
+            &BaseTrackTableModel::slotTrackCuesUpdated);
 }
 
 QVariant BaseTrackTableModel::data(
@@ -426,14 +743,21 @@ QVariant BaseTrackTableModel::data(
                 return QVariant::fromValue(QColor(0xee, 0x44, 0x44));
             }
         }
-        // Cortina tracks: blue text (Auto DJ Tango mode). The red now-playing
-        // colour above wins, so a cortina that is currently playing still reads
-        // as playing.
+        // Auto DJ Tango mode: cortinas blue, tracks queued more than once amber.
+        // Order is deliberate - the red now-playing colour above wins over both,
+        // and blue wins over amber, so a repeated cortina still reads as a
+        // cortina rather than as a mistake.
         if (m_showCortinaMarks) {
-            const auto rowId = rawSiblingValue(
-                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
-            if (CortinaRegistry::instance().contains(TrackId(rowId))) {
+            const TrackId trackId(rawSiblingValue(
+                    index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+            if (CortinaRegistry::instance().contains(trackId)) {
                 return QVariant::fromValue(QColor(0x33, 0x88, 0xff));
+            }
+            if (PerformanceRegistry::instance().contains(trackId)) {
+                return QVariant::fromValue(QColor(0x44, 0xcc, 0x88));
+            }
+            if (duplicateTrackIds().contains(trackId)) {
+                return QVariant::fromValue(QColor(0xff, 0xaa, 0x33));
             }
         }
         // Custom text color for missing tracks
@@ -486,16 +810,43 @@ QVariant BaseTrackTableModel::data(
         return QVariant();
     }
 
-    // Prefix cortina-tagged tracks' title with "!!!CORTINA!!!" in the Auto DJ
-    // list (display only; the stored title is untouched).
+    // Tag the Auto DJ list title (display only; the stored title is untouched).
+    // The tags compose because a cortina can also be the point the set pauses
+    // at, and a colour could not say which of the two it meant. A cortina is
+    // never also a duplicate, so only the pause tag ever joins another.
     if (role == Qt::DisplayRole && m_showCortinaMarks &&
             mapColumn(index.column()) == ColumnCache::COLUMN_LIBRARYTABLE_TITLE) {
-        const auto rowId = rawSiblingValue(
-                index, ColumnCache::COLUMN_LIBRARYTABLE_ID);
-        if (CortinaRegistry::instance().contains(TrackId(rowId))) {
-            const QString title =
-                    roleValue(index, rawValue(index), role).toString();
-            return QStringLiteral("!!!CORTINA!!! %1").arg(title);
+        const TrackId trackId(rawSiblingValue(
+                index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+        QStringList marks;
+        if (CortinaRegistry::instance().contains(trackId)) {
+            marks << QStringLiteral("CORTINA");
+        } else if (PerformanceRegistry::instance().contains(trackId)) {
+            marks << QStringLiteral("PERFORMANCE");
+        } else if (duplicateTrackIds().contains(trackId)) {
+            marks << QStringLiteral("DUPLICATE");
+        }
+        const QString startTimeMark = tangoStartTimeMark(index);
+        if (!startTimeMark.isEmpty()) {
+            marks << startTimeMark;
+        }
+        if (isPauseAfterRow(index.row()) || isActivePauseAfterRow(index.row())) {
+            marks << QStringLiteral("PAUSE AFTER");
+        }
+        // A display name stands in for the title when the DJ has given the
+        // track one - the real title often says nothing about the job the track
+        // does tonight. Only this column changes; artist and album still show
+        // the real metadata, so the row remains identifiable as its file.
+        QString title = TrackLabelRegistry::instance().label(trackId);
+        if (title.isEmpty()) {
+            title = roleValue(index, rawValue(index), role).toString();
+        }
+        if (!marks.isEmpty()) {
+            return QStringLiteral("[-- %1 --] %2")
+                    .arg(marks.join(QStringLiteral(" -- ")), title);
+        }
+        if (TrackLabelRegistry::instance().contains(trackId)) {
+            return title;
         }
     }
 
@@ -1039,6 +1390,35 @@ void BaseTrackTableModel::slotTrackChanged(
         }
         m_previewDeckTrackId = doGetTrackId(pNewTrack);
     }
+    if (m_showCortinaMarks) {
+        observeTangoStartCueTrack(group, pNewTrack);
+    }
+}
+
+void BaseTrackTableModel::slotTrackCuesUpdated() {
+    if (!m_showCortinaMarks) {
+        return;
+    }
+    Track* pTrack = qobject_cast<Track*>(sender());
+    if (!pTrack) {
+        return;
+    }
+    const TrackId trackId = pTrack->getId();
+    if (!trackId.isValid()) {
+        return;
+    }
+    const int titleColumn = fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE);
+    VERIFY_OR_DEBUG_ASSERT(titleColumn >= 0) {
+        return;
+    }
+    const auto rows = getTrackRows(trackId);
+    for (int row : rows) {
+        if (row >= rowCount()) {
+            continue;
+        }
+        const QModelIndex titleIndex = index(row, titleColumn);
+        emit dataChanged(titleIndex, titleIndex, {Qt::DisplayRole});
+    }
 }
 
 void BaseTrackTableModel::slotRefreshCoverRows(
@@ -1163,4 +1543,22 @@ QVariant BaseTrackTableModel::getFieldVariant(
 QString BaseTrackTableModel::getFieldString(
         const QModelIndex& index, ColumnCache::Column column) const {
     return getFieldVariant(index, column).toString();
+}
+
+double BaseTrackTableModel::durationSecondsForRow(int row) const {
+    const int column = fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION);
+    if (column < 0) {
+        return 0.0;
+    }
+    const QVariant value = rawValue(index(row, column));
+    if (value.isNull()) {
+        return 0.0;
+    }
+    if (value.canConvert<mixxx::Duration>()) {
+        const auto duration = value.value<mixxx::Duration>();
+        return duration >= mixxx::Duration::empty() ? duration.toDoubleSeconds() : 0.0;
+    }
+    bool ok = false;
+    const double seconds = value.toDouble(&ok);
+    return (ok && seconds > 0.0) ? seconds : 0.0;
 }

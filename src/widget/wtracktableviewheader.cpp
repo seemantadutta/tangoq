@@ -129,7 +129,28 @@ void HeaderViewState::restoreState(WTrackTableViewHeader* pHeaders) {
 WTrackTableViewHeader::WTrackTableViewHeader(Qt::Orientation orientation,
         QWidget* pParent)
         : QHeaderView(orientation, pParent),
-          m_menu(tr("Show or hide columns."), this) {
+          m_menu(tr("Show or hide columns."), this),
+          m_headerStateSetupInProgress(false),
+          m_headerStateDirty(false),
+          m_saveHeaderStateTimer(this) {
+    m_saveHeaderStateTimer.setSingleShot(true);
+    m_saveHeaderStateTimer.setInterval(500);
+    connect(&m_saveHeaderStateTimer,
+            &QTimer::timeout,
+            this,
+            &WTrackTableViewHeader::saveHeaderState);
+    connect(this,
+            &QHeaderView::sectionMoved,
+            this,
+            [this](int, int, int) { markHeaderStateDirty(); });
+    connect(this,
+            &QHeaderView::sectionResized,
+            this,
+            [this](int, int, int) { markHeaderStateDirty(); });
+    connect(this,
+            &QHeaderView::sortIndicatorChanged,
+            this,
+            [this](int, Qt::SortOrder) { markHeaderStateDirty(); });
 }
 
 void WTrackTableViewHeader::contextMenuEvent(QContextMenuEvent* pEvent) {
@@ -155,16 +176,19 @@ void WTrackTableViewHeader::setModel(QAbstractItemModel* pModel) {
     // First clear all the context menu actions for the old model.
     clearActions();
 
+    m_headerStateSetupInProgress = true;
+
     // Now set the header view to show the new model
     QHeaderView::setModel(pModel);
-
     // Now build actions for the new TrackModel
     TrackModel* pTrackModel = dynamic_cast<TrackModel*>(pModel);
 
     if (!pTrackModel) {
+        m_headerStateSetupInProgress = false;
+        m_headerStateDirty = false;
+        m_saveHeaderStateTimer.stop();
         return;
     }
-
     // Restore saved header state to get sizes, column positioning, etc. back.
     m_hiddenColumnSizes.clear();
     restoreHeaderState();
@@ -234,16 +258,29 @@ void WTrackTableViewHeader::setModel(QAbstractItemModel* pModel) {
             showSection(i);
         }
     }
+
+    m_headerStateSetupInProgress = false;
+    m_headerStateDirty = false;
+    m_saveHeaderStateTimer.stop();
 }
 
 void WTrackTableViewHeader::saveHeaderState() {
+    if (!m_headerStateDirty) {
+        return;
+    }
+    m_saveHeaderStateTimer.stop();
+
     TrackModel* pTrackModel = getTrackModel();
     if (!pTrackModel) {
+        m_headerStateSetupInProgress = false;
+        m_headerStateDirty = false;
+        m_saveHeaderStateTimer.stop();
         return;
     }
     // Convert the QByteArray to a Base64 string and save it.
     HeaderViewState view_state(*this);
     pTrackModel->setModelSetting("header_state_pb", view_state.saveState());
+    m_headerStateDirty = false;
     //qDebug() << "Saving old header state:" << result << headerState;
 }
 
@@ -251,9 +288,11 @@ void WTrackTableViewHeader::restoreHeaderState() {
     TrackModel* pTrackModel = getTrackModel();
 
     if (!pTrackModel) {
+        m_headerStateSetupInProgress = false;
+        m_headerStateDirty = false;
+        m_saveHeaderStateTimer.stop();
         return;
     }
-
     const QString headerStateString = pTrackModel->getModelSetting("header_state_pb");
     if (headerStateString.isNull()) {
         loadDefaultHeaderState();
@@ -292,6 +331,14 @@ bool WTrackTableViewHeader::hasPersistedHeaderState() {
     return !headerStateString.isNull();
 }
 
+void WTrackTableViewHeader::markHeaderStateDirty() {
+    if (m_headerStateSetupInProgress || !getTrackModel()) {
+        return;
+    }
+    m_headerStateDirty = true;
+    m_saveHeaderStateTimer.start();
+}
+
 void WTrackTableViewHeader::clearActions() {
     // The QActions are parented to the menu, so clearing deletes them. Since
     // they are deleted we don't have to disconnect their signals from the
@@ -313,6 +360,7 @@ void WTrackTableViewHeader::showOrHideColumn(int column) {
             resizeSection(column, WTTVH_MINIMUM_SECTION_SIZE);
         }
         m_hiddenColumnSizes.remove(column);
+        markHeaderStateDirty();
     } else {
         // If the user hides every column, the table will disappear. This guards
         // against that. Note: hiddenCount reflects number of checked QActions,
@@ -321,6 +369,7 @@ void WTrackTableViewHeader::showOrHideColumn(int column) {
         if (m_columnCheckBoxes.size() - hiddenCount() > 0) {
             m_hiddenColumnSizes.insert(column, sectionSize(column));
             hideSection(column);
+            markHeaderStateDirty();
         } else {
             // Otherwise, ignore the request and re-check this QAction.
             pCheckBox->setChecked(true);

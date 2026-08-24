@@ -12,6 +12,8 @@
 #include "track/track_decl.h"
 
 class PlaylistTableModel;
+class AutoDJFeature;
+class TandaQueueModel;
 class WLibrary;
 class WTrackTableView;
 class Library;
@@ -25,6 +27,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     DlgAutoDJ(WLibrary* parent,
             UserSettingsPointer pConfig,
             Library* pLibrary,
+            AutoDJFeature* pAutoDJFeature,
             AutoDJProcessor* pProcessor,
             KeyboardEventFilter* pKeyboard);
     ~DlgAutoDJ() override;
@@ -45,6 +48,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void autoDJError(AutoDJProcessor::AutoDJError error);
     void transitionTimeChanged(int time);
     void transitionSliderChanged(int value);
+    void tandaGapChanged(int value);
     void autoDJStateChanged(AutoDJProcessor::AutoDJState state);
     void updateSelectionInfo();
     void slotTransitionModeChanged(int comboboxIndex);
@@ -65,9 +69,14 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // that don't make sense in Tango mode (Shuffle, Add Random, Repeat, Skip,
     // column sorting), reading the mode from the config.
     void refreshTangoModeUi();
-    // Applies the Tango fade/gap defaults (Skip Silence + short gap) the first
-    // time, only if they are still at their factory defaults.
-    void applyTangoDefaultsIfNeeded();
+    // Mirrors the processor's transition mode into the combo box without
+    // overwriting a DJ's manual stock-mode override while Tango remains on.
+    void syncTransitionModeFromProcessor();
+    // Adds/removes the Tango-only Tanda Transition option from the mode combo.
+    void refreshTransitionModeOptions();
+    // Shows the stock transition time control or the Tanda gap control based on
+    // the selected transition mode.
+    void refreshTransitionControls();
     // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
     void updateNowPlaying();
     // Refreshes the Tango DJ mode set end-time / time-left readout, including the
@@ -93,10 +102,20 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     const bool m_bShowButtonText;
 
     PlaylistTableModel* m_pAutoDJTableModel;
+    TandaQueueModel* m_pTandaQueueModel;
 
     // Observes [AutoDJ],keep_queue (Tango DJ mode) so the toolbar refreshes
     // immediately when it is toggled in Preferences.
     ControlProxy* m_pKeepQueueControl;
+
+    // Live cortina-length budget, shared with Preferences. The cockpit − / +
+    // buttons nudge it by ±2 s (the only way to change it mid-set); the read-only
+    // value label mirrors it. Tango-only.
+    ControlProxy* m_pCortinaLengthControl;
+    // Bumps the cortina length by delta seconds, clamped to [5, 600].
+    void nudgeCortinaLength(int delta);
+    // Refreshes the cockpit cortina-length value label from the control.
+    void updateCortinaLengthReadout();
 
     // The app keyboard filter, used to suppress the deck play/pause keys (D/L)
     // while LIVE mode is on. Not owned.
@@ -104,6 +123,13 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Observes [AutoDJ],live_mode so the LIVE indicator and key suppression track
     // the session-only LIVE state.
     ControlProxy* m_pLiveModeControl;
+    // Auto DJ cockpit control-visibility toggles ([TangoQ],show_adj_*), set from
+    // the skin Settings panel and owned by AutoDJProcessor. refreshTangoModeUi
+    // hides the set-time readout, the end-time block, or the cortina nudge
+    // controls when the matching toggle is off.
+    ControlProxy* m_pShowAdjSetTime;
+    ControlProxy* m_pShowAdjEndTime;
+    ControlProxy* m_pShowAdjNudge;
     // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
     // stop guard is armed (parented to the button). Owned by the button.
     WCountdownOverlay* m_pStopCountdown;
@@ -111,10 +137,11 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Ticks once a second to keep the Tango set end-time readout current. Only
     // runs while Tango mode is on (see refreshTangoModeUi).
     QTimer* m_pSetTimeTimer;
-    // Last text shown in labelTangoSetTime, so the per-second tick only repaints
-    // the label when the value actually changed (avoids needless toolbar repaints
-    // that can flicker sibling widgets such as the waveform).
-    QString m_lastSetTimeText;
+    // Last text shown in labelSetLength / labelEnds, so the per-second tick only
+    // repaints a label when its value actually changed (avoids needless toolbar
+    // repaints that can flicker sibling widgets such as the waveform).
+    QString m_lastSetLengthText;
+    QString m_lastEndsText;
     // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
     QString m_lastEndTimeDeltaText;
 

@@ -152,15 +152,28 @@ void PreviewButtonDelegate::paintItem(QPainter* painter,
         m_pButton->setFixedSize(option.rect.size());
     }
 
-    // Update check state
-    m_pButton->setChecked(isTrackLoadedInPreviewDeckAndPlaying(index));
+    // A disabled preview cell (e.g. a tanda header row) paints dimmed and never
+    // shows a playing/checked state. Guard the check query too: it reads the
+    // cell's preview data, which a header row does not provide.
+    const bool enabled = index.flags().testFlag(Qt::ItemIsEnabled);
+    m_pButton->setEnabled(enabled);
+    m_pButton->setChecked(enabled && isTrackLoadedInPreviewDeckAndPlaying(index));
 
     // Render button at the desired position.
     painter->translate(option.rect.topLeft());
 
     // Avoid QWidget::render and call the equivalent of QPushButton::paintEvent
-    // directly.
-    m_pButton->paint(painter);
+    // directly. The skin styles the button with a fixed background image, so a
+    // disabled button still paints at full strength - dim it by lowering the
+    // painter opacity instead, which visibly greys the header-row preview icon.
+    if (!enabled) {
+        painter->save();
+        painter->setOpacity(painter->opacity() * 0.35);
+        m_pButton->paint(painter);
+        painter->restore();
+    } else {
+        m_pButton->paint(painter);
+    }
 }
 
 void PreviewButtonDelegate::updateEditorGeometry(QWidget* editor,
@@ -199,6 +212,11 @@ void PreviewButtonDelegate::cellEntered(const QModelIndex& index) {
     // Only open a new editor for preview column cells, but not any
     // other cells
     if (index.column() != m_column) {
+        return;
+    }
+    // A disabled preview cell (e.g. a tanda header row, which is not a single
+    // previewable track) gets no clickable editor button.
+    if (!index.flags().testFlag(Qt::ItemIsEnabled)) {
         return;
     }
     m_pTableView->openPersistentEditor(index);

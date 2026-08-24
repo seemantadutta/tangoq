@@ -1,0 +1,29 @@
+TangoQ
+======
+
+TangoQ is a fork of Mixxx (https://mixxx.org), purpose-built for Argentine
+Tango DJs.
+
+Mixxx is Copyright (C) 2001-2026 the Mixxx Development Team and is licensed
+under the GNU General Public License, version 2 or later. See the LICENSE
+file for the full license text and upstream notices, which are preserved
+intact.
+
+TangoQ modifies Mixxx. All TangoQ fork changes are Copyright (C) 2026
+Seemanta Dutta (TangoQ) and are distributed under the same license
+(GNU General Public License, version 2 or later). Adding this notice does
+not change the license: TangoQ is GPL v2-or-later, exactly as Mixxx is.
+
+The individual TangoQ changes are not stamped file by file across the many
+upstream source files they touch. Instead, the complete set of fork changes
+can be reviewed in the project's Git history relative to the upstream Mixxx
+2.5.6 release this fork is based on:
+
+    git log 2.5.6..HEAD
+
+Source files that are original to TangoQ (added by the fork rather than
+modified from upstream) carry a TangoQ copyright header.
+
+TangoQ is not affiliated with, supported by, or endorsed by the Mixxx
+project. Please report problems with TangoQ to its own issue tracker at
+https://github.com/seemantadutta/tangoq/issues, not to the Mixxx project.

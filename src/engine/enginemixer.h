@@ -110,6 +110,7 @@ class EngineMixer : public QObject, public AudioSource {
                 : m_pChannel(NULL),
                   m_pVolumeControl(NULL),
                   m_pMuteControl(NULL),
+                  m_pAutoDJFadeGainControl(NULL),
                   m_index(index) {
         }
         ChannelHandle m_handle;
@@ -117,6 +118,7 @@ class EngineMixer : public QObject, public AudioSource {
         mixxx::SampleBuffer m_pBuffer;
         ControlObject* m_pVolumeControl;
         ControlPushButton* m_pMuteControl;
+        ControlObject* m_pAutoDJFadeGainControl;
         GroupFeatureState m_features;
         int m_index;
     };
@@ -166,7 +168,9 @@ class EngineMixer : public QObject, public AudioSource {
                     m_dLeftGain,
                     m_dCenterGain,
                     m_dRightGain);
-            return channelVolume * orientationGain;
+            const CSAMPLE_GAIN autoDJFadeGain = static_cast<CSAMPLE_GAIN>(
+                    pChannelInfo->m_pAutoDJFadeGainControl->get());
+            return channelVolume * orientationGain * autoDJFadeGain;
         }
 
         inline void setGains(CSAMPLE_GAIN leftGain,

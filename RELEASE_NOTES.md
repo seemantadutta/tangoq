@@ -38,7 +38,7 @@ While Tango mode is on, controls that could derail a live set are disabled:
 
 ### Cortinas
 - **"Add to Auto DJ Queue as Cortina"** tags a track (session-only) with a blue
-  **"!!!CORTINA!!!"** title prefix in the Auto DJ list.
+  **"[--CORTINA--]"** title prefix in the Auto DJ list.
 - A **preferred cortina length** feeds the set-length and end-time projection.
 - Manually crossfading out of a cortina updates the end time and time-left (it
   does not change the projected set length).

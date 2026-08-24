@@ -13,6 +13,7 @@
 
 class QDomNode;
 class SkinContext;
+class WCountdownOverlay;
 
 class WPushButton : public WWidget {
     Q_OBJECT
@@ -65,6 +66,7 @@ class WPushButton : public WWidget {
 
   private slots:
     void updateSlot();
+    void disarmLiveStopGuard();
 
   protected:
     bool event(QEvent* e) override;
@@ -92,6 +94,8 @@ class WPushButton : public WWidget {
             double scaleFactor);
 
     void paintOnDevice(QPaintDevice* pd, int idx);
+    bool shouldGuardLiveStop() const;
+    void armLiveStopGuard();
 
     // True, if the button is currently pressed
     bool m_bPressed;
@@ -112,6 +116,10 @@ class WPushButton : public WWidget {
     ControlPushButton::ButtonMode m_leftButtonMode;
     ControlPushButton::ButtonMode m_rightButtonMode;
     QTimer m_clickTimer;
+    QTimer m_liveStopGuardTimer;
+    WCountdownOverlay* m_pLiveStopCountdown;
+    bool m_liveStopGuardArmed;
+    bool m_bypassNextLiveStopGuard;
     QVector<int> m_align;
 
     // Animates long press latching by storing the off state of the

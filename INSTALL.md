@@ -1,170 +1,95 @@
-# Installing TangoMode — Tango DJ mode for Mixxx
+# Installing TangoQ
 
-**TangoMode** is a community build of Mixxx with **Tango DJ mode** (see
-[`RELEASE_NOTES.md`](RELEASE_NOTES.md)), based on **Mixxx 2.5.6**.
+**TangoQ** is Argentine Tango DJ Software based on **Mixxx 2.5.6**.
 
-> **Heads up — these installers are not code-signed.** This is a free,
-> personally-maintained build, so Apple and Microsoft haven't been paid to
-> "certify" it. Your computer will show a scary-looking warning the first time
-> you open it. That's expected — the steps below tell you how to get past it.
-> If you'd rather wait, this feature is also being proposed for official Mixxx.
-
----
+> **Heads up: these installers are not code-signed.** This is a free,
+> personally maintained build, so Apple and Microsoft will warn the first time
+> you open it. The steps below explain how to proceed.
 
 ## 1. Download
 
-Go to the **[Releases page](https://github.com/seemantadutta/mixxx/releases)**
+Go to the **[Releases page](https://github.com/seemantadutta/tangoq/releases)**
 and download the file for your system:
 
 | Your computer | Download this file |
 |---|---|
-| **Windows** (10 or 11) | `tangomode-*.msi` |
-| **Mac — Apple Silicon** (M1/M2/M3/M4) | `tangomode-*-arm64.dmg` |
-| **Mac — Intel** | `tangomode-*-x86_64.dmg` |
+| **Windows** (10 or 11) | `tangoq-*.msi` |
+| **Mac - Apple Silicon** (M1/M2/M3/M4) | `tangoq-*-arm64.dmg` |
+| **Mac - Intel** | `tangoq-*-x86_64.dmg` |
 
-**Not sure which Mac you have?** Click the  (Apple) menu in the top-left →
-**About This Mac**. If it says **Chip: Apple M…**, you have Apple Silicon. If it
-says **Processor: Intel**, you have an Intel Mac.
-
----
-
-## 2. Install on Windows
+## 2. Install On Windows
 
 1. Double-click the downloaded **`.msi`** file.
-2. You'll likely see a blue **"Windows protected your PC"** box.
-   - Click **More info**.
-   - Click **Run anyway**.
-3. Follow the installer prompts. TangoMode then appears in your Start menu.
+2. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
+3. Follow the installer prompts. TangoQ then appears in your Start menu.
 
-That blue box appears because the installer isn't signed — it is **not** a sign
-that anything is wrong.
-
----
-
-## 3. Install on Mac
+## 3. Install On Mac
 
 1. Double-click the downloaded **`.dmg`**.
-2. Drag the **TangoMode** icon onto the **Applications** folder.
-3. Open **Applications** and try to launch **TangoMode**. macOS will block it the
-   first time with a message like *"TangoMode can't be opened because Apple cannot
-   check it for malicious software."* Use the steps for your macOS version:
+2. Drag the **TangoQ** icon onto the **Applications** folder.
+3. Open **Applications** and launch **TangoQ**. If macOS blocks it, use one of
+   the approval flows below.
 
-### macOS Sequoia (15) and newer
-1. Try to open TangoMode (it gets blocked — that's fine, click **Done**).
-2. Open  (Apple menu) → **System Settings** → **Privacy & Security**.
-3. Scroll down to the **Security** section. You'll see a line about *"TangoMode was
-   blocked…"* — click **Open Anyway**.
-4. Confirm with your password / Touch ID, then click **Open Anyway** again.
+### macOS Sequoia (15) And Newer
 
-### macOS Sonoma (14) and earlier
-1. In **Applications**, **right-click** (or Control-click) **TangoMode** → **Open**.
+1. Try to open TangoQ. When it is blocked, click **Done**.
+2. Open Apple menu -> **System Settings** -> **Privacy & Security**.
+3. In **Security**, click **Open Anyway** for TangoQ.
+4. Confirm with your password or Touch ID, then click **Open Anyway** again.
+
+### macOS Sonoma (14) And Earlier
+
+1. In **Applications**, right-click or Control-click **TangoQ** -> **Open**.
 2. In the dialog, click **Open**.
 
-You only need to do this **once**; afterward TangoMode opens normally.
+### If It Still Will Not Open
 
-### If it still won't open (reliable fallback)
-Open **Terminal** (Applications → Utilities → Terminal), paste this line, and
-press Return:
+Open **Terminal**, paste this line, and press Return:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/TangoMode.app
+xattr -dr com.apple.quarantine /Applications/TangoQ.app
 ```
 
-Then open TangoMode normally. This removes the "downloaded from the internet" flag
-that triggers the block.
+Then open TangoQ normally.
 
-### First launch
+## 4. First Launch
 
-TangoMode asks you to **choose your music folder** the first time it opens. Pick
-the folder your music lives in and click **Open** — it then scans that folder and
-builds its library. You can add more folders later in **Preferences → Library**.
+TangoQ asks you to choose your music folder the first time it opens. Pick the
+folder your music lives in and click **Open**. You can add more folders later in
+**Preferences -> Library**.
 
-macOS may also ask whether TangoMode can **access data from other apps**. That
-permission is only used to import an existing collection from Rekordbox, Serato,
-Traktor or Music.app. Declining it is fine if you don't need that; TangoMode keeps
-its own settings in its own place either way.
+TangoQ keeps its own settings and library separate from standard Mixxx:
 
-If TangoMode ever reports that it *could not create the folder it keeps your
-settings in*, that is a permission problem rather than a damaged download. Open
- → **System Settings** → **Privacy & Security** → **Files and Folders**, find
-**TangoMode**, and switch it on. If it isn't listed, open **Terminal**
-(Applications → Utilities → Terminal), run the line below, then open TangoMode
-again and choose **Allow**:
+- Windows: `%LOCALAPPDATA%\TangoQ`
+- macOS: `~/Library/Containers/io.github.seemantadutta.tangoq/Data/Library/Application Support/TangoQ`
+- Linux: `~/.tangoq`
 
-```sh
-tccutil reset SystemPolicyAppData io.github.seemantadutta.tangomode
-```
+The new database is `tangoq.db`, the config file is `tangoq.cfg`, and the log is
+`tangoq.log`.
 
-### Already using standard Mixxx? Bring your library across
+## 5. Optional Checksum Verification
 
-TangoMode keeps its settings completely separate from a standard Mixxx install,
-so the two never interfere with each other — but that also means it starts with an
-empty library.
+**Windows**:
 
-To begin with a copy of your existing crates, playlists, history and cue points
-instead: quit both apps, **open TangoMode once and close it again** (so it creates
-its folder), then run this in **Terminal**:
-
-```sh
-cp ~/Library/Containers/org.mixxx.mixxx/Data/Library/Application\ Support/Mixxx/mixxxdb.sqlite \
-   ~/Library/Containers/io.github.seemantadutta.tangomode/Data/Library/Application\ Support/TangoMode/
-```
-
-Those long paths are not a mistake: macOS stores each app's settings inside its own
-private container folder.
-
-This **copies** your library — your standard Mixxx install keeps working exactly
-as before, and nothing you do in TangoMode can affect it.
-
----
-
-## 4. (Optional) Verify your download
-
-If you'd like to confirm the file downloaded correctly and wasn't tampered with,
-compare its **SHA-256 checksum** to the values published on the Releases page.
-
-**Windows** (PowerShell):
 ```powershell
-Get-FileHash .\tangomode-*.msi -Algorithm SHA256
+Get-FileHash .\tangoq-*.msi -Algorithm SHA256
 ```
 
-**Mac** (Terminal):
+**Mac**:
+
 ```sh
-shasum -a 256 ~/Downloads/tangomode-*.dmg
+shasum -a 256 ~/Downloads/tangoq-*.dmg
 ```
 
-The printed value should match the checksum listed for that file in the release
-notes. (This is an integrity check only — it's optional and doesn't change the
-install steps above.)
+Compare the printed value to the checksum published on the release page.
 
-<!-- Maintainer: paste the actual checksums here when cutting the release, e.g.
-SHA-256 checksums:
-  tangomode-<ver>.msi           <hash>
-  tangomode-<ver>-x86_64.dmg    <hash>
-  tangomode-<ver>-arm64.dmg     <hash>
--->
+## 6. What This Is
 
----
+TangoQ is a community-maintained fork based on
+[Mixxx](https://mixxx.org). It is not produced, supported, or endorsed by the
+Mixxx project. Please report TangoQ problems at
+https://github.com/seemantadutta/tangoq/issues.
 
-## 5. "Is this safe?"
-
-These warnings mean *"this app wasn't signed with a paid Apple/Microsoft
-certificate,"* **not** *"this app is dangerous."* The full source code is public
-in this repository, and the installers are built automatically by GitHub from
-that code. If you're ever unsure, you can build it yourself from source.
-
----
-
-## 6. Getting help / reporting problems
-
-If something doesn't work or a track behaves oddly in Tango mode, please open an
-issue: **https://github.com/seemantadutta/mixxx/issues** — include your OS, what
-you did, and what happened. Screenshots help.
-
----
-
-## Requirements
-- **Windows:** Windows 10 or 11 (64-bit).
-- **Mac:** a recent macOS (Apple Silicon or Intel; pick the matching download).
-- A sound card/output, and ideally headphones + a controller or mixer for
-  cueing — same as standard Mixxx.
+Mixxx is free software under the GPL. TangoQ keeps the license and copyright
+notices intact, uses its own name and branding, and links back to the original
+project.

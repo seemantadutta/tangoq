@@ -1,7 +1,9 @@
 #include "controllers/keyboard/keyboardeventfilter.h"
 
+#include <QAbstractSpinBox>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <QtDebug>
 
 #include "moc_keyboardeventfilter.cpp"
@@ -22,12 +24,23 @@ KeyboardEventFilter::KeyboardEventFilter(ConfigObject<ConfigValueKbd>* pKbdConfi
 KeyboardEventFilter::~KeyboardEventFilter() {
 }
 
-bool KeyboardEventFilter::eventFilter(QObject*, QEvent* e) {
+bool KeyboardEventFilter::eventFilter(QObject* obj, QEvent* e) {
     if (e->type() == QEvent::FocusOut) {
         // If we lose focus, we need to clear out the active key list
         // because we might not get Key Release events.
         m_qActiveKeyList.clear();
-    } else if (e->type() == QEvent::KeyPress) {
+    } else if (e->type() == QEvent::KeyPress || e->type() == QEvent::KeyRelease) {
+        // Let a focused text-editing widget keep its keys, so the user can type
+        // values into it. Many controls are bound to plain keys (e.g. "2" is
+        // loop_in), and this filter otherwise consumes them regardless of what
+        // has focus - so a digit would fire the control instead of entering the
+        // Auto DJ end-time or a spin box. Shortcuts still work everywhere else,
+        // since the track table, waveforms, etc. are not text editors.
+        if (qobject_cast<QLineEdit*>(obj) || qobject_cast<QAbstractSpinBox*>(obj)) {
+            return false;
+        }
+    }
+    if (e->type() == QEvent::KeyPress) {
         QKeyEvent* ke = (QKeyEvent *)e;
 
 #ifdef __APPLE__

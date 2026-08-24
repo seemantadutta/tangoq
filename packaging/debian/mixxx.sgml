@@ -269,7 +269,7 @@ manpage.1: manpage.sgml
     <variablelist>
       <varlistentry>
         <term>
-          <filename class='directory'>~/.mixxx/</filename>
+          <filename class='directory'>~/.tangoq/</filename>
         </term>
         <listitem>
           <para>
@@ -279,7 +279,7 @@ manpage.1: manpage.sgml
       </varlistentry>
       <varlistentry>
         <term>
-          <filename class='directory'>~/.mixxx/mixxx.cfg</filename>
+          <filename class='directory'>~/.tangoq/tangoq.cfg</filename>
         </term>
         <listitem>
           <para>
@@ -289,7 +289,7 @@ manpage.1: manpage.sgml
       </varlistentry>
       <varlistentry>
         <term>
-          <filename class='directory'>~/.mixxx/mixxxdb.sqlite</filename>
+          <filename class='directory'>~/.tangoq/tangoq.db</filename>
         </term>
         <listitem>
           <para>

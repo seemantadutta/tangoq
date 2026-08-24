@@ -138,21 +138,27 @@ class WTrackTableView : public WLibraryTableView {
 
   protected:
     QString getModelStateKey() const override;
-
-  private:
-    void addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc);
+    /// Allows specialized track-table views to add or update actions in the
+    /// ordinary track context menu immediately before it is shown.
+    virtual void prepareTrackMenu(
+            WTrackMenu* pTrackMenu, const QModelIndexList& indices);
+    void mousePressEvent(QMouseEvent* pEvent) override;
+    // Mouse move event, implemented to hide the text and show an icon instead
+    // when dragging.
+    void mouseMoveEvent(QMouseEvent* pEvent) override;
+    /// Draws the Auto DJ "pause after" rule beneath marked rows, after the table
+    /// has painted itself.
+    void paintEvent(QPaintEvent* pEvent) override;
     void dragMoveEvent(QDragMoveEvent * event) override;
     void dragEnterEvent(QDragEnterEvent * event) override;
     void dropEvent(QDropEvent * event) override;
 
+  private:
+    void addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc);
+
     void enableCachedOnly();
     void selectionChanged(const QItemSelection &selected,
                           const QItemSelection &deselected) override;
-
-    void mousePressEvent(QMouseEvent* pEvent) override;
-    // Mouse move event, implemented to hide the text and show an icon instead
-    // when dragging.
-    void mouseMoveEvent(QMouseEvent *pEvent) override;
 
     // Returns the list of selected row indices, or an empty list if none are selected.
     QModelIndexList getSelectedRows() const;

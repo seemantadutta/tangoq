@@ -201,6 +201,12 @@ void WSpinnyBase::setup(const QDomNode& node,
     m_pScratchPos = new ControlProxy(
             m_group, "scratch_position", this, ControlFlag::NoAssertIfMissing);
 
+    // Tango DJ mode: dragging the platter to scratch is disabled while on.
+    m_pKeepQueue = new ControlProxy(QStringLiteral("[AutoDJ]"),
+            QStringLiteral("keep_queue"),
+            this,
+            ControlFlag::NoAssertIfMissing);
+
     m_pSlipEnabled = new ControlProxy(
             m_group, "slip_enabled", this, ControlFlag::NoAssertIfMissing);
     m_pSlipEnabled->connectValueChanged(this, &WSpinnyBase::updateSlipEnabled);
@@ -538,7 +544,11 @@ void WSpinnyBase::mouseMoveEvent(QMouseEvent* e) {
     // qDebug() << "c t:" << theta << "pt:" << m_dPrevTheta <<
     //             "icr" << m_iFullRotations;
 
-    if ((e->buttons() & Qt::LeftButton) || (e->buttons() & Qt::RightButton)) {
+    // Tango DJ mode: scratching is disabled (see mousePressEvent), so never
+    // drive the scratch position from a drag.
+    if (m_pKeepQueue->toBool()) {
+        // fall through to the cursor handling below
+    } else if ((e->buttons() & Qt::LeftButton) || (e->buttons() & Qt::RightButton)) {
         // Convert deltaTheta into a percentage of song length.
         double absPos = calculatePositionFromAngle(theta);
         double absPosInSamples = absPos * m_pTrackSamples->get();
@@ -561,6 +571,12 @@ void WSpinnyBase::mousePressEvent(QMouseEvent* e) {
 
     if (m_pCoverMenu->isVisible()) {
         m_pCoverMenu->close();
+        return;
+    }
+
+    // Tango DJ mode: a left-drag would scratch the platter and disturb a playing
+    // tanda, so swallow it. Right-click (cover art) still works below.
+    if (e->button() == Qt::LeftButton && m_pKeepQueue->toBool()) {
         return;
     }
 

@@ -198,6 +198,7 @@ class WOverview : public WWidget, public TrackDropTarget {
     PollingControlProxy m_trackSampleRateControl;
     PollingControlProxy m_trackSamplesControl;
     PollingControlProxy m_playpositionControl;
+    parented_ptr<ControlProxy> m_pLiveModeControl;
     parented_ptr<ControlProxy> m_pPassthroughControl;
     parented_ptr<ControlProxy> m_pTypeControl;
 

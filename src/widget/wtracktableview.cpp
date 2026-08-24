@@ -2,6 +2,7 @@
 
 #include <QDrag>
 #include <QModelIndex>
+#include <QPainter>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QUrl>
@@ -158,14 +159,14 @@ void WTrackTableView::slotGuiTick50ms(double /*unused*/) {
         if (m_selectionChangedSinceLastGuiTick) {
             const QModelIndexList indices = getSelectedRows();
             if (indices.size() == 1 && indices.first().isValid()) {
-                // A single track has been selected
+                // A single row is selected. Emit its track, or a null pointer if
+                // the row resolves to none (e.g. a Tango tanda header) so that
+                // downstream listeners - like the Auto DJ selection-duration
+                // line, which totals a selected tanda's tracks - still update.
                 TrackModel* pTrackModel = getTrackModel();
-                if (pTrackModel) {
-                    TrackPointer pTrack = pTrackModel->getTrack(indices.first());
-                    if (pTrack) {
-                        emit trackSelected(pTrack);
-                    }
-                }
+                emit trackSelected(pTrackModel
+                                ? pTrackModel->getTrack(indices.first())
+                                : TrackPointer());
             } else {
                 // None or multiple tracks have been selected
                 emit trackSelected(TrackPointer());
@@ -426,6 +427,21 @@ void WTrackTableView::slotMouseDoubleClicked(const QModelIndex& index) {
     if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::LoadToDeck &&
             pTrackModel->hasCapabilities(
                     TrackModel::Capability::LoadToDeck)) {
+        // LIVE mode (Tango performance lock): browsing the library mid-set is
+        // normal, and a stray double-click there would replace a deck's track -
+        // the kind of mistake there is no undo for in front of a floor. Decks
+        // are still loadable deliberately, via the track menu or a controller.
+        // Only this action is suppressed: the Auto DJ ones below stay available,
+        // so tracks can still be queued during a set. LIVE is only meaningful
+        // inside Tango mode, so require both.
+        const bool liveMode =
+                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                        QStringLiteral("live_mode"))) > 0.0 &&
+                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                        QStringLiteral("keep_queue"))) > 0.0;
+        if (liveMode) {
+            return;
+        }
         TrackPointer pTrack = pTrackModel->getTrack(index);
         if (pTrack) {
             emit loadTrack(pTrack);
@@ -604,11 +620,18 @@ void WTrackTableView::showTrackMenu(const QPoint pos, const QModelIndex& index) 
     }
     m_pTrackMenu->loadTrackModelIndices(indices);
     m_pTrackMenu->setTrackPropertyName(columnNameOfIndex(index));
+    prepareTrackMenu(m_pTrackMenu.get(), indices);
 
     saveCurrentIndex();
 
     m_pTrackMenu->popup(pos);
     // WTrackmenu emits restoreCurrentViewStateOrIndex() on hide if required
+}
+
+void WTrackTableView::prepareTrackMenu(
+        WTrackMenu* pTrackMenu, const QModelIndexList& indices) {
+    Q_UNUSED(pTrackMenu);
+    Q_UNUSED(indices);
 }
 
 QString WTrackTableView::columnNameOfIndex(const QModelIndex& index) const {
@@ -700,6 +723,54 @@ void WTrackTableView::mouseMoveEvent(QMouseEvent* pEvent) {
     }
 }
 
+void WTrackTableView::paintEvent(QPaintEvent* pEvent) {
+    WLibraryTableView::paintEvent(pEvent);
+
+    // A pause is a boundary between blocks of the set, so draw it as one. The
+    // row's tag names it; this rule is what survives scanning a long queue.
+    auto* pTableModel = qobject_cast<BaseTrackTableModel*>(model());
+    if (!pTableModel || !pTableModel->showCortinaMarks()) {
+        return;
+    }
+    // Only the rows on screen: the queue can be long and this runs on repaint.
+    const int firstRow = rowAt(0);
+    if (firstRow < 0) {
+        return;
+    }
+    int lastRow = rowAt(viewport()->height() - 1);
+    if (lastRow < 0) {
+        lastRow = pTableModel->rowCount() - 1;
+    }
+    QPainter painter(viewport());
+    // Explicit colour, not palette(): skins style this view through QSS, and a
+    // QSS `color:` rule does not populate the QPalette - so WindowText is still
+    // the default near-black and the line was invisible on a dark skin. The
+    // model hard-codes its mark colours for the same reason. This is the muted
+    // red already used for the deck's PAUSE AFTER warning, so the whole "a stop
+    // is coming" idea reads in one colour.
+    QPen pen(QColor(0xb6, 0x54, 0x54));
+    pen.setWidth(2);
+    painter.setPen(pen);
+    for (int row = firstRow; row <= lastRow; ++row) {
+        if (!pTableModel->isPauseAfterRow(row) &&
+                !pTableModel->isActivePauseAfterRow(row)) {
+            continue;
+        }
+        // Ask the view for the row's geometry directly rather than going through
+        // visualRect() on a cell. Column 0 is one of the hidden internal columns,
+        // so its rect is empty and every marked row was silently skipped - the
+        // line was never drawn once, which no amount of recolouring would have
+        // fixed. Row geometry needs no column and cannot be hidden out from
+        // under us.
+        const int height = rowHeight(row);
+        if (height <= 0) {
+            continue;
+        }
+        const int y = rowViewportPosition(row) + height - 1;
+        painter.drawLine(0, y, viewport()->width(), y);
+    }
+}
+
 // Drag enter event, happens when a dragged item hovers over the track table view
 void WTrackTableView::dragEnterEvent(QDragEnterEvent * event) {
     auto* pTrackModel = getTrackModel();
@@ -712,10 +783,18 @@ void WTrackTableView::dragEnterEvent(QDragEnterEvent * event) {
         if (pTrackModel->hasCapabilities(TrackModel::Capability::Reorder)) {
             event->acceptProposedAction();
         }
-    } else if (DragAndDropHelper::dragEnterAccept(*event->mimeData(),
-                       "library",
-                       true,
-                       true)) {
+    } else if (pTrackModel->hasCapabilities(TrackModel::Capability::ReceiveDrops) &&
+            DragAndDropHelper::dragEnterAccept(*event->mimeData(),
+                    // Deliberately not "library": every track table starts its
+                    // drags with that identifier, and dragEnterAccept() rejects
+                    // anything carrying its own identifier. That guard is meant
+                    // to stop a view being dropped onto itself, which the
+                    // event->source() == this branch above already handles - so
+                    // here it only blocked dragging between two track tables,
+                    // e.g. from the library onto the Auto DJ queue panel.
+                    QString(),
+                    true,
+                    true)) {
         event->acceptProposedAction();
     }
 }

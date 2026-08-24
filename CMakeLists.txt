@@ -233,8 +233,23 @@ enable_language(C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
 
-set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
-set(CMAKE_PROJECT_DESCRIPTION "Mixxx is Free DJ software that gives you everything you need to perform live mixes.")
+# TangoQ product version. Keep this independent of CMAKE_PROJECT_VERSION, which
+# tracks the Mixxx base for config/schema lineage. This single value feeds the
+# application, platform bundle metadata, and installer filenames.
+set(TANGOQ_VERSION "1.0.1")
+string(REPLACE "." ";" TANGOQ_VERSION_COMPONENTS "${TANGOQ_VERSION}")
+list(GET TANGOQ_VERSION_COMPONENTS 0 TANGOQ_VERSION_MAJOR)
+list(GET TANGOQ_VERSION_COMPONENTS 1 TANGOQ_VERSION_MINOR)
+list(GET TANGOQ_VERSION_COMPONENTS 2 TANGOQ_VERSION_PATCH)
+
+# Copyright year, substituted into the Windows resource file and the macOS
+# Info.plist. Set here rather than in the WIN32-only resource block below: the
+# macOS plist is configured long before that block and never saw the variable,
+# so every bundle shipped "Copyright © 2001- Mixxx Development Team".
+string(TIMESTAMP MIXXX_YEAR "%Y")
+
+set(CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/seemantadutta/tangoq")
+set(CMAKE_PROJECT_DESCRIPTION "TangoQ is a Mixxx fork, purpose-built for Tango DJing")
 
 # Used for force control of color output
 set(BUILD_COLORS "auto" CACHE STRING "Try to use colors auto/always/no")
@@ -933,7 +948,13 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/analysis/dlganalysis.ui
   src/library/autodj/autodjfeature.cpp
   src/library/autodj/autodjprocessor.cpp
+  src/library/autodj/tandaqueuemodel.cpp
+  src/library/autodj/tandaqueuestate.cpp
+  src/library/autodj/wtandaqueueview.cpp
+  src/library/autodj/autodjqueuereset.cpp
   src/library/autodj/cortinaregistry.cpp
+  src/library/autodj/performanceregistry.cpp
+  src/library/autodj/tracklabelregistry.cpp
   src/library/autodj/dlgautodj.cpp
   src/library/autodj/dlgautodj.ui
   src/library/banshee/bansheedbconnection.cpp
@@ -1355,6 +1376,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/widget/wsplitter.cpp
   src/widget/wstarrating.cpp
   src/widget/wstatuslight.cpp
+  src/widget/wtangohud.cpp
   src/widget/wtime.cpp
   src/widget/wtrackmenu.cpp
   src/widget/wtrackproperty.cpp
@@ -1604,7 +1626,7 @@ set_target_properties(mixxx-lib PROPERTIES AUTOMOC ON AUTOUIC ON CXX_CLANG_TIDY 
 target_include_directories(mixxx-lib PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src")
 if(UNIX AND NOT APPLE)
   target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
-  set(MIXXX_SETTINGS_PATH ".mixxx/")
+  set(MIXXX_SETTINGS_PATH ".tangoq/")
 endif()
 
 if(APPLE)
@@ -1722,6 +1744,10 @@ if(WARNINGS_FATAL)
   endif()
 endif()
 
+option(TANGO_TRANSITION_TRACE "Enable Tango transition trace logging" OFF)
+if(TANGO_TRANSITION_TRACE)
+  target_compile_definitions(mixxx-lib PUBLIC TANGO_TRANSITION_TRACE)
+endif()
 target_compile_definitions(mixxx-lib PUBLIC
   "${CMAKE_SYSTEM_PROCESSOR}"
   $<$<CONFIG:Debug>:MIXXX_BUILD_DEBUG>
@@ -1759,8 +1785,14 @@ set(MIXXX_INSTALL_DOCDIR "./doc")
 set(MIXXX_INSTALL_LICENSEDIR "./doc")
 if (APPLE AND MACOS_BUNDLE)
   set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(MACOS_BUNDLE_NAME Mixxx CACHE STRING "The macOS app bundle and executable name")
-  set(MACOS_BUNDLE_IDENTIFIER org.mixxx.mixxx CACHE STRING "The macOS app bundle identifier")
+  # TangoQ fork: brand the macOS bundle by default, so every build path agrees
+  # -- CI, a plain `cmake ..`, and tools/tangoq_build_macos.sh alike. Upstream
+  # defaults these to Mixxx / org.mixxx.mixxx; leaving them there meant CI shipped
+  # a DMG containing "Mixxx.app", which could replace a real Mixxx in
+  # /Applications and, via the identifier below, shared its settings container and
+  # library database. Still CACHE, so -DMACOS_BUNDLE_NAME=... can override.
+  set(MACOS_BUNDLE_NAME TangoQ CACHE STRING "The macOS app bundle and executable name")
+  set(MACOS_BUNDLE_IDENTIFIER io.github.seemantadutta.tangoq CACHE STRING "The macOS app bundle identifier")
   # Sandbox::migrateOldSettings() builds the settings path from these. Deriving them
   # from the bundle identity keeps a fork's library separate from an upstream install
   # on the same machine; leaving the bundle vars at their defaults reproduces the
@@ -1842,6 +1874,19 @@ endif()
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
 target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 
+# TangoQ fork: ship the Windows executable under the product name. Only the
+# final binary is renamed -- the CMake target, the libraries and the bundled
+# DLLs keep their upstream names, so this stays a one-line difference from
+# upstream.
+#
+# macOS is handled separately, further up: its executable name comes from
+# MACOS_BUNDLE_NAME, which this fork defaults to TangoQ, so the bundle, the
+# binary inside it and the settings container are all branded without anyone
+# having to pass a flag.
+if(WIN32 OR (UNIX AND NOT APPLE))
+  set_target_properties(mixxx PROPERTIES OUTPUT_NAME "tangoq")
+endif()
+
 #
 # Installation and Packaging
 #
@@ -1871,8 +1916,8 @@ if (APPLE)
   elseif (MACOS_BUNDLE)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/osx/application.icns" DESTINATION ${MIXXX_INSTALL_DATADIR})
 
-    set(MACOS_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-    set(MACOS_BUNDLE_SHORTVERSION "${CMAKE_PROJECT_VERSION}")
+    set(MACOS_BUNDLE_VERSION "${TANGOQ_VERSION}")
+    set(MACOS_BUNDLE_SHORTVERSION "${TANGOQ_VERSION}")
 
     set_target_properties(mixxx PROPERTIES
         MACOSX_BUNDLE true
@@ -1910,11 +1955,25 @@ install(
 )
 
 # Skins
+# The installer ships only the TangoQ skin, the fork's sole branded, Tango-wired
+# skin. The stock skins (LateNight, Deere, Shade, Tango, and the 64-sampler
+# variants) are kept in the source tree as references but are excluded from the
+# installer so users only ever see TangoQ. Development builds are unaffected:
+# they read every skin live from the source tree.
 install(
   DIRECTORY
-    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/TangoQ"
   DESTINATION
-    "${MIXXX_INSTALL_DATADIR}"
+    "${MIXXX_INSTALL_DATADIR}/skins"
+)
+# Shared stylesheets required by every skin, including TangoQ.
+install(
+  FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default.qss"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default-menu-styles-linux.qss"
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/skins/default-menu-styles-windows.qss"
+  DESTINATION
+    "${MIXXX_INSTALL_DATADIR}/skins"
 )
 
 # Controller mappings
@@ -2000,7 +2059,7 @@ if(UNIX AND NOT APPLE)
   # .desktop file for KDE/GNOME menu
   install(
     FILES
-      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
+      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/io.github.seemantadutta.tangoq.desktop"
     DESTINATION
       "${CMAKE_INSTALL_DATADIR}/applications"
   )
@@ -2018,7 +2077,7 @@ if(UNIX AND NOT APPLE)
   # .metainfo.xml file for KDE/GNOME AppStream initiative
   install(
     FILES
-      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.metainfo.xml"
+      "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/io.github.seemantadutta.tangoq.metainfo.xml"
     DESTINATION
       "${CMAKE_INSTALL_DATAROOTDIR}/metainfo"
   )
@@ -2229,6 +2288,7 @@ if(BUILD_TESTING)
     src/test/synccontroltest.cpp
     src/test/synctrackmetadatatest.cpp
     src/test/tableview_test.cpp
+    src/test/tandaqueuestate_test.cpp
     src/test/taglibtest.cpp
     src/test/trackdao_test.cpp
     src/test/trackexport_test.cpp
@@ -2340,6 +2400,9 @@ else()
    set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
+# Windows resource files require a comma-separated numeric product version.
+string(REPLACE "." "," TANGOQ_PRODUCTVERSION "${TANGOQ_VERSION}")
+
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
 # uses CMAKE_PROJECT_VERSION MIXXX_VERSION_PRERELEASE MIXXX_BUILD_FLAGS
@@ -2372,10 +2435,9 @@ add_dependencies(mixxx-gitinfostore mixxx-gitinfo)
 
 # Windows-only resource file
 if(WIN32)
-  string(TIMESTAMP MIXXX_YEAR "%Y")
-
   set(MIXXX_FILEVERSION "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}")
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  # File version tracks the Mixxx code base; product version is the TangoQ release.
+  set(MIXXX_PRODUCTVERSION "${TANGOQ_PRODUCTVERSION}")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)
@@ -3970,24 +4032,34 @@ file(RELATIVE_PATH MIXXX_INSTALL_DOCDIR_RELATIVE_TO_DATADIR "${CMAKE_INSTALL_PRE
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/src/config.h" @ONLY)
 
 # Packaging
-# TangoMode fork: this block is the externally visible branding -- it names the
+# TangoQ fork: this block is the externally visible branding -- it names the
 # installer, the Windows install directory and Start menu entry, and is who
 # users are told to contact. It must not point at the upstream Mixxx project,
 # which neither builds nor supports these packages.
-set(CPACK_PACKAGE_NAME "TangoMode")
-set(CPACK_PACKAGE_VENDOR "TangoMode")
-set(CPACK_PACKAGE_CONTACT "TangoMode <https://github.com/seemantadutta/mixxx/issues>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Digital DJ Application for tango")
+set(CPACK_PACKAGE_NAME "TangoQ")
+set(CPACK_PACKAGE_VERSION "${TANGOQ_VERSION}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${TANGOQ_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${TANGOQ_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${TANGOQ_VERSION_PATCH}")
+set(CPACK_PACKAGE_VENDOR "TangoQ")
+set(CPACK_PACKAGE_CONTACT "TangoQ <https://github.com/seemantadutta/tangoq/issues>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TangoQ is a Mixxx fork, purpose-built for Tango DJing")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackPackageDescription.txt")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoMode")
-set(CPACK_PACKAGE_EXECUTABLES "mixxx;TangoMode")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "TangoQ")
+# Must match the OUTPUT_NAME set on the mixxx target above: this names the
+# executable the Start menu and desktop shortcuts point at.
+set(CPACK_PACKAGE_EXECUTABLES "tangoq;TangoQ")
 set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/mixxx")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/seemantadutta/tangoq")
+# Name the mounted DMG volume "TangoQ" rather than CPack's default
+# "TangoQ-<version>-Darwin"; this is the title the user sees on the install
+# window. Ignored by the non-DMG generators.
+set(CPACK_DMG_VOLUME_NAME "TangoQ")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
-set(CPACK_CREATE_DESKTOP_LINKS "mixxx")
-set(CPACK_MIXXX_VERSION "${MIXXX_VERSION}")
+set(CPACK_CREATE_DESKTOP_LINKS "tangoq")
+set(CPACK_TANGOQ_VERSION "${TANGOQ_VERSION}")
 # Save GIT values just in case they have been set manual via cmake
 set(CPACK_GIT_DESCRIBE "${GIT_DESCRIBE}")
 if(CMAKE_SYSTEM_PROCESSOR)
@@ -4119,7 +4191,7 @@ if(APPLE AND MACOS_BUNDLE)
     if (NOT APPLE_CODESIGN_IDENTITY STREQUAL "-")
       set(
         APPLE_CODESIGN_ENTITLEMENTS
-        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/Mixxx.entitlements"
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/TangoQ.entitlements"
       )
     else()
       set(APPLE_CODESIGN_ENTITLEMENTS "")

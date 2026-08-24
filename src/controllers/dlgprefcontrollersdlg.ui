@@ -62,7 +62,7 @@
          <string notr="true">QLabel { font-weight: bold; }</string>
         </property>
         <property name="text">
-         <string>Mixxx did not detect any controllers. If you connected the controller while Mixxx was running you must restart Mixxx first.</string>
+         <string>TangoQ did not detect any controllers. If you connected the controller while TangoQ was running you must restart TangoQ first.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

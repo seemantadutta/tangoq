@@ -74,6 +74,11 @@ WOverview::WOverview(
           m_playpositionControl(
                   m_group,
                   QStringLiteral("playposition")) {
+    m_pLiveModeControl = make_parented<ControlProxy>(
+            QStringLiteral("[AutoDJ]"),
+            QStringLiteral("live_mode"),
+            this,
+            ControlFlag::NoAssertIfMissing);
     m_endOfTrackControl = make_parented<ControlProxy>(
             m_group, QStringLiteral("end_of_track"), this, ControlFlag::NoAssertIfMissing);
     m_endOfTrackControl->connectValueChanged(this, &WOverview::onEndOfTrackChange);
@@ -529,6 +534,14 @@ void WOverview::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void WOverview::mouseReleaseEvent(QMouseEvent* e) {
+    // LIVE mode is a performance lock: never commit an overview seek while it
+    // is active, including a drag that was started just before LIVE was enabled.
+    if (e->button() == Qt::LeftButton && m_pLiveModeControl->toBool()) {
+        m_bLeftClickDragging = false;
+        m_bTimeRulerActive = false;
+        unsetCursor();
+        return;
+    }
     mouseMoveEvent(e);
     if (m_bPassthroughEnabled) {
         m_bLeftClickDragging = false;
@@ -566,6 +579,12 @@ void WOverview::mouseReleaseEvent(QMouseEvent* e) {
 void WOverview::mousePressEvent(QMouseEvent* e) {
     //qDebug() << "WOverview::mousePressEvent" << e->pos();
     mouseMoveEvent(e);
+    if (e->button() == Qt::LeftButton && m_pLiveModeControl->toBool()) {
+        m_bLeftClickDragging = false;
+        m_bTimeRulerActive = false;
+        unsetCursor();
+        return;
+    }
     if (m_bPassthroughEnabled) {
         m_bLeftClickDragging = false;
         unsetCursor();
@@ -901,6 +920,15 @@ void WOverview::drawMarks(QPainter* pPainter, const float offset, const float ga
     for (auto it = m_marks.cbegin(); it != m_marks.cend(); ++it) {
         PainterScope painterScope(pPainter);
         const WaveformMarkPointer& pMark = *it;
+        // Honour a mark's VisibilityControl. drawMarkRanges() below already
+        // checks markRange.visible(), and the main waveform renderer checks
+        // marks too, but this loop drew every mark unconditionally - so a mark
+        // the skin had switched off still painted its line and label here.
+        // isVisible() returns true when no VisibilityControl was declared, so
+        // marks without one are unaffected.
+        if (!pMark->isVisible()) {
+            continue;
+        }
         double samplePosition = pMark->getSamplePosition();
         const float markPosition = math_clamp(
                 offset + static_cast<float>(samplePosition) * gain,
@@ -960,6 +988,11 @@ void WOverview::drawMarks(QPainter* pPainter, const float offset, const float ga
                 float nextMarkPosition = -1.0f;
                 for (auto m = std::next(it); m != m_marks.cend(); ++m) {
                     const WaveformMarkPointer& otherMark = *m;
+                    // A hidden mark must not elide a visible label; it occupies
+                    // no space on screen.
+                    if (!otherMark->isVisible()) {
+                        continue;
+                    }
                     bool otherAtSameHeight = valign == (otherMark->m_align & Qt::AlignVertical_Mask);
                     // Hotcues always show at least their number.
                     bool otherHasLabel = !otherMark->m_text.isEmpty() || otherMark->getHotCue() != Cue::kNoHotCue;

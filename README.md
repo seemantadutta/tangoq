@@ -1,118 +1,70 @@
-# Mixxx
+# TangoQ
 
-[![GitHub latest tag](https://img.shields.io/github/tag/mixxxdj/mixxx.svg)](https://mixxx.org/download)
-[![Packaging status](https://repology.org/badge/tiny-repos/mixxx.svg)](https://repology.org/metapackage/mixxx/versions)
-[![Build status](https://github.com/mixxxdj/mixxx/actions/workflows/build.yml/badge.svg)](https://github.com/mixxxdj/mixxx/actions/workflows/build.yml)
-[![Coverage status](https://coveralls.io/repos/github/mixxxdj/mixxx/badge.svg)](https://coveralls.io/github/mixxxdj/mixxx)
-[![Zulip chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://mixxx.zulipchat.com)
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://mixxx.org/donate)
+**Argentine Tango DJ Software, based on [Mixxx].**
 
-[Mixxx] is Free DJ software that gives you everything you need to perform live
-DJ mixes. Mixxx works on GNU/Linux, Windows, and macOS.
+TangoQ keeps Mixxx's familiar deck-based DJ interface and focuses it on milonga
+workflow: ordered tanda queues, cortina handling, set timing, live-mode safety,
+and waveform markers that help a tango DJ stay oriented while performing.
 
-## Quick Start
+> **Not affiliated with the Mixxx project.** TangoQ is a community-maintained
+> fork based on Mixxx, not an official Mixxx release. Please report TangoQ
+> problems [here](https://github.com/seemantadutta/tangoq/issues), not to the
+> upstream Mixxx project.
 
-To get started with Mixxx:
+## Install
 
-1. For live use, [download the latest stable version][download-stable].
-2. For experimentation and testing, [download a development release][download-testing].
-3. To live on the bleeding edge, clone the repo: `git clone https://github.com/mixxxdj/mixxx.git`
+See **[INSTALL.md](INSTALL.md)** for step-by-step instructions, including how to
+get past the Windows SmartScreen and macOS Gatekeeper warnings. Current builds
+are unsigned, so both operating systems will warn the first time.
 
-## Bug tracker
+Downloads are attached to the [Releases](https://github.com/seemantadutta/tangoq/releases)
+page. Windows packages are named `tangoq-*.msi`; macOS packages are named
+`tangoq-*.dmg`.
 
-The Mixxx team uses [Github Issues][issues] to manage Mixxx development.
+## Tango Workflow
 
-Have a bug or feature request? [File a bug on Github][fileabug].
+- The queue plays top to bottom and played tracks stay visible.
+- Cortinas can be tagged and faded with a dedicated cortina envelope.
+- Set length, end time, and remaining-time feedback stay visible.
+- Pause-after-track, row display names, duplicate warnings, and live-mode
+  safeguards support real-room DJing.
+- FAS, S, LAS, and absolute-start waveform markers make start-position decisions
+  visible.
 
-Want to get involved in Mixxx development? Assign yourself a bug from the [easy
-bug list][easybugs] and get started!
-Read [CONTRIBUTING](CONTRIBUTING.md) for more information.
+For the current manual checklist, see
+[tangomode_manual_test_cases.md](tangomode_manual_test_cases.md). The file name
+will be cleaned up in a later pass with the rest of the behavior terminology.
 
-## Building Mixxx
+## Building From Source
 
-First, open a terminal (on Windows, use "**x64 Native Tools Command Prompt for
-[VS 2022][visualstudio2022]**"), download the mixxx
-source code and navigate to it:
+Same as Mixxx, from this fork:
 
-    $ git clone https://github.com/mixxxdj/mixxx.git
-    $ cd mixxx
+```sh
+git clone https://github.com/seemantadutta/tangoq.git
+cd mixxx
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
 
-Download the required dependencies and set up the build environment by running the
-corresponding command for your operating system:
+On Windows the executable is `tangoq.exe`. On Linux it is `tangoq`. On macOS the
+bundle is `TangoQ.app` with bundle identifier `io.github.seemantadutta.tangoq`.
+Bundled libraries and internal build targets may still use Mixxx names.
 
-| Platform | Command | Requirements |
-| -- | ------- | ------------ |
-| Windows | `tools\windows_buildenv.bat` | ~2.5 GB download, ~9 GB disk space |
-| macOS | `source tools/macos_buildenv.sh setup` | ~1.5 GB download, ~3 GB disk space |
-| Debian/Ubuntu | `tools/debian_buildenv.sh setup` | ~200 MB download, ~1 GB disk space |
-| Fedora | `tools/rpm_buildenv.sh setup` | ~200 MB download, ~1 GB disk space |
-| Flatpak | `tools/flatpak_buildenv.sh setup` | ~2.6 GB download, ~5 GB disk space |
-| Other Linux distros | See the [wiki article](https://github.com/mixxxdj/mixxx/wiki/Compiling%20on%20Linux) | |
+`tools/tangoq_build_macos.sh` wraps the macOS configure/build loop with local
+defaults for this fork.
 
-To build Mixxx, run
+## Relationship To Mixxx
 
-    $ mkdir build
-    $ cd build
-    $ cmake ..
-    $ cmake --build .
+TangoQ is based on Mixxx and remains GPLv2 software. The Mixxx project deserves
+clear attribution, and upstream Mixxx credits, copyright notices, dependency
+names, internal APIs, and licenses are preserved.
 
-There should now be a `mixxx` executable in the current directory that you can
-run. Alternatively, can generate a package using `cpack`.
+The GPL covers the source code. It does not grant rights to the Mixxx name or
+logo, which is why this fork carries its own product name and makes the
+relationship explicit.
 
-For building and installing Mixxx as a Flatpak, check the documentation in [packaging/flatpak/README.md](packaging/flatpak/README.md).
-
-Detailed build instructions for each target OS can be found [on the wiki](https://github.com/mixxxdj/mixxx/wiki#compile-mixxx-from-source-code)
-
-## Documentation
-
-For help using Mixxx, there are a variety of options:
-
-- [Mixxx manual][manual]
-- [Mixxx wiki][wiki]
-- [Hardware Compatibility]
-- [Creating Skins]
-
-## Translation
-
-Help to spread Mixxx with translations into more languages, as well as to update and ensure the accuracy of existing translations.
-
-- [Help translate content]
-- [Mixxx i18n wiki]
-- [Mixxx localization forum]
-- [Mixxx glossary]
-
-## Community
-
-Mixxx is a vibrant community of hackers, DJs and artists. To keep track of
-development and community news:
-
-- Chat with us on [Zulip][zulip].
-- Follow us on [Mastodon], [Twitter] and [Facebook].
-- Subscribe to the [Mixxx Blog][blog].
-- Post on the [Mixxx forums][discourse].
-
-## License
-
-Mixxx is released under the GPLv2. See the LICENSE file for a full copy of the
-license.
+If you find Mixxx useful, [support the people who make it](https://mixxx.org/donate).
 
 [mixxx]: https://mixxx.org
-[download-stable]: https://mixxx.org/download/#stable
-[download-testing]: https://mixxx.org/download/#testing
-[issues]: https://github.com/mixxxdj/mixxx/issues
-[fileabug]: https://github.com/mixxxdj/mixxx/issues/new/choose
-[mastodon]: https://floss.social/@mixxx
-[twitter]: https://twitter.com/mixxxdj
-[facebook]: https://www.facebook.com/pages/Mixxx-DJ-Software/21723485212
-[blog]: https://mixxx.org/news/
-[manual]: https://manual.mixxx.org/
-[wiki]: https://github.com/mixxxdj/mixxx/wiki
-[visualstudio2022]: https://docs.microsoft.com/visualstudio/install/install-visual-studio?view=vs-2022
-[easybugs]: https://github.com/mixxxdj/mixxx/issues?q=is%3Aopen+is%3Aissue+label%3Aeasy
-[creating skins]: https://mixxx.org/wiki/doku.php/Creating-Skins
-[help translate content]: https://explore.transifex.com/mixxx-dj-software/
-[Mixxx i18n wiki]: https://github.com/mixxxdj/mixxx/wiki/Internationalization
-[Mixxx localization forum]: https://mixxx.discourse.group/c/translation/13
-[hardware compatibility]: https://manual.mixxx.org/2.3/en/hardware/manuals.html
-[zulip]: https://mixxx.zulipchat.com/
-[discourse]: https://mixxx.discourse.group/

@@ -1,0 +1,51 @@
+<Template>
+  <WidgetGroup>
+    <SizePolicy>min,min</SizePolicy>
+    <Layout>vertical</Layout>
+    <Children>
+      <WidgetGroup>
+        <ObjectName>DeckSettings</ObjectName>
+        <Layout>vertical</Layout>
+        <Size>76min,0min</Size>
+        <Children>
+
+          <WidgetGroup><Size>0min,0me</Size></WidgetGroup>
+
+          <WidgetGroup>
+            <ObjectName>Stars</ObjectName>
+            <Layout>vertical</Layout>
+            <Size>0min,15f</Size>
+            <Children>
+              <StarRating>
+                <TooltipId>starrating</TooltipId>
+                <Size>75f,15f</Size>
+                <Channel><Variable name="ChanNum"/></Channel>
+              </StarRating>
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup><Size>0min,1me</Size></WidgetGroup>
+
+          <!-- Tango DJ build: Slip, Quantize, Curpos, Repeat and Keylock are
+               removed - a tanda set is not beat-matched or looped by hand. Only
+               Eject is kept (and the star rating above it). -->
+          <WidgetGroup>
+            <ObjectName>DeckSettingsGrid</ObjectName>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skins:TangoQ/controls/button_1state.xml">
+                <SetVariable name="TooltipId">eject</SetVariable>
+                <SetVariable name="ObjectName">EjectButton<Variable name="DeckGroup"/></SetVariable>
+                <SetVariable name="ConfigKey"><Variable name="Group"/>,eject</SetVariable>
+                <SetVariable name="Size">21f,18f</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup><!-- /DeckSettingsGrid -->
+
+          <WidgetGroup><Size>0min,0me</Size></WidgetGroup>
+
+        </Children>
+      </WidgetGroup>
+    </Children>
+  </WidgetGroup>
+</Template>

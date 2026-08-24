@@ -7,6 +7,9 @@
 #include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/dlgautodj.h"
+#include "library/autodj/tandaqueuemodel.h"
+#include "library/autodj/tandaqueuestate.h"
+#include "library/autodj/wtandaqueueview.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/parser.h"
@@ -62,6 +65,8 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_showAutoDJDockControl(ConfigKey(
                   QStringLiteral("[AutoDJ]"), QStringLiteral("show_autodj_dock"))),
           m_pTangoModeControl(nullptr),
+          m_tangoModeEnabled(false),
+          m_restoreAutoDJDockOnTangoMode(false),
           m_autoDjCratesDao(m_iAutoDJPlaylistId, pLibrary->trackCollectionManager(), m_pConfig) {
     qRegisterMetaType<AutoDJProcessor::AutoDJState>("AutoDJState");
     m_pAutoDJProcessor = new AutoDJProcessor(this,
@@ -80,6 +85,31 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
 
     m_playlistDao.setAutoDJProcessor(m_pAutoDJProcessor);
 
+    m_pTandaQueueState =
+            std::make_unique<TandaQueueState>(m_pConfig);
+    m_pTandaQueueState->restore(
+            m_playlistDao.getTrackIdsInPlaylistOrder(m_iAutoDJPlaylistId));
+    m_pAutoDJProcessor->getTableModel()->setTandaQueueState(
+            m_pTandaQueueState.get());
+    const auto reconcileTandas = [this](const QSet<int>& playlistIds) {
+        if (!m_tandaMoveInProgress && playlistIds.contains(m_iAutoDJPlaylistId)) {
+            m_pTandaQueueState->reconcileQueue(
+                    m_playlistDao.getTrackIdsInPlaylistOrder(m_iAutoDJPlaylistId));
+        }
+    };
+    connect(&m_playlistDao,
+            &PlaylistDAO::tracksAdded,
+            this,
+            reconcileTandas);
+    connect(&m_playlistDao,
+            &PlaylistDAO::tracksMoved,
+            this,
+            reconcileTandas);
+    connect(&m_playlistDao,
+            &PlaylistDAO::tracksRemoved,
+            this,
+            reconcileTandas);
+
     // Dockable Auto DJ queue panel toggle (bound to the View menu).
     m_showAutoDJDockControl.setButtonMode(ControlPushButton::TOGGLE);
     connect(&m_showAutoDJDockControl,
@@ -94,6 +124,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             this);
     m_pTangoModeControl->connectValueChanged(
             this, &AutoDJFeature::slotTangoModeChanged);
+    m_tangoModeEnabled = m_pTangoModeControl->toBool();
 
     // Create the "Crates" tree-item under the root item.
     std::unique_ptr<TreeItem> pRootItem = TreeItem::newRoot(this);
@@ -141,10 +172,130 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             &QAction::triggered,
             this,
             &AutoDJFeature::slotRemoveCrateFromAutoDj);
+
+    // TangoQ is a tango-only build: lock Tango DJ mode permanently on. The
+    // preferences checkbox and keyboard shortcut that used to toggle it are gone,
+    // and from here keep_queue can never be turned off. Everything above is
+    // connected first so the dock gating and toolbar react to the forced-on state.
+    // Reverting the commit that added this restores the user-switchable mode.
+    m_pAutoDJProcessor->lockTangoModeOn();
 }
 
 AutoDJFeature::~AutoDJFeature() {
+    m_pAutoDJProcessor->getTableModel()->setTandaQueueState(nullptr);
     delete m_pAutoDJProcessor;
+}
+
+QUuid AutoDJFeature::makeTanda(const QVector<int>& oneBasedPositions,
+        TandaType type,
+        QString* pError) {
+    return m_pTandaQueueState->classify(oneBasedPositions, type, pError);
+}
+
+bool AutoDJFeature::ungroupTanda(const QUuid& id) {
+    return m_pTandaQueueState->ungroup(id);
+}
+
+bool AutoDJFeature::changeTandaType(const QUuid& id, TandaType type) {
+    return m_pTandaQueueState->changeType(id, type);
+}
+
+bool AutoDJFeature::setTandaCollapsed(const QUuid& id, bool collapsed) {
+    return m_pTandaQueueState->setCollapsed(id, collapsed);
+}
+
+bool AutoDJFeature::moveTanda(
+        const QUuid& id, int newAnchorPosition, QString* pError) {
+    const TandaSpan* pSpan = m_pTandaQueueState->spanById(id);
+    if (!pSpan) {
+        if (pError) {
+            *pError = tr("That tanda is no longer in the queue.");
+        }
+        return false;
+    }
+    const int oldAnchor = pSpan->anchorPosition;
+    const int length = pSpan->members.size();
+    const int queueSize = m_pTandaQueueState->queueSnapshot().size();
+    if (newAnchorPosition <= 0 || newAnchorPosition + length - 1 > queueSize) {
+        if (pError) {
+            *pError = tr("The tanda cannot move beyond the queue bounds.");
+        }
+        return false;
+    }
+    if (newAnchorPosition == oldAnchor) {
+        return true;
+    }
+
+    if (m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED) {
+        const int firstUnloaded =
+                m_pAutoDJProcessor->firstUnloadedQueuePosition();
+        if (oldAnchor < firstUnloaded) {
+            if (pError) {
+                *pError = tr("The tanda contains a current or loaded track.");
+            }
+            return false;
+        }
+        if (newAnchorPosition < firstUnloaded) {
+            if (pError) {
+                *pError = tr("A running set cannot move a tanda before the current cursor.");
+            }
+            return false;
+        }
+    }
+
+    m_tandaMoveInProgress = true;
+    const bool moved = m_playlistDao.moveTrackRange(m_iAutoDJPlaylistId,
+            oldAnchor,
+            oldAnchor + length - 1,
+            newAnchorPosition);
+    m_tandaMoveInProgress = false;
+    if (!moved) {
+        m_pTandaQueueState->reconcileQueue(
+                m_playlistDao.getTrackIdsInPlaylistOrder(m_iAutoDJPlaylistId));
+        if (pError) {
+            *pError = tr("The tanda could not be moved.");
+        }
+        return false;
+    }
+    return m_pTandaQueueState->applyWholeTandaMove(id, newAnchorPosition);
+}
+
+bool AutoDJFeature::moveTandaUp(const QUuid& id, QString* pError) {
+    const TandaSpan* pSpan = m_pTandaQueueState->spanById(id);
+    if (!pSpan || pSpan->anchorPosition <= 1) {
+        if (pError) {
+            *pError = tr("The tanda is already at the top of the queue.");
+        }
+        return false;
+    }
+    int destination = pSpan->anchorPosition - 1;
+    if (const TandaSpan* pPrevious =
+                    m_pTandaQueueState->spanAtPosition(destination)) {
+        destination = pPrevious->anchorPosition;
+    }
+    return moveTanda(id, destination, pError);
+}
+
+bool AutoDJFeature::moveTandaDown(const QUuid& id, QString* pError) {
+    const TandaSpan* pSpan = m_pTandaQueueState->spanById(id);
+    if (!pSpan) {
+        if (pError) {
+            *pError = tr("That tanda is no longer in the queue.");
+        }
+        return false;
+    }
+    const int after = pSpan->anchorPosition + pSpan->members.size();
+    if (after > m_pTandaQueueState->queueSnapshot().size()) {
+        if (pError) {
+            *pError = tr("The tanda is already at the bottom of the queue.");
+        }
+        return false;
+    }
+    int destination = pSpan->anchorPosition + 1;
+    if (const TandaSpan* pNext = m_pTandaQueueState->spanAtPosition(after)) {
+        destination = pSpan->anchorPosition + pNext->members.size();
+    }
+    return moveTanda(id, destination, pError);
 }
 
 QString AutoDJFeature::libraryStyleSheet() const {
@@ -181,8 +332,14 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
 
     // A second view onto the shared, live Auto DJ queue model, so it stays in
     // sync with the docked Auto DJ view (including the Tango cursor highlight).
-    auto* pTrackTableView = new WTrackTableView(pDock, m_pConfig, m_pLibrary, 1.0);
-    pTrackTableView->loadTrackModel(m_pAutoDJProcessor->getTableModel());
+    auto* pTrackTableView =
+            new WTandaQueueView(pDock, m_pConfig, m_pLibrary, 1.0, this);
+    auto* pTandaQueueModel = new TandaQueueModel(
+            m_pAutoDJProcessor->getTableModel(),
+            m_pTandaQueueState.get(),
+            m_pAutoDJProcessor,
+            pTrackTableView);
+    pTrackTableView->loadTrackModel(pTandaQueueModel);
     connect(pTrackTableView,
             &WTrackTableView::loadTrack,
             this,
@@ -228,7 +385,7 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
 }
 
 bool AutoDJFeature::tangoModeEnabled() const {
-    return m_pTangoModeControl && m_pTangoModeControl->toBool();
+    return m_tangoModeEnabled;
 }
 
 void AutoDJFeature::slotShowAutoDJDockChanged(double value) {
@@ -240,13 +397,27 @@ void AutoDJFeature::slotShowAutoDJDockChanged(double value) {
 }
 
 void AutoDJFeature::slotTangoModeChanged(double value) {
-    // Leaving Tango mode hides the queue panel and clears the toggle so the View
-    // menu unchecks (and is greyed out by the menu's own Tango gate).
-    if (value <= 0.0) {
-        m_showAutoDJDockControl.set(0.0);
-        if (m_pAutoDJDock) {
-            m_pAutoDJDock->hide();
+    m_tangoModeEnabled = value > 0.0;
+
+    if (m_tangoModeEnabled) {
+        if (m_restoreAutoDJDockOnTangoMode) {
+            m_restoreAutoDJDockOnTangoMode = false;
+            m_showAutoDJDockControl.set(1.0);
+            if (m_pAutoDJDock) {
+                m_pAutoDJDock->show();
+            }
         }
+        return;
+    }
+
+    // Leaving Tango mode hides the queue panel and clears the toggle so the View
+    // menu unchecks while hidden by the menu's own Tango gate. Remember whether
+    // this forced hide closed an open panel so Tango mode can restore it later.
+    m_restoreAutoDJDockOnTangoMode = m_showAutoDJDockControl.toBool() ||
+            (m_pAutoDJDock && m_pAutoDJDock->isVisible());
+    m_showAutoDJDockControl.set(0.0);
+    if (m_pAutoDJDock) {
+        m_pAutoDJDock->hide();
     }
 }
 
@@ -286,6 +457,7 @@ void AutoDJFeature::bindLibraryWidget(
             libraryWidget,
             m_pConfig,
             m_pLibrary,
+            this,
             m_pAutoDJProcessor,
             keyboard);
     libraryWidget->registerView(kViewName, m_pAutoDJView);
