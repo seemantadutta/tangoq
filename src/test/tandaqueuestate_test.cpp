@@ -22,6 +22,7 @@
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
 #include "library/trackcollection.h"
+#include "mixer/playerinfo.h"
 #include "test/librarytest.h"
 #include "test/mixxxtest.h"
 #include "track/track.h"
@@ -202,6 +203,18 @@ TEST_F(TandaQueueStateTest, KnownEditsPreserveUnaffectedTandasAndShiftAnchors) {
 
 class TandaQueueDaoTest : public LibraryTest {
   protected:
+    // These tests build a PlaylistTableModel, whose BaseTrackTableModel base
+    // connects to PlayerInfo::instance() in its constructor. Create the singleton
+    // for the fixture's lifetime (as AutoDJProcessorTest / PlayerManagerTest do);
+    // otherwise a Debug build trips the "s_pPlayerInfo" DEBUG_ASSERT, which raises
+    // SIGINT and shows up as a ctest INTERRUPT in the coverage job.
+    TandaQueueDaoTest() {
+        PlayerInfo::create();
+    }
+    ~TandaQueueDaoTest() override {
+        PlayerInfo::destroy();
+    }
+
     TrackId addTrack(const QString& name) {
         TrackPointer pTrack = getOrAddTrackByLocation(
                 getTestDir().filePath(QStringLiteral("id3-test-data/") + name));
