@@ -284,7 +284,14 @@ AutoDJProcessor::AutoDJProcessor(
     // Deferring to the event loop means the work happens after the load or eject
     // has settled, and on shutdown the loop is already gone so it is simply
     // dropped - which is right, since the skin it updates is deleted first.
-    connect(&PlayerInfo::instance(), &PlayerInfo::trackChanged, this, [this](const QString&, TrackPointer, TrackPointer) { updatePauseAfterDeckControl(); }, Qt::QueuedConnection);
+    connect(
+            &PlayerInfo::instance(),
+            &PlayerInfo::trackChanged,
+            this,
+            [this](const QString&, TrackPointer, TrackPointer) {
+                updatePauseAfterDeckControl();
+            },
+            Qt::QueuedConnection);
     // A mark can be set or cleared while its track is already on a deck, so the
     // deck's warning has to follow it.
     connect(m_pAutoDJTableModel.get(),

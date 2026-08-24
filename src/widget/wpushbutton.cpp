@@ -32,7 +32,9 @@ WPushButton::WPushButton(QWidget* pParent)
             &WPushButton::disarmLiveStopGuard);
 }
 
-WPushButton::WPushButton(QWidget* pParent, ControlPushButton::ButtonMode leftButtonMode, ControlPushButton::ButtonMode rightButtonMode)
+WPushButton::WPushButton(QWidget* pParent,
+        ControlPushButton::ButtonMode leftButtonMode,
+        ControlPushButton::ButtonMode rightButtonMode)
         : WWidget(pParent),
           m_leftButtonMode(leftButtonMode),
           m_rightButtonMode(rightButtonMode),
@@ -587,7 +589,9 @@ bool WPushButton::shouldGuardLiveStop() const {
     const auto& leftConnections = this->leftConnections();
     const auto& connections = this->connections();
     const ControlParameterWidgetConnection* pConnection =
-            !leftConnections.isEmpty() ? leftConnections.constFirst() : (!connections.isEmpty() ? connections.constFirst() : nullptr);
+            !leftConnections.isEmpty()
+            ? leftConnections.constFirst()
+            : (!connections.isEmpty() ? connections.constFirst() : nullptr);
     if (!pConnection) {
         return false;
     }

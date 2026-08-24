@@ -228,7 +228,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     pushButtonRepeatPlaylist->setToolTip(repeatBtnTooltip);
     pushButtonKeepQueue->setToolTip(keepQueueBtnTooltip);
     spinBoxTransition->setToolTip(spinBoxTransitionTooltip);
-    spinBoxTandaGap->setToolTip(tr("Silent gap inserted by Tanda Transition, in seconds. Positive values mean silence between tracks."));
+    spinBoxTandaGap->setToolTip(
+            tr("Silent gap inserted by Tanda Transition, in seconds. Positive "
+               "values mean silence between tracks."));
     labelTransitionAppendix->setToolTip(labelTransitionTooltip);
     labelTandaGapAppendix->setToolTip(spinBoxTandaGap->toolTip());
     fadeModeCombobox->setToolTip(fadeModeTooltip);

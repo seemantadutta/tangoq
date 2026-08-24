@@ -107,7 +107,9 @@ QStringList mixxxDatabaseImportCandidates() {
     const QString localAppData =
             QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
     if (!localAppData.isEmpty()) {
-        addCandidate(QDir(localAppData).filePath(QStringLiteral("Mixxx/%1").arg(kMixxxDatabaseFileName)));
+        addCandidate(QDir(localAppData)
+                        .filePath(QStringLiteral("Mixxx/%1")
+                                        .arg(kMixxxDatabaseFileName)));
     }
     const QString appData =
             QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPDATA"));
@@ -162,13 +164,16 @@ bool importMixxxDatabaseIfFirstRun(const UserSettingsPointer& pConfig) {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Question);
     msgBox.setWindowTitle(QObject::tr("Import your Mixxx library?"));
-    msgBox.setText(QObject::tr(
-            "%1 found an existing Mixxx library and can copy it before creating "
-            "its own library database.\n\n"
-            "Source:\n%2\n\n"
-            "Destination:\n%3\n\n"
-            "The original Mixxx database will not be modified.")
-                    .arg(appName, QDir::toNativeSeparators(mixxxDbPath), QDir::toNativeSeparators(tangoDbPath)));
+    msgBox.setText(
+            QObject::tr("%1 found an existing Mixxx library and can copy it "
+                        "before creating "
+                        "its own library database.\n\n"
+                        "Source:\n%2\n\n"
+                        "Destination:\n%3\n\n"
+                        "The original Mixxx database will not be modified.")
+                    .arg(appName,
+                            QDir::toNativeSeparators(mixxxDbPath),
+                            QDir::toNativeSeparators(tangoDbPath)));
     QPushButton* pImportButton =
             msgBox.addButton(QObject::tr("Import Library"), QMessageBox::AcceptRole);
     msgBox.addButton(QObject::tr("Start Fresh"), QMessageBox::RejectRole);
@@ -197,7 +202,9 @@ bool importMixxxDatabaseIfFirstRun(const UserSettingsPointer& pConfig) {
                             "Source:\n%2\n\n"
                             "Destination:\n%3\n\n"
                             "Click OK to exit.")
-                        .arg(appName, QDir::toNativeSeparators(mixxxDbPath), QDir::toNativeSeparators(tangoDbPath)),
+                        .arg(appName,
+                                QDir::toNativeSeparators(mixxxDbPath),
+                                QDir::toNativeSeparators(tangoDbPath)),
                 QMessageBox::Ok);
         return false;
     }

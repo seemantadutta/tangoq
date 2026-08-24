@@ -81,7 +81,10 @@ int countdownTimeWidth(const QFontMetrics& fm) {
     return countdownTimeCellWidth(fm) * 5;
 }
 
-void drawFixedWidthTime(QPainter* p, const QRect& rect, const QFontMetrics& fm, const QString& time) {
+void drawFixedWidthTime(QPainter* p,
+        const QRect& rect,
+        const QFontMetrics& fm,
+        const QString& time) {
     const int cellWidth = countdownTimeCellWidth(fm);
     for (int i = 0; i < time.size() && i < 5; ++i) {
         p->drawText(QRect(rect.left() + i * cellWidth, rect.top(), cellWidth, rect.height()),
