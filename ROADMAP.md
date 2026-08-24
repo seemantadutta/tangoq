@@ -99,6 +99,17 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
 - **Duplicate detection** on add, with a warning, while ignoring cortinas (which are
   legitimately reused across a set).
 - Drag-and-drop support into the Auto DJ docking / floating window.
+- **Lean logs by default; verbose logging is opt-in.** Stock Mixxx wrote every
+  `qDebug` message to the log file regardless of log level, so a single session
+  ballooned the log to tens of MB (track-cache reindex and KeyMap/Beats
+  deserialization alone log hundreds of thousands of lines); 11 rotated files
+  reached ~500 MB on disk. Debug now respects the `--logLevel` setting for the
+  file as well as stderr, and the `[CORTINA_ENVELOPE]` / `[CORTINA_FADE_NOW]`
+  instrumentation was downgraded from `qInfo` to `qDebug`. Run with
+  `--logLevel debug` to get the old verbosity back.
+  - *Still open (optional):* the retention ceiling is inherited stock — 100 MB
+    per file × 11 files. Now that debug is gated the files stay small, but the
+    default cap could be lowered if we want a firmer bound.
 
 ---
 

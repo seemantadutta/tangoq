@@ -283,10 +283,6 @@ namespace mixxx {
 
 namespace {
 
-bool isControllerLoggingCategory(const QString& categoryName) {
-    return categoryName.startsWith("controller.");
-}
-
 // Debug message handler which outputs to stderr and a logfile,
 // prepending the thread name, log category, and log level.
 void handleMessage(
@@ -296,25 +292,21 @@ void handleMessage(
     const char* levelName = nullptr;
     WriteFlags writeFlags = WriteFlag::None;
     bool isDebugAssert = false;
-    const QString categoryName(context.category);
     switch (type) {
     case QtDebugMsg:
         levelName = "Debug";
+        // Debug messages reach stderr and the log file only when the Debug log
+        // level is enabled (opt in with --logLevel debug). Stock Mixxx wrote
+        // every debug message to the log file regardless of level, which let a
+        // single session balloon the log to tens of MB (track-cache reindex and
+        // KeyMap/Beats deserialization alone log hundreds of thousands of lines).
+        // TangoQ keeps the default log lean and makes verbose logging opt-in.
         if (Logging::enabled(LogLevel::Debug)) {
             writeFlags |= WriteFlag::StdErr;
             writeFlags |= WriteFlag::File;
         }
         if (Logging::shouldFlush(LogLevel::Debug)) {
             writeFlags |= WriteFlag::Flush;
-        }
-        // TODO: Remove the following line.
-        // Do not write debug log messages into log file if log level
-        // Debug is not enabled starting with release 2.4.0! Until then
-        // write debug messages into the log file, but skip controller I/O
-        // to avoid flooding the log file.
-        // Skip expensive string comparisons if WriteFlag::File is already set.
-        if (!writeFlags.testFlag(WriteFlag::File) && !isControllerLoggingCategory(categoryName)) {
-            writeFlags |= WriteFlag::File;
         }
         break;
     case QtInfoMsg:
