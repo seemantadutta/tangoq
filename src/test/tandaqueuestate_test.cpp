@@ -18,6 +18,8 @@
 #include <QJsonObject>
 #include <QSignalSpy>
 
+#include "control/controlobject.h"
+#include "control/controlpotmeter.h"
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -43,6 +45,10 @@ QVector<TrackId> queue(std::initializer_list<int> values) {
 
 const ConfigKey kTandaStateConfigKey(
         QStringLiteral("[TangoMode]"), QStringLiteral("AutoDjTandasV1"));
+
+// Groups whose ControlObjects PlayerInfo polls; see TandaQueueDaoTest.
+const QString kMasterGroup = QStringLiteral("[Master]");
+const QString kAppGroup = QStringLiteral("[App]");
 
 } // namespace
 
@@ -208,7 +214,22 @@ class TandaQueueDaoTest : public LibraryTest {
     // for the fixture's lifetime (as AutoDJProcessorTest / PlayerManagerTest do);
     // otherwise a Debug build trips the "s_pPlayerInfo" DEBUG_ASSERT, which raises
     // SIGINT and shows up as a ctest INTERRUPT in the coverage job.
-    TandaQueueDaoTest() {
+    //
+    // PlayerInfo also starts a timer whose updateCurrentPlayingDeck() polls
+    // [Master],crossfader and [App],num_decks. Those ControlObjects must exist or
+    // the same Debug build trips the getControl NoAssertIfMissing DEBUG_ASSERT
+    // (again a SIGINT / ctest INTERRUPT). num_decks = 0 keeps PlayerInfo from
+    // touching any per-deck controls. The [App] counts mirror what a real
+    // PlayerManager publishes, matching AutoDJProcessorTest's fixture.
+    TandaQueueDaoTest()
+            : m_crossfader(ConfigKey(kMasterGroup, QStringLiteral("crossfader")),
+                      -1.0,
+                      1.0),
+              m_numDecks(ConfigKey(kAppGroup, QStringLiteral("num_decks"))),
+              m_numSamplers(ConfigKey(kAppGroup, QStringLiteral("num_samplers"))),
+              m_numPreviewDecks(
+                      ConfigKey(kAppGroup, QStringLiteral("num_preview_decks"))) {
+        m_numDecks.set(0.0);
         PlayerInfo::create();
     }
     ~TandaQueueDaoTest() override {
@@ -221,6 +242,12 @@ class TandaQueueDaoTest : public LibraryTest {
         EXPECT_TRUE(pTrack);
         return pTrack ? pTrack->getId() : TrackId();
     }
+
+  private:
+    ControlPotmeter m_crossfader;
+    ControlObject m_numDecks;
+    ControlObject m_numSamplers;
+    ControlObject m_numPreviewDecks;
 };
 
 TEST_F(TandaQueueDaoTest, AtomicRangeMoveHandlesBoundsAndDuplicateOccurrences) {
