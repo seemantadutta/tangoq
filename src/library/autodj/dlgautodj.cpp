@@ -1,8 +1,5 @@
 #include "library/autodj/dlgautodj.h"
 
-#include <algorithm>
-#include <cmath>
-
 #include <QDateTime>
 #include <QFont>
 #include <QFontMetrics>
@@ -15,6 +12,8 @@
 #include <QStyleOptionButton>
 #include <QTimeEdit>
 #include <QTimer>
+#include <algorithm>
+#include <cmath>
 
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/autodj/autodjfeature.h"
@@ -968,7 +967,7 @@ void DlgAutoDJ::refreshTransitionModeOptions() {
 
 void DlgAutoDJ::refreshTransitionControls() {
     const bool tandaTransition = static_cast<AutoDJProcessor::TransitionMode>(
-            fadeModeCombobox->currentData().toInt()) ==
+                                         fadeModeCombobox->currentData().toInt()) ==
             AutoDJProcessor::TransitionMode::TandaTransition;
     spinBoxTransition->setVisible(!tandaTransition);
     labelTransitionAppendix->setVisible(!tandaTransition);

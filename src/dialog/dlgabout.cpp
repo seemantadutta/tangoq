@@ -489,15 +489,15 @@ DlgAbout::DlgAbout()
                                    "Team.")
                                         .arg(MIXXX_WEBSITE_URL, MIXXX_DONATE_URL))
              << sectionTemplate.arg(s_devTeam,
-                                    thisReleaseDevelopers.join("<br>"))
+                        thisReleaseDevelopers.join("<br>"))
              << sectionTemplate.arg(s_contributions,
-                                    recentContributors.join("<br>"))
+                        recentContributors.join("<br>"))
              << sectionTemplate.arg(s_pastDevs,
-                                    pastDevelopers.join("<br>"))
+                        pastDevelopers.join("<br>"))
              << sectionTemplate.arg(s_pastContribs,
-                                    pastContributors.join("<br>"))
+                        pastContributors.join("<br>"))
              << sectionTemplate.arg(s_specialThanks,
-                                    specialThanks.join("<br>"));
+                        specialThanks.join("<br>"));
     // The credits carry the Mixxx site and donation links, so anchors must be
     // clickable - the .ui sets NoTextInteraction - and open in the browser.
     textBrowser->setTextInteractionFlags(Qt::TextBrowserInteraction);
@@ -512,7 +512,7 @@ DlgAbout::DlgAbout()
             tr("TangoQ Maintainer: "
                "<a style=\"color:%1;\" href=\"mailto:seemanta@gmail.com\">Seemanta Dutta</a>")
                     .arg(Color::blendColors(palette().link().color(),
-                                 palette().text().color())
+                            palette().text().color())
                                     .name()));
 
     // One support button, for TangoQ. Mixxx's own site and donation links live in

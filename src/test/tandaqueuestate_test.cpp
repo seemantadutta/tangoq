@@ -6,10 +6,6 @@
 // the Mixxx Development Team); see the LICENSE file for the full text.
 
 #include "library/autodj/tandaqueuestate.h"
-#include "library/autodj/tandaqueuemodel.h"
-
-#include "library/autodj/cortinaregistry.h"
-#include "library/autodj/performanceregistry.h"
 
 #include <gtest/gtest.h>
 
@@ -20,6 +16,9 @@
 
 #include "control/controlobject.h"
 #include "control/controlpotmeter.h"
+#include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
+#include "library/autodj/tandaqueuemodel.h"
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -323,11 +322,11 @@ TEST_F(TandaQueueDaoTest, OutlineMapsHeadersLeavesAndSharedCollapseState) {
                     {first.index(2, 0), first.index(3, 0)}));
     const int summaryColumn = first.summaryColumn();
     EXPECT_FALSE(first.data(first.index(0, summaryColumn))
-                         .toString()
-                         .startsWith(QStringLiteral("    ")));
+                    .toString()
+                    .startsWith(QStringLiteral("    ")));
     EXPECT_TRUE(first.data(first.index(2, summaryColumn))
-                        .toString()
-                        .startsWith(QStringLiteral("    ")));
+                    .toString()
+                    .startsWith(QStringLiteral("    ")));
 
     bool foundSummary = false;
     for (int column = 0; column < first.columnCount(); ++column) {

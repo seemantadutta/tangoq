@@ -1,5 +1,6 @@
-#include "analyzer/analyzersilence.h"
 #include "engine/controls/cuecontrol.h"
+
+#include "analyzer/analyzersilence.h"
 #include "test/signalpathtest.h"
 #include "track/tangostartcue.h"
 
@@ -245,9 +246,13 @@ TEST_F(CueControlTest, TangoStartClassificationUsesAuthorshipAndFas) {
     const auto lasPosition = mixxx::audio::FramePos(2000);
     const auto pTrack = createTestTrack();
     pTrack->createAndAddCue(mixxx::CueType::N60dBSound,
-            Cue::kNoHotCue, fasPosition, lasPosition);
+            Cue::kNoHotCue,
+            fasPosition,
+            lasPosition);
     const auto pIntro = pTrack->createAndAddCue(mixxx::CueType::Intro,
-            Cue::kNoHotCue, fasPosition, mixxx::audio::kInvalidFramePos);
+            Cue::kNoHotCue,
+            fasPosition,
+            mixxx::audio::kInvalidFramePos);
 
     loadTrack(pTrack);
     EXPECT_FRAMEPOS_EQ_CONTROL(mixxx::audio::kInvalidFramePos, m_pTangoStartPosition);

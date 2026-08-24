@@ -107,8 +107,7 @@ QStringList mixxxDatabaseImportCandidates() {
     const QString localAppData =
             QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
     if (!localAppData.isEmpty()) {
-        addCandidate(QDir(localAppData).filePath(
-                QStringLiteral("Mixxx/%1").arg(kMixxxDatabaseFileName)));
+        addCandidate(QDir(localAppData).filePath(QStringLiteral("Mixxx/%1").arg(kMixxxDatabaseFileName)));
     }
     const QString appData =
             QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPDATA"));
@@ -169,8 +168,7 @@ bool importMixxxDatabaseIfFirstRun(const UserSettingsPointer& pConfig) {
             "Source:\n%2\n\n"
             "Destination:\n%3\n\n"
             "The original Mixxx database will not be modified.")
-                           .arg(appName, QDir::toNativeSeparators(mixxxDbPath),
-                                   QDir::toNativeSeparators(tangoDbPath)));
+                    .arg(appName, QDir::toNativeSeparators(mixxxDbPath), QDir::toNativeSeparators(tangoDbPath)));
     QPushButton* pImportButton =
             msgBox.addButton(QObject::tr("Import Library"), QMessageBox::AcceptRole);
     msgBox.addButton(QObject::tr("Start Fresh"), QMessageBox::RejectRole);
@@ -199,8 +197,7 @@ bool importMixxxDatabaseIfFirstRun(const UserSettingsPointer& pConfig) {
                             "Source:\n%2\n\n"
                             "Destination:\n%3\n\n"
                             "Click OK to exit.")
-                        .arg(appName, QDir::toNativeSeparators(mixxxDbPath),
-                                QDir::toNativeSeparators(tangoDbPath)),
+                        .arg(appName, QDir::toNativeSeparators(mixxxDbPath), QDir::toNativeSeparators(tangoDbPath)),
                 QMessageBox::Ok);
         return false;
     }

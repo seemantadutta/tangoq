@@ -14,7 +14,7 @@ const QString MixxxDb::kDefaultSchemaFile(":/schema.xml");
 //static
 const int MixxxDb::kRequiredSchemaVersion = 39;
 
-//static
+// static
 const QString MixxxDb::kDefaultFileName("tangoq.db");
 
 namespace {

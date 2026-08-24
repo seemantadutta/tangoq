@@ -9,7 +9,7 @@
 #include "moc_dlgprefautodj.cpp"
 
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
-                             UserSettingsPointer pConfig)
+        UserSettingsPointer pConfig)
         : DlgPreferencePage(pParent),
           m_pConfig(pConfig),
           m_pCortinaLengthControl(nullptr) {
@@ -211,10 +211,10 @@ void DlgPrefAutoDJ::slotUpdate() {
 }
 
 void DlgPrefAutoDJ::slotApply() {
-    //Copy from Buffer to actual values
-    // Route cortina length through the live control so the AutoDJProcessor
-    // persists it to [Auto DJ],CortinaLength and the cockpit readout updates
-    // immediately.
+    // Copy from Buffer to actual values
+    //  Route cortina length through the live control so the AutoDJProcessor
+    //  persists it to [Auto DJ],CortinaLength and the cockpit readout updates
+    //  immediately.
     ControlObject::set(ConfigKey("[AutoDJ]", "cortina_length"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45));

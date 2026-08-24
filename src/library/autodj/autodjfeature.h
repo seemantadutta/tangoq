@@ -4,8 +4,8 @@
 #include <QObject>
 #include <QPointer>
 #include <QUrl>
-#include <QVariant>
 #include <QUuid>
+#include <QVariant>
 #include <QVector>
 #include <memory>
 

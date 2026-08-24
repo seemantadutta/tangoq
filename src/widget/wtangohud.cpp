@@ -10,7 +10,6 @@
 #include <QFontMetrics>
 #include <QPainter>
 #include <QString>
-
 #include <cmath>
 
 #include "control/controlproxy.h"

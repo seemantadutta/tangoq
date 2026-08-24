@@ -234,7 +234,8 @@ void VersionStore::logBuildDetails() {
     QString buildInfoFormatted = QString("(%1)").arg(buildInfo.join("; "));
 
     // This is the first line in tangoq.log
-    qDebug().noquote() << applicationName() << forkVersion() << buildInfoFormatted << "is starting...";
+    qDebug().noquote() << applicationName() << forkVersion()
+                       << buildInfoFormatted << "is starting...";
 
     QStringList depVersions = dependencyVersions();
     qDebug() << "Compile time library versions:";

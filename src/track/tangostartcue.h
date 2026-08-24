@@ -8,7 +8,6 @@
 #pragma once
 
 #include <QString>
-
 #include <cmath>
 
 #include "audio/frame.h"

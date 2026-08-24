@@ -110,7 +110,6 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     void pauseAfterRowsChanged();
 
   public:
-
     // Calculate the number of columns from all valid
     // column headers.
     // Reimplement in derived classes if a more efficient

@@ -717,7 +717,8 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
     QString title(tr("Sound Device Error"));
     QString text("<html> <p>" %
                     tr("%1 was unable to open all the configured sound "
-                       "devices.").arg(appName) +
+                       "devices.")
+                            .arg(appName) +
             "</p> <p>" %
                     m_pCoreServices->getSoundManager()
                             ->getLastErrorMessage(status)
@@ -746,20 +747,19 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     msgBox.setWindowTitle(tr("No Output Devices"));
     msgBox.setText(
             "<html>" + tr("%1 was configured without any output sound devices. "
-            "Audio processing will be disabled without a configured output device.")
-                            .arg(appName) +
+                          "Audio processing will be disabled without a configured output device.")
+                               .arg(appName) +
             "<ul>"
-                "<li>" +
-                    tr("<b>Continue</b> without any outputs.") +
-                "</li>"
-                "<li>" +
-                    tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) +
-                "</li>"
-                "<li>" +
-                    tr("<b>Exit</b> %1.").arg(appName) +
-                "</li>"
-            "</ul></html>"
-    );
+            "<li>" +
+            tr("<b>Continue</b> without any outputs.") +
+            "</li>"
+            "<li>" +
+            tr("<b>Reconfigure</b> %1's sound device settings.").arg(appName) +
+            "</li>"
+            "<li>" +
+            tr("<b>Exit</b> %1.").arg(appName) +
+            "</li>"
+            "</ul></html>");
 
     QPushButton* continueButton =
             msgBox.addButton(tr("Continue"), QMessageBox::ActionRole);
@@ -1543,27 +1543,26 @@ bool MixxxMainWindow::confirmExit() {
     const QString appName = VersionStore::applicationName();
     if (playing) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A deck is currently playing. Exit %1?").arg(appName),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A deck is currently playing. Exit %1?").arg(appName),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     } else if (playingSampler) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A sampler is currently playing. Exit %1?").arg(appName),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A sampler is currently playing. Exit %1?").arg(appName),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
         QMessageBox::StandardButton btn = QMessageBox::question(
-            this, tr("Confirm Exit"),
-            tr("The preferences window is still open.") + "<br>" +
-            tr("Discard any changes and exit %1?").arg(appName),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                this, tr("Confirm Exit"), tr("The preferences window is still open.") + "<br>" + tr("Discard any changes and exit %1?").arg(appName), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }

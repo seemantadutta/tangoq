@@ -56,11 +56,11 @@ DlgPrefControllers::DlgPrefControllers(DlgPreferences* pPreferences,
             "Folder\" then restart %2. If you download a mapping in a ZIP file, "
             "extract the XML and Javascript file(s) from the ZIP file to your "
             "\"User Mapping Folder\" then restart %2.")
-                                         .arg(coloredLinkString(
-                                                      m_pLinkColor,
-                                                      QStringLiteral("Mixxx Controller Forums"),
-                                                      MIXXX_CONTROLLER_FORUMS_URL),
-                                                 VersionStore::applicationName()));
+                    .arg(coloredLinkString(
+                                 m_pLinkColor,
+                                 QStringLiteral("Mixxx Controller Forums"),
+                                 MIXXX_CONTROLLER_FORUMS_URL),
+                            VersionStore::applicationName()));
 
     txtHardwareCompatibility->setText(coloredLinkString(
             m_pLinkColor,

@@ -5,7 +5,6 @@
 #include <QWindow>
 #endif
 #include <QUrl>
-
 #include <algorithm>
 
 #include "config.h"

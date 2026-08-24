@@ -12,7 +12,6 @@
 #include <QMimeData>
 #include <QSet>
 #include <QSqlDatabase>
-
 #include <algorithm>
 
 #include "library/autodj/autodjprocessor.h"

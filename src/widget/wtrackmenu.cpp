@@ -1,8 +1,8 @@
 #include "widget/wtrackmenu.h"
 
+#include <QActionGroup>
 #include <QCheckBox>
 #include <QDialogButtonBox>
-#include <QActionGroup>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -2621,8 +2621,8 @@ void WTrackMenu::slotSetStartPointHere() {
 
 void WTrackMenu::slotResetIntroCue() {
     const bool tangoMode = ControlObject::get(ConfigKey(
-                                       QStringLiteral("[AutoDJ]"),
-                                       QStringLiteral("keep_queue"))) > 0.0;
+                                   QStringLiteral("[AutoDJ]"),
+                                   QStringLiteral("keep_queue"))) > 0.0;
     if (tangoMode) {
         const auto progressLabelText =
                 tr("Clearing DJ start from %n track(s)", "", getTrackCount());
@@ -3226,8 +3226,9 @@ void WTrackMenu::slotSetDisplayName() {
     // creates the line edit, so it can only be found after that call.
     QInputDialog dialog(this);
     dialog.setWindowTitle(tr("Display name"));
-    dialog.setLabelText(tr("Show this track in the Auto DJ list as:\n"
-                           "(leave empty to show its real title again)"));
+    dialog.setLabelText(tr(
+            "Show this track in the Auto DJ list as:\n"
+            "(leave empty to show its real title again)"));
     dialog.setTextValue(current);
     if (auto* pLineEdit = dialog.findChild<QLineEdit*>()) {
         pLineEdit->selectAll();

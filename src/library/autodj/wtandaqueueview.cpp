@@ -7,9 +7,6 @@
 
 #include "library/autodj/wtandaqueueview.h"
 
-#include <algorithm>
-#include <utility>
-
 #include <QAction>
 #include <QBrush>
 #include <QContextMenuEvent>
@@ -26,6 +23,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QSet>
+#include <algorithm>
+#include <utility>
 
 #include "library/autodj/autodjfeature.h"
 #include "library/autodj/autodjqueuereset.h"
@@ -529,7 +528,7 @@ void WTandaQueueView::classifySelection(TandaType type) {
     }
     QString error;
     if (m_pAutoDJFeature->makeTanda(
-                selectedQueuePositions(), type, &error)
+                                selectedQueuePositions(), type, &error)
                     .isNull() &&
             !error.isEmpty()) {
         showError(error);
