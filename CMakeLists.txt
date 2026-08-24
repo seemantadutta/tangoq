@@ -2344,6 +2344,19 @@ if(BUILD_TESTING)
     set_tests_properties(${testsuite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endif()
 
+  # The tanda-queue tests each add several real tracks and build table models.
+  # That runs in milliseconds in a normal build, but the coverage job builds with
+  # Debug + OPTIMIZE=off + COVERAGE=ON (gcov), which is slow enough that these
+  # tests can exceed that job's aggressive `ctest --timeout 45` and get killed
+  # (INTERRUPT). Give just these tests extra headroom; a per-test TIMEOUT property
+  # overrides the ctest --timeout default, and only the instrumented coverage run
+  # ever needs it.
+  foreach(_tandatest ${testsuite})
+    if(_tandatest MATCHES "TandaQueue")
+      set_tests_properties(${_tandatest} PROPERTIES TIMEOUT 300)
+    endif()
+  endforeach()
+
   if(BUILD_BENCH)
     # Benchmarking
     add_custom_target(mixxx-benchmark
