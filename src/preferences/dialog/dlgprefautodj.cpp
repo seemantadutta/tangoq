@@ -87,6 +87,13 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
     // Tango DJ mode is hardcoded on in this build (see AutoDJProcessor), so there
     // is no enable/disable control here. The cortina settings below still apply.
 
+    // Re-queue and random-track addition are stock Auto DJ behaviours the Tango
+    // cursor queue never uses: it plays in order and stops at the end. Hide those
+    // sections in this tango-only build. The controls above are still wired up so
+    // the stock logic is intact and cleanly revertible.
+    RequeueOptions->hide();
+    AddRandomOptions->hide();
+
     // Default cortina length, used only to estimate the Tango set length / end
     // time (cortinas are faded out manually, so only this budget is counted).
     int cortinaLength =
@@ -314,8 +321,11 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     CortinaLengthSpinBox->setValue(45);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
 
-    CortinaFadeModeComboBox->setCurrentIndex(0);
-    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), 0);
+    // Cortina Fade (index 1) is the shipped default: applyFirstRunDefaults()
+    // seeds CortinaFadeMode = 1, so Restore Defaults must match it rather than
+    // silently reverting cortinas to hard cut.
+    CortinaFadeModeComboBox->setCurrentIndex(1);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), 1);
     CortinaFadeInSpinBox->setValue(5);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), 5);
     CortinaFadeOutSpinBox->setValue(5);

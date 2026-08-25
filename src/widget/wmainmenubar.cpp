@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "config.h"
+#include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "defs_urls.h"
 #include "moc_wmainmenubar.cpp"
@@ -158,6 +159,15 @@ void WMainMenuBar::initialize() {
     // Disable the action when a scan is active.
     connect(this, &WMainMenuBar::internalLibraryScanActive, pLibraryRescan, &QAction::setDisabled);
     pLibraryMenu->addAction(pLibraryRescan);
+    // TangoQ: a full library rescan is a heavy operation that can stutter audio,
+    // so hide "Rescan Library" while a set is running in LIVE mode. Re-evaluated
+    // each time the Library menu opens, as WTrackMenu does for its Tango actions.
+    connect(pLibraryMenu, &QMenu::aboutToShow, this, [pLibraryRescan] {
+        const bool liveMode = ControlObject::get(ConfigKey(
+                                      QStringLiteral("[AutoDJ]"),
+                                      QStringLiteral("live_mode"))) > 0.0;
+        pLibraryRescan->setVisible(!liveMode);
+    });
 
 #ifdef __ENGINEPRIME__
     //: "Engine DJ" must not be translated

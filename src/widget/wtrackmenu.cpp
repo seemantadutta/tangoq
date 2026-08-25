@@ -1110,13 +1110,13 @@ void WTrackMenu::updateMenus() {
     if (featureIsEnabled(Feature::AutoDJ)) {
         // In Tango DJ mode the Auto DJ queue is a pre-arranged, cursor-based set.
         // Adding to the top or replacing it would disrupt the planned milonga, so
-        // grey those out and leave only "Add to Auto DJ Queue (bottom)".
+        // hide those entirely and leave only "Add to Auto DJ Queue (bottom)".
         const bool tangoMode = ControlObject::get(ConfigKey(
                                        QStringLiteral("[AutoDJ]"),
                                        QStringLiteral("keep_queue"))) > 0.0;
         const bool containsPlayingTrack = selectionContainsPlayingTrack();
-        m_pAutoDJTopAct->setEnabled(!tangoMode);
-        m_pAutoDJReplaceAct->setEnabled(!tangoMode);
+        m_pAutoDJTopAct->setVisible(!tangoMode);
+        m_pAutoDJReplaceAct->setVisible(!tangoMode);
         m_pAutoDJCortinaAct->setEnabled(!containsPlayingTrack);
     }
 
