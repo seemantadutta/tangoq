@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Auto DJ</string>
+   <string>TangoQ</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
@@ -294,7 +294,7 @@
             </size>
            </property>
            <property name="toolTip">
-            <string>Total length of the Auto DJ set (Tango DJ mode).</string>
+            <string>Total length of the TangoQ set (Tango DJ mode).</string>
            </property>
           </widget>
          </item>
@@ -326,7 +326,7 @@
             </size>
            </property>
            <property name="toolTip">
-            <string>Projected end time of the Auto DJ set (Tango DJ mode).</string>
+            <string>Projected end time of the TangoQ set (Tango DJ mode).</string>
            </property>
           </widget>
          </item>
@@ -461,7 +461,7 @@
          <string>Cortina:</string>
         </property>
         <property name="toolTip">
-         <string>Cortina length budget (Tango DJ mode). Nudge it live with the − / + buttons; the default is set in Preferences → Auto DJ.</string>
+         <string>Cortina length budget (Tango DJ mode). Nudge it live with the − / + buttons; the default is set in Preferences → TangoQ.</string>
         </property>
        </widget>
       </item>
@@ -619,7 +619,7 @@
       <item>
        <widget class="QLabel" name="labelLive">
         <property name="toolTip">
-         <string>LIVE mode (Tango performance lock). Right-click to enter or exit. While on, it guards against accidentally stopping the set (Auto DJ toggle and the deck play/pause keys).</string>
+         <string>LIVE mode (Tango performance lock). Right-click to enter or exit. While on, it guards against accidentally stopping the set (TangoQ toggle and the deck play/pause keys).</string>
         </property>
         <property name="contextMenuPolicy">
          <enum>Qt::CustomContextMenu</enum>

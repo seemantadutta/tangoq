@@ -194,14 +194,14 @@
       <item row="4" column="0" colspan="3">
        <widget class="QRadioButton" name="radioButton_dbclick_bottom">
         <property name="text">
-         <string>Add track to Auto DJ queue (bottom)</string>
+         <string>Add track to TangoQ (bottom)</string>
         </property>
        </widget>
       </item>
       <item row="5" column="0" colspan="3">
        <widget class="QRadioButton" name="radioButton_dbclick_top">
         <property name="text">
-         <string>Add track to Auto DJ queue (top)</string>
+         <string>Add track to TangoQ (top)</string>
         </property>
        </widget>
       </item>
