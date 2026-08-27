@@ -906,9 +906,10 @@ void DlgAutoDJ::showLiveContextMenu(const QPoint& pos) {
 }
 
 void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
-    // The Auto DJ icon is a power symbol (left) + android (right) = "Auto DJ".
-    // While armed, a depleting red pie sits over just the power symbol (its
-    // opaque backdrop masks it); the android stays visible. The eaten part grows
+    // The button icon is a power symbol (left) + the TangoQ turntable mark
+    // (right). While armed, a depleting red pie sits over just the power symbol
+    // (its opaque backdrop masks it); the turntable mark stays visible. The
+    // eaten part grows
     // until the pie is empty when the window expires. The overlay ignores mouse
     // events, so a second press on the button confirms the stop.
     if (armed) {
