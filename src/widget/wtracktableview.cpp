@@ -20,7 +20,6 @@
 #include "moc_wtracktableview.cpp"
 #include "preferences/colorpalettesettings.h"
 #include "preferences/dialog/dlgprefdeck.h"
-#include "preferences/dialog/dlgpreflibrary.h"
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "track/trackref.h"
@@ -410,55 +409,16 @@ void WTrackTableView::initTrackMenu() {
 
 // slot
 void WTrackTableView::slotMouseDoubleClicked(const QModelIndex& index) {
-    // Read the current TrackDoubleClickAction setting
-    // TODO simplify this casting madness
-    int doubleClickActionConfigValue =
-            m_pConfig->getValue(mixxx::library::prefs::kTrackDoubleClickActionConfigKey,
-                    static_cast<int>(DlgPrefLibrary::TrackDoubleClickAction::LoadToDeck));
-    DlgPrefLibrary::TrackDoubleClickAction doubleClickAction =
-            static_cast<DlgPrefLibrary::TrackDoubleClickAction>(
-                    doubleClickActionConfigValue);
-
-    if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::Ignore) {
-        return;
-    }
-
-    auto* pTrackModel = getTrackModel();
-    VERIFY_OR_DEBUG_ASSERT(pTrackModel) {
-        return;
-    }
-
-    if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::LoadToDeck &&
-            pTrackModel->hasCapabilities(
-                    TrackModel::Capability::LoadToDeck)) {
-        // LIVE mode (Tango performance lock): browsing the library mid-set is
-        // normal, and a stray double-click there would replace a deck's track -
-        // the kind of mistake there is no undo for in front of a floor. Decks
-        // are still loadable deliberately, via the track menu or a controller.
-        // Only this action is suppressed: the Auto DJ ones below stay available,
-        // so tracks can still be queued during a set. LIVE is only meaningful
-        // inside Tango mode, so require both.
-        const bool liveMode =
-                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
-                        QStringLiteral("live_mode"))) > 0.0 &&
-                ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
-                        QStringLiteral("keep_queue"))) > 0.0;
-        if (liveMode) {
-            return;
-        }
-        TrackPointer pTrack = pTrackModel->getTrack(index);
-        if (pTrack) {
-            emit loadTrack(pTrack);
-        }
-    } else if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::AddToAutoDJBottom &&
-            pTrackModel->hasCapabilities(
-                    TrackModel::Capability::AddToAutoDJ)) {
-        addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
-    } else if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::AddToAutoDJTop &&
-            pTrackModel->hasCapabilities(
-                    TrackModel::Capability::AddToAutoDJ)) {
-        addToAutoDJ(PlaylistDAO::AutoDJSendLoc::TOP);
-    }
+    // TangoQ: activating a track from the library lists is intentionally inert.
+    // This is the shared "activate" path, so a mouse double-click, the Enter key
+    // (see keyPressEvent), and the [Library],GoToItem controller binding (via
+    // activateSelectedTrack) all reach here and all do nothing - the functional
+    // equivalent of the removed "Ignore" double-click action. Tracks are added
+    // to the set through the right-click "Add to Auto DJ Queue" menu or by
+    // dragging, and decks load from the Auto DJ cursor. The doubleClicked, Enter
+    // and controller wiring is left in place, so restoring a behavior is just a
+    // matter of filling this in again.
+    Q_UNUSED(index);
 }
 
 TrackModel::SortColumnId WTrackTableView::getColumnIdFromCurrentIndex() {

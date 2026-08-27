@@ -16,8 +16,6 @@ extern const ConfigKey kRescanOnStartupConfigKey;
 
 extern const ConfigKey kKeyNotationConfigKey;
 
-extern const ConfigKey kTrackDoubleClickActionConfigKey;
-
 extern const ConfigKey kSearchDebouncingTimeoutMillisConfigKey;
 
 extern const ConfigKey kSearchBpmFuzzyRangeConfigKey;

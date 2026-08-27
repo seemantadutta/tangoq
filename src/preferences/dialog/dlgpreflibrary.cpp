@@ -269,7 +269,6 @@ void DlgPrefLibrary::slotResetToDefaults() {
     checkBox_serato_metadata_export->setChecked(false);
     checkBox_use_relative_path->setChecked(false);
     checkBox_edit_metadata_selected_clicked->setChecked(kEditMetadataSelectedClickDefault);
-    radioButton_dbclick_deck->setChecked(true);
     spinbox_bpm_precision->setValue(BaseTrackTableModel::kBpmColumnPrecisionDefault);
     checkbox_played_track_color->setChecked(
             BaseTrackTableModel::kApplyPlayedTrackColorDefault);
@@ -326,23 +325,6 @@ void DlgPrefLibrary::slotUpdate() {
             ConfigKey("[Library]","ShowRekordboxLibrary"), true));
     checkBox_show_serato->setChecked(m_pConfig->getValue(
             ConfigKey("[Library]", "ShowSeratoLibrary"), true));
-
-    switch (m_pConfig->getValue<int>(
-            kTrackDoubleClickActionConfigKey,
-            static_cast<int>(TrackDoubleClickAction::LoadToDeck))) {
-    case static_cast<int>(TrackDoubleClickAction::AddToAutoDJBottom):
-        radioButton_dbclick_bottom->setChecked(true);
-        break;
-    case static_cast<int>(TrackDoubleClickAction::AddToAutoDJTop):
-        radioButton_dbclick_top->setChecked(true);
-        break;
-    case static_cast<int>(TrackDoubleClickAction::Ignore):
-        radioButton_dbclick_ignore->setChecked(true);
-        break;
-    default:
-        radioButton_dbclick_deck->setChecked(true);
-        break;
-    }
 
     switch (m_pConfig->getValue<int>(
             kCoverArtFetcherQualityConfigKey,
@@ -580,19 +562,6 @@ void DlgPrefLibrary::slotApply() {
         coverartfetcherquality_status = static_cast<int>(CoverArtFetcherQuality::Low);
     }
     m_pConfig->set(kCoverArtFetcherQualityConfigKey, ConfigValue(coverartfetcherquality_status));
-
-    int dbclick_status;
-    if (radioButton_dbclick_bottom->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::AddToAutoDJBottom);
-    } else if (radioButton_dbclick_top->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::AddToAutoDJTop);
-    } else if (radioButton_dbclick_deck->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::LoadToDeck);
-    } else { // radioButton_dbclick_ignore
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::Ignore);
-    }
-    m_pConfig->set(kTrackDoubleClickActionConfigKey,
-            ConfigValue(dbclick_status));
 
     m_pConfig->set(kEditMetadataSelectedClickConfigKey,
             ConfigValue(checkBox_edit_metadata_selected_clicked->checkState()));
