@@ -202,10 +202,25 @@ Description:
                 <SetVariable name="Setting">[TangoQ],show_countdown_timer</SetVariable>
               </Template>
 
-              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
-                <SetVariable name="Text">Progress Pips</SetVariable>
-                <SetVariable name="Setting">[TangoQ],show_progress_pips</SetVariable>
-              </Template>
+              <!-- Progress Pips are drawn from the current/upcoming tanda, so
+                   the toggle is inert with no tanda groupings. Grey it out (and
+                   block clicks) via a translucent cover until the set has at
+                   least one grouping ([AutoDJ],hud_has_tanda_groupings,
+                   published by TandaQueueModel). Same pattern as EQ Kill. -->
+              <WidgetGroup><!-- Progress Pips -->
+                <Layout>stacked</Layout>
+                <SizePolicy>me,min</SizePolicy>
+                <Children>
+                  <!-- translucent cover when the set has no tanda groupings -->
+                  <Template src="skins:TangoQ/helpers/skin_settings_cover_inverted.xml">
+                    <SetVariable name="Setting">[AutoDJ],hud_has_tanda_groupings</SetVariable>
+                  </Template>
+                  <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                    <SetVariable name="Text">Progress Pips</SetVariable>
+                    <SetVariable name="Setting">[TangoQ],show_progress_pips</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup><!-- /Progress Pips -->
 
             </Children>
           </WidgetGroup><!-- /Auto DJ -->

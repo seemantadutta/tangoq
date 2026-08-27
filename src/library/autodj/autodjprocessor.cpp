@@ -261,6 +261,8 @@ AutoDJProcessor::AutoDJProcessor(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_track_count"))),
           m_hudTandaPlayingIndex(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_playing_index"))),
+          m_hudHasTandaGroupings(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_has_tanda_groupings"))),
           m_stopGuardArmed(false),
           m_bStopWhenLastTrackEnds(false),
           m_bPauseAfterPending(false) {
@@ -441,6 +443,7 @@ AutoDJProcessor::AutoDJProcessor(
     m_hudNextKind.set(0.0);
     m_hudTandaTrackCount.set(0.0);
     m_hudTandaPlayingIndex.set(-1.0);
+    m_hudHasTandaGroupings.set(0.0);
     m_hudTimer.setInterval(1000);
     connect(&m_hudTimer,
             &QTimer::timeout,
@@ -1878,6 +1881,10 @@ void AutoDJProcessor::publishHudTiming() {
 void AutoDJProcessor::setHudTandaState(int trackCount, int playingIndex) {
     m_hudTandaTrackCount.set(trackCount);
     m_hudTandaPlayingIndex.set(playingIndex);
+}
+
+void AutoDJProcessor::setHudHasTandaGroupings(bool hasGroupings) {
+    m_hudHasTandaGroupings.set(hasGroupings ? 1.0 : 0.0);
 }
 
 mixxx::Duration AutoDJProcessor::getRemainingSetDuration() {

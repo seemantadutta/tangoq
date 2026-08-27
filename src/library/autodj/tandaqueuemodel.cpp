@@ -677,6 +677,9 @@ void TandaQueueModel::publishHudTandaState() {
         playingIndex = -1;
     }
     m_pProcessor->setHudTandaState(trackCount, playingIndex);
+    // Drives the skin's "Progress Pips" toggle visibility: the option is inert
+    // with no groupings, so the row is hidden until at least one span exists.
+    m_pProcessor->setHudHasTandaGroupings(!m_pState->spans().isEmpty());
 }
 
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
