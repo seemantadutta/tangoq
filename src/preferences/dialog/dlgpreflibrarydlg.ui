@@ -266,6 +266,48 @@
       </item>
 
       <item row="9" column="0">
+       <widget class="QLabel" name="label_libraryFontSize">
+        <property name="text">
+         <string>Library Font Size:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="1" colspan="2">
+       <widget class="QSpinBox" name="spinBox_font_size">
+        <property name="suffix">
+         <string> pt</string>
+        </property>
+        <property name="minimum">
+         <number>8</number>
+        </property>
+        <property name="maximum">
+         <number>40</number>
+        </property>
+        <property name="value">
+         <number>13</number>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="1" colspan="2">
+       <widget class="QLabel" name="label_fontSizeHint">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="font">
+         <font>
+          <italic>true</italic>
+         </font>
+        </property>
+       </widget>
+      </item>
+
+      <item row="11" column="0">
        <widget class="QLabel" name="label_bpm_precision">
         <property name="text">
          <string>BPM display precision:</string>
@@ -275,11 +317,11 @@
         </property>
        </widget>
       </item>
-      <item row="9" column="1" colspan="2">
+      <item row="11" column="1" colspan="2">
        <widget class="QSpinBox" name="spinbox_bpm_precision"/>
       </item>
 
-      <item row="10" column="0" colspan="3">
+      <item row="12" column="0" colspan="3">
        <widget class="QCheckBox" name="checkbox_played_track_color">
         <property name="text">
          <string>Grey out played tracks</string>

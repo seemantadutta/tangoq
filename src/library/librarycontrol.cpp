@@ -1,10 +1,13 @@
 #include "library/librarycontrol.h"
 
 #include <QApplication>
+#include <QFontInfo>
 #include <QKeyEvent>
 #include <QModelIndex>
 #include <QWindow>
 #include <QtDebug>
+
+#include <algorithm>
 
 #include "control/controlencoder.h"
 #include "control/controlobject.h"
@@ -21,6 +24,10 @@
 
 namespace {
 const QString kAppGroup = QStringLiteral("[App]");
+// Bounds for the live library font size (point size). Keeps Ctrl+wheel and the
+// controller font controls from shrinking the text to nothing or ballooning it.
+constexpr double kMinLibraryFontPointSize = 8.0;
+constexpr double kMaxLibraryFontPointSize = 40.0;
 } // namespace
 
 LoadToGroupController::LoadToGroupController(LibraryControl* pParent, const QString& group)
@@ -1099,8 +1106,22 @@ void LibraryControl::slotFontSize(double v) {
         return;
     }
     QFont font = m_pLibrary->getTrackTableFont();
-    font.setPointSizeF(font.pointSizeF() + v);
+    double currentSize = font.pointSizeF();
+    if (currentSize <= 0.0) {
+        // Fonts defined by pixel size report pointSizeF() <= 0; use the
+        // resolved size so we still have a sane base to add the delta to.
+        currentSize = QFontInfo(font).pointSizeF();
+    }
+    const double newSize = std::clamp(currentSize + v,
+            kMinLibraryFontPointSize,
+            kMaxLibraryFontPointSize);
+    if (newSize == currentSize) {
+        return;
+    }
+    font.setPointSizeF(newSize);
     m_pLibrary->setFont(font);
+    // Persist so a live size change (controller or Ctrl+wheel) survives restart.
+    m_pLibrary->saveTrackTableFont();
 }
 
 void LibraryControl::slotIncrementFontSize(double v) {

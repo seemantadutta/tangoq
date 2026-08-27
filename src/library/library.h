@@ -104,6 +104,10 @@ class Library: public QObject {
 
     void setFont(const QFont& font);
     void setRowHeight(int rowHeight);
+    // Persist the current track-table font and row height to the config, so a
+    // live change (e.g. controller or Ctrl+wheel) survives a restart. Does not
+    // flush to disk; the config is saved on shutdown/apply.
+    void saveTrackTableFont();
     void setEditMetadataSelectedClick(bool enable);
 
     /// Triggers a new search in the internal track collection

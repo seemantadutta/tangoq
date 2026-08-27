@@ -6,6 +6,7 @@
 #include <QScrollBar>
 #include <QShortcut>
 #include <QUrl>
+#include <QWheelEvent>
 
 #include "control/controlobject.h"
 #include "library/dao/trackschema.h"
@@ -70,6 +71,9 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
     m_pSortColumn->connectValueChanged(this, &WTrackTableView::applySortingIfVisible);
     m_pSortOrder = new ControlProxy("[Library]", "sort_order", this);
     m_pSortOrder->connectValueChanged(this, &WTrackTableView::applySortingIfVisible);
+
+    m_pFontSizeKnob = new ControlProxy("[Library]", "font_size_knob", this);
+    m_iFontSizeWheelAccumulator = 0;
 
     connect(this,
             &WTrackTableView::scrollValueChanged,
@@ -1354,6 +1358,33 @@ void WTrackTableView::resizeEvent(QResizeEvent* event) {
     if (posInView - rHeight < 0 || posInView + rHeight > newHeight) {
         scrollTo(currIndex);
     }
+}
+
+void WTrackTableView::wheelEvent(QWheelEvent* pEvent) {
+    if (pEvent->modifiers().testFlag(Qt::ControlModifier)) {
+        // Ctrl+wheel resizes the shared library font instead of scrolling the
+        // list. Accumulate the delta so a high-resolution trackpad also steps.
+        constexpr int kWheelStep = 120; // one notch of a classic mouse wheel
+        m_iFontSizeWheelAccumulator += pEvent->angleDelta().y();
+        int steps = 0;
+        while (m_iFontSizeWheelAccumulator >= kWheelStep) {
+            steps++;
+            m_iFontSizeWheelAccumulator -= kWheelStep;
+        }
+        while (m_iFontSizeWheelAccumulator <= -kWheelStep) {
+            steps--;
+            m_iFontSizeWheelAccumulator += kWheelStep;
+        }
+        if (steps != 0) {
+            // font_size_knob adds its value (points) to the library font size,
+            // clamped in LibraryControl. Reset to 0 so the next step registers.
+            m_pFontSizeKnob->set(steps);
+            m_pFontSizeKnob->set(0.0);
+        }
+        pEvent->accept();
+        return;
+    }
+    WLibraryTableView::wheelEvent(pEvent);
 }
 
 void WTrackTableView::hideOrRemoveSelectedTracks() {

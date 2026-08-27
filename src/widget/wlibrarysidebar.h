@@ -7,6 +7,7 @@
 #include "library/library_decl.h"
 #include "widget/wbasewidget.h"
 
+class ControlProxy;
 class LibraryFeature;
 class QPoint;
 
@@ -23,6 +24,7 @@ class WLibrarySidebar : public QTreeView, public WBaseWidget {
     void mousePressEvent(QMouseEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
     void toggleSelectedItem();
     bool isLeafNodeSelected();
     bool isChildIndexSelected(const QModelIndex& index);
@@ -48,4 +50,8 @@ class WLibrarySidebar : public QTreeView, public WBaseWidget {
 
     QBasicTimer m_expandTimer;
     QModelIndex m_hoverIndex;
+    // Drives [Library],font_size_knob for Ctrl+wheel live font resizing.
+    ControlProxy* m_pFontSizeKnob;
+    // Accumulates high-resolution wheel deltas so a trackpad also steps.
+    int m_iFontSizeWheelAccumulator;
 };
