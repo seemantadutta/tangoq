@@ -54,7 +54,7 @@ cmake --build . --config RelWithDebInfo -- -j 2      # the app
   defaults to OFF but CI passes it, so without it a local build happily
   compiles code that fails the Windows job.
 - Pre-commit hooks do not fire locally. Run them yourself before every push:
-  `pre-commit run --from-ref origin/tangomode --to-ref HEAD` (scope with
+  `pre-commit run --from-ref origin/main --to-ref HEAD` (scope with
   `--from-ref`/`--to-ref`, **never** `--all-files`). CI's "Detecting code style
   issues" job lints the PR's changed files with clang-format, codespell and
   markdownlint, so an unformatted push fails there even when the build is green.
@@ -63,17 +63,20 @@ cmake --build . --config RelWithDebInfo -- -j 2      # the app
 
 ## Repo and branches
 
-- `origin` = `github.com/seemantadutta/mixxx` (the fork), `upstream` =
+- `origin` = `github.com/seemantadutta/tangoq` (the fork), `upstream` =
   `mixxxdj/mixxx`.
-- `master`/`main` and all upstream branches and tags are **mirrors of
-  upstream**. Never merge feature work into them.
-- **`tangomode`** is the long-lived integration branch, based on the `2.5.6`
-  release tag, and is the fork's default branch.
-- Feature work goes on topic branches → PR into `tangomode` → delete the topic
+- **`main`** is the long-lived trunk: TangoQ as a whole, based on the `2.5.6`
+  release tag, and the fork's **default and protected** branch. It is not an
+  upstream mirror.
+- Feature work goes on topic branches → PR into `main` → delete the topic
   branch. **The user opens and merges PRs**; provide the commit/PR text only.
+- **`tangomode`** is the retired former trunk, frozen and locked read-only at
+  the commit `main` was branched from. Never target it.
+- `master` and all upstream release/topic branches and tags are **mirrors of
+  upstream**. Never merge feature work into them.
 - Commit or push only when asked.
 
-Releases are GitHub Releases on `tangomode` tagged like `tango-2.5.6-v1`, with
+Releases are GitHub Releases on `main` tagged like `tango-2.5.6-v1`, with
 unsigned installers attached and `RELEASE_NOTES.md` as the body. Download links
 for users must point at **release assets** (permanent), never Actions artifacts
 (they expire and need a login).
