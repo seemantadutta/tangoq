@@ -53,8 +53,11 @@ cmake --build . --config RelWithDebInfo -- -j 2      # the app
 - **`-DWARNINGS_FATAL=ON`** (already set in the cache). The CMake option
   defaults to OFF but CI passes it, so without it a local build happily
   compiles code that fails the Windows job.
-- Pre-commit hooks do not fire locally. Scope them with `--from-ref`/`--to-ref`,
-  **never** `--all-files`.
+- Pre-commit hooks do not fire locally. Run them yourself before every push:
+  `pre-commit run --from-ref origin/tangomode --to-ref HEAD` (scope with
+  `--from-ref`/`--to-ref`, **never** `--all-files`). CI's "Detecting code style
+  issues" job lints the PR's changed files with clang-format, codespell and
+  markdownlint, so an unformatted push fails there even when the build is green.
 - Doc-only commits get `[skip ci]` — a docs push once cancelled an in-flight
   MSI build.
 
