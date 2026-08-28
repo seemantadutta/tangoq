@@ -14,7 +14,7 @@ Store::Store(QObject* pParent)
         : QObject(pParent) {
 }
 
-bool Store::publish(const State& state, const QString& changeType) {
+bool Store::publish(const State& state) {
     const QJsonObject nextState = stateToJson(state);
     if (nextState == m_state) {
         return false;
@@ -25,7 +25,6 @@ bool Store::publish(const State& state, const QString& changeType) {
     const QJsonObject event{
             {QStringLiteral("schemaVersion"), kSchemaVersion},
             {QStringLiteral("type"), QStringLiteral("state.changed")},
-            {QStringLiteral("change"), changeType},
             {QStringLiteral("revision"), static_cast<double>(m_revision)},
             {QStringLiteral("snapshot"), snapshot()},
     };

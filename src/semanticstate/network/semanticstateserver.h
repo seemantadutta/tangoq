@@ -22,6 +22,8 @@ class Server final : public QObject {
     ~Server() override;
 
     bool start(quint16 port);
+    void stop();
+    bool isListening() const;
     quint16 port() const;
 
   private:
@@ -40,7 +42,8 @@ class Server final : public QObject {
             int status,
             const QByteArray& reason,
             const QByteArray& contentType,
-            const QByteArray& body);
+            const QByteArray& body,
+            const QByteArray& extraHeaders = {});
     void sendWebSocketFrame(QTcpSocket* pSocket, quint8 opcode, const QByteArray& payload);
     void disconnectSlowClient(QTcpSocket* pSocket);
 

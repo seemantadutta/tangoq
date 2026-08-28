@@ -42,9 +42,16 @@ State makeState(qint64 positionMs = 1000) {
     state.sessionId = QStringLiteral("network-session");
     state.startedAt = QDateTime::fromString(
             QStringLiteral("2026-08-28T12:00:00.000Z"), Qt::ISODateWithMs);
+    const Track track{
+            QStringLiteral("tangoq:network"),
+            QStringLiteral("Orquesta"),
+            QStringLiteral("Network tango"),
+            180000,
+    };
     state.playback.state = QStringLiteral("playing");
+    state.playback.track = track;
     state.playback.positionMs = positionMs;
-    state.playback.durationMs = 180000;
+    state.queue.append({1, track});
     return state;
 }
 
@@ -140,12 +147,19 @@ std::optional<QJsonObject> waitForMessage(QTcpSocket* pSocket, QByteArray* pWire
 
 } // namespace
 
-TEST(SemanticStateServerTest, HttpSnapshotIsOptInAndReadOnly) {
+TEST(SemanticStateServerTest, DisabledServerCreatesNoListener) {
     Store store;
-    ASSERT_TRUE(store.publish(makeState(), QStringLiteral("session.started")));
     Server server(&store);
+    EXPECT_FALSE(server.isListening());
     EXPECT_EQ(0, server.port());
+}
+
+TEST(SemanticStateServerTest, HttpSnapshotIsReadOnlyAndHasBoundedRoutes) {
+    Store store;
+    ASSERT_TRUE(store.publish(makeState()));
+    Server server(&store);
     ASSERT_TRUE(server.start(0));
+    ASSERT_TRUE(server.isListening());
 
     const QByteArray response = httpRequest(server.port(),
             QByteArrayLiteral("GET /api/state HTTP/1.1\r\nHost: localhost\r\n\r\n"));
@@ -153,6 +167,7 @@ TEST(SemanticStateServerTest, HttpSnapshotIsOptInAndReadOnly) {
     const qsizetype bodyOffset = response.indexOf("\r\n\r\n") + 4;
     const QJsonObject snapshot =
             QJsonDocument::fromJson(response.mid(bodyOffset)).object();
+    EXPECT_EQ(kSchemaVersion, snapshot.value(QStringLiteral("schemaVersion")).toInt());
     EXPECT_EQ(1, snapshot.value(QStringLiteral("revision")).toInt());
     EXPECT_EQ(QStringLiteral("network-session"),
             snapshot.value(QStringLiteral("session"))
@@ -163,11 +178,24 @@ TEST(SemanticStateServerTest, HttpSnapshotIsOptInAndReadOnly) {
     const QByteArray rejected = httpRequest(server.port(),
             QByteArrayLiteral("POST /api/state HTTP/1.1\r\nHost: localhost\r\n\r\n"));
     EXPECT_TRUE(rejected.startsWith("HTTP/1.1 405 Method Not Allowed\r\n"));
+    EXPECT_TRUE(rejected.contains("Allow: GET\r\n"));
+
+    const QByteArray unknown = httpRequest(server.port(),
+            QByteArrayLiteral("GET /not-a-route HTTP/1.1\r\nHost: localhost\r\n\r\n"));
+    EXPECT_TRUE(unknown.startsWith("HTTP/1.1 404 Not Found\r\n"));
+
+    const QByteArray malformed = httpRequest(server.port(),
+            QByteArrayLiteral("GET /api/state\r\nHost: localhost\r\n\r\n"));
+    EXPECT_TRUE(malformed.startsWith("HTTP/1.1 400 Bad Request\r\n"));
+
+    const QByteArray noUpgrade = httpRequest(server.port(),
+            QByteArrayLiteral("GET /api/events HTTP/1.1\r\nHost: localhost\r\n\r\n"));
+    EXPECT_TRUE(noUpgrade.startsWith("HTTP/1.1 426 Upgrade Required\r\n"));
 }
 
 TEST(SemanticStateServerTest, MultipleClientsReceiveEventsAndReconnectSnapshot) {
     Store store;
-    ASSERT_TRUE(store.publish(makeState(), QStringLiteral("session.started")));
+    ASSERT_TRUE(store.publish(makeState()));
     Server server(&store);
     ASSERT_TRUE(server.start(0));
 
@@ -182,27 +210,21 @@ TEST(SemanticStateServerTest, MultipleClientsReceiveEventsAndReconnectSnapshot) 
 
     const auto firstSnapshot = waitForMessage(&first, &firstWire);
     const auto secondSnapshot = waitForMessage(&second, &secondWire);
-    ASSERT_TRUE(firstSnapshot.has_value())
-            << "socket=" << first.state() << " error="
-            << first.errorString().toStdString() << " wire="
-            << firstWire.toHex().toStdString();
-    ASSERT_TRUE(secondSnapshot.has_value())
-            << "socket=" << second.state() << " error="
-            << second.errorString().toStdString() << " wire="
-            << secondWire.toHex().toStdString();
+    ASSERT_TRUE(firstSnapshot.has_value());
+    ASSERT_TRUE(secondSnapshot.has_value());
     EXPECT_EQ(QStringLiteral("snapshot"),
             firstSnapshot->value(QStringLiteral("type")).toString());
     EXPECT_EQ(1, firstSnapshot->value(QStringLiteral("revision")).toInt());
     EXPECT_EQ(1, secondSnapshot->value(QStringLiteral("revision")).toInt());
 
-    ASSERT_TRUE(store.publish(
-            makeState(2000), QStringLiteral("playback.positionChanged")));
+    ASSERT_TRUE(store.publish(makeState(2000)));
     const auto firstEvent = waitForMessage(&first, &firstWire);
     const auto secondEvent = waitForMessage(&second, &secondWire);
     ASSERT_TRUE(firstEvent.has_value());
     ASSERT_TRUE(secondEvent.has_value());
     EXPECT_EQ(QStringLiteral("state.changed"),
             firstEvent->value(QStringLiteral("type")).toString());
+    EXPECT_FALSE(firstEvent->contains(QStringLiteral("change")));
     EXPECT_EQ(2, firstEvent->value(QStringLiteral("revision")).toInt());
     EXPECT_EQ(2, secondEvent->value(QStringLiteral("revision")).toInt());
 
@@ -210,8 +232,7 @@ TEST(SemanticStateServerTest, MultipleClientsReceiveEventsAndReconnectSnapshot) 
     ASSERT_TRUE(waitUntil([&first]() {
         return first.state() == QAbstractSocket::UnconnectedState;
     }));
-    ASSERT_TRUE(store.publish(
-            makeState(3000), QStringLiteral("playback.positionChanged")));
+    ASSERT_TRUE(store.publish(makeState(3000)));
 
     QTcpSocket reconnected;
     QByteArray reconnectedWire;
@@ -231,6 +252,26 @@ TEST(SemanticStateServerTest, MultipleClientsReceiveEventsAndReconnectSnapshot) 
                     .toObject()
                     .value(QStringLiteral("positionMs"))
                     .toInt());
+}
+
+TEST(SemanticStateServerTest, StopClosesListenerAndConnectedClients) {
+    Store store;
+    ASSERT_TRUE(store.publish(makeState()));
+    Server server(&store);
+    ASSERT_TRUE(server.start(0));
+
+    QTcpSocket client;
+    QByteArray wire;
+    ASSERT_TRUE(openWebSocket(
+            &client, server.port(), QByteArrayLiteral("MDEyMzQ1Njc4OWFiY2RlZg=="), &wire));
+    ASSERT_TRUE(waitForMessage(&client, &wire).has_value());
+
+    server.stop();
+    EXPECT_FALSE(server.isListening());
+    EXPECT_EQ(0, server.port());
+    EXPECT_TRUE(waitUntil([&client]() {
+        return client.state() == QAbstractSocket::UnconnectedState;
+    }));
 }
 
 } // namespace mixxx::semanticstate

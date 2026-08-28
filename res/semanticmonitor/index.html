@@ -22,6 +22,7 @@
     ol { margin: 0; padding-left: 28px; }
     li { padding: 5px 0; overflow-wrap: anywhere; }
     #recent { font-family: ui-monospace, monospace; font-size: 13px; overflow-wrap: anywhere; }
+    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.4 ui-monospace, monospace; }
     @media (prefers-color-scheme: dark) {
       body { background: #121715; color: #edf2ef; }
       header { background: #0d342b; }
@@ -40,6 +41,7 @@
     <section>
       <dl>
         <dt>Session</dt><dd id="session">-</dd>
+        <dt>Schema</dt><dd id="schema">-</dd>
         <dt>Revision</dt><dd id="revision">0</dd>
         <dt>Playback</dt><dd id="playback">Stopped</dd>
       </dl>
@@ -61,13 +63,20 @@
       <h2>Recent semantic event</h2>
       <div id="recent">snapshot pending</div>
     </section>
+    <section>
+      <details>
+        <summary>Raw snapshot</summary>
+        <pre id="raw">{}</pre>
+      </details>
+    </section>
   </main>
   <script>
     const byId = (id) => document.getElementById(id);
     let lastRevision = -1;
 
     function formatTime(ms) {
-      const seconds = Math.max(0, Math.floor((ms || 0) / 1000));
+      if (!Number.isFinite(ms)) return '--:--';
+      const seconds = Math.max(0, Math.floor(ms / 1000));
       return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     }
 
@@ -77,14 +86,18 @@
     }
 
     function render(state, recent) {
-      if (!state || state.revision < lastRevision) return;
+      if (!state) return;
+      if (byId('session').dataset.id !== state.session?.id) lastRevision = -1;
+      if (state.revision < lastRevision) return;
       lastRevision = state.revision;
       byId('session').textContent = state.session?.id || '-';
+      byId('session').dataset.id = state.session?.id || '';
+      byId('schema').textContent = String(state.schemaVersion ?? '-');
       byId('revision').textContent = String(state.revision);
       const playback = state.playback || {};
       byId('playback').textContent = (playback.state || 'stopped').replace(/^./, c => c.toUpperCase());
       byId('current').textContent = trackLabel(playback.track);
-      byId('time').textContent = `${formatTime(playback.positionMs)} / ${formatTime(playback.durationMs)}`;
+      byId('time').textContent = `${formatTime(playback.positionMs)} / ${formatTime(playback.track?.durationMs)}`;
 
       const tango = state.extensions?.tangoq || {};
       if (tango.currentTanda) {
@@ -113,6 +126,7 @@
         queue.appendChild(li);
       }
       byId('recent').textContent = recent;
+      byId('raw').textContent = JSON.stringify(state, null, 2);
     }
 
     async function refreshSnapshot(recent = 'snapshot') {
@@ -131,7 +145,7 @@
           await refreshSnapshot('snapshot after revision gap');
           return;
         }
-        render(state, message.type === 'snapshot' ? 'snapshot' : message.change);
+        render(state, message.type);
       });
       socket.addEventListener('close', () => {
         byId('connection').textContent = 'Reconnecting';

@@ -11,6 +11,7 @@
 #include <QNetworkInterface>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QTimer>
 #include <QtEndian>
 #include <QtLogging>
 
@@ -24,6 +25,7 @@ constexpr qsizetype kMaximumHttpRequestBytes = 16 * 1024;
 constexpr qsizetype kMaximumWebSocketInputBytes = 64 * 1024;
 constexpr qint64 kMaximumQueuedOutputBytes = 1024 * 1024;
 constexpr qsizetype kMaximumClients = 16;
+constexpr int kHandshakeTimeoutMs = 10000;
 constexpr auto kWebSocketGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 QHash<QByteArray, QByteArray> parseHeaders(const QList<QByteArray>& lines) {
@@ -36,6 +38,16 @@ QHash<QByteArray, QByteArray> parseHeaders(const QList<QByteArray>& lines) {
         }
     }
     return headers;
+}
+
+bool headerContainsToken(const QByteArray& value, const QByteArray& token) {
+    const QList<QByteArray> values = value.toLower().split(',');
+    for (const QByteArray& candidate : values) {
+        if (candidate.trimmed() == token) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -53,6 +65,7 @@ Server::Server(Store* pStore, QObject* pParent)
 }
 
 Server::~Server() {
+    stop();
     QObject::disconnect(m_pServer.get(), nullptr, this, nullptr);
     const auto sockets = m_clients.keys();
     for (QTcpSocket* pSocket : sockets) {
@@ -63,6 +76,10 @@ Server::~Server() {
 }
 
 bool Server::start(quint16 requestedPort) {
+    if (m_pServer->isListening()) {
+        qWarning() << "TangoQ semantic monitor is already listening on port" << port();
+        return false;
+    }
     if (!m_pServer->listen(QHostAddress::AnyIPv4, requestedPort)) {
         qWarning() << "TangoQ semantic monitor could not listen on port"
                    << requestedPort << ':' << m_pServer->errorString();
@@ -90,6 +107,23 @@ bool Server::start(quint16 requestedPort) {
     return true;
 }
 
+void Server::stop() {
+    if (!m_pServer) {
+        return;
+    }
+    m_pServer->close();
+    const auto sockets = m_clients.keys();
+    for (QTcpSocket* pSocket : sockets) {
+        QObject::disconnect(pSocket, nullptr, this, nullptr);
+        pSocket->abort();
+    }
+    m_clients.clear();
+}
+
+bool Server::isListening() const {
+    return m_pServer->isListening();
+}
+
 quint16 Server::port() const {
     return m_pServer->serverPort();
 }
@@ -110,6 +144,14 @@ void Server::acceptConnections() {
         connect(pSocket, &QTcpSocket::disconnected, this, [this, pSocket]() {
             m_clients.remove(pSocket);
             pSocket->deleteLater();
+        });
+        // The monitor is auxiliary. A client that never completes an HTTP or
+        // WebSocket handshake must not occupy one of its bounded client slots.
+        QTimer::singleShot(kHandshakeTimeoutMs, pSocket, [this, pSocket]() {
+            const auto client = m_clients.constFind(pSocket);
+            if (client != m_clients.cend() && !client->websocket) {
+                pSocket->disconnectFromHost();
+            }
         });
     }
 }
@@ -147,27 +189,56 @@ void Server::handleHttpRequest(QTcpSocket* pSocket, const QByteArray& request) {
         return;
     }
     const QList<QByteArray> requestLine = lines.first().trimmed().split(' ');
-    if (requestLine.size() != 3 || requestLine.at(0) != QByteArrayLiteral("GET")) {
+    if (requestLine.size() != 3 || !requestLine.at(2).startsWith("HTTP/")) {
+        sendHttpResponse(pSocket,
+                400,
+                QByteArrayLiteral("Bad Request"),
+                QByteArrayLiteral("text/plain; charset=utf-8"),
+                QByteArrayLiteral("Malformed HTTP request\n"));
+        return;
+    }
+    if (requestLine.at(0) != QByteArrayLiteral("GET")) {
         sendHttpResponse(pSocket,
                 405,
                 QByteArrayLiteral("Method Not Allowed"),
                 QByteArrayLiteral("text/plain; charset=utf-8"),
-                QByteArrayLiteral("Read-only GET endpoints only\n"));
+                QByteArrayLiteral("Read-only GET endpoints only\n"),
+                QByteArrayLiteral("Allow: GET\r\n"));
         return;
     }
 
     const QByteArray path = requestLine.at(1).split('?').first();
+    if (!path.startsWith('/')) {
+        sendHttpResponse(pSocket,
+                400,
+                QByteArrayLiteral("Bad Request"),
+                QByteArrayLiteral("text/plain; charset=utf-8"),
+                QByteArrayLiteral("Invalid request target\n"));
+        return;
+    }
     const auto headers = parseHeaders(lines);
     if (path == QByteArrayLiteral("/api/events") &&
-            headers.value(QByteArrayLiteral("upgrade")).toLower() ==
-                    QByteArrayLiteral("websocket")) {
+            headerContainsToken(headers.value(QByteArrayLiteral("upgrade")),
+                    QByteArrayLiteral("websocket"))) {
+        if (!headerContainsToken(headers.value(QByteArrayLiteral("connection")),
+                    QByteArrayLiteral("upgrade")) ||
+                headers.value(QByteArrayLiteral("sec-websocket-version")) !=
+                        QByteArrayLiteral("13")) {
+            sendHttpResponse(pSocket,
+                    426,
+                    QByteArrayLiteral("Upgrade Required"),
+                    QByteArrayLiteral("text/plain; charset=utf-8"),
+                    QByteArrayLiteral("WebSocket version 13 required\n"),
+                    QByteArrayLiteral("Upgrade: websocket\r\n"));
+            return;
+        }
         const QByteArray key = headers.value(QByteArrayLiteral("sec-websocket-key"));
-        if (key.isEmpty()) {
+        if (QByteArray::fromBase64(key).size() != 16) {
             sendHttpResponse(pSocket,
                     400,
                     QByteArrayLiteral("Bad Request"),
                     QByteArrayLiteral("text/plain; charset=utf-8"),
-                    QByteArrayLiteral("Missing WebSocket key\n"));
+                    QByteArrayLiteral("Invalid WebSocket key\n"));
             return;
         }
         QByteArray challenge = key;
@@ -183,6 +254,16 @@ void Server::handleHttpRequest(QTcpSocket* pSocket, const QByteArray& request) {
         pSocket->write(response);
         m_clients[pSocket].websocket = true;
         sendSnapshot(pSocket);
+        return;
+    }
+
+    if (path == QByteArrayLiteral("/api/events")) {
+        sendHttpResponse(pSocket,
+                426,
+                QByteArrayLiteral("Upgrade Required"),
+                QByteArrayLiteral("text/plain; charset=utf-8"),
+                QByteArrayLiteral("WebSocket endpoint\n"),
+                QByteArrayLiteral("Upgrade: websocket\r\n"));
         return;
     }
 
@@ -231,6 +312,8 @@ void Server::handleWebSocketInput(QTcpSocket* pSocket) {
         const auto first = static_cast<quint8>(client->input.at(0));
         const auto second = static_cast<quint8>(client->input.at(1));
         const quint8 opcode = first & 0x0f;
+        const bool final = (first & 0x80) != 0;
+        const bool hasReservedBits = (first & 0x70) != 0;
         const bool masked = (second & 0x80) != 0;
         quint64 payloadLength = second & 0x7f;
         qsizetype offset = 2;
@@ -249,7 +332,9 @@ void Server::handleWebSocketInput(QTcpSocket* pSocket) {
                     reinterpret_cast<const uchar*>(client->input.constData() + 2));
             offset = 10;
         }
-        if (!masked || payloadLength > static_cast<quint64>(kMaximumWebSocketInputBytes)) {
+        if (!final || hasReservedBits || !masked ||
+                payloadLength > static_cast<quint64>(kMaximumWebSocketInputBytes) ||
+                ((opcode & 0x08) != 0 && payloadLength > 125)) {
             pSocket->disconnectFromHost();
             return;
         }
@@ -271,9 +356,16 @@ void Server::handleWebSocketInput(QTcpSocket* pSocket) {
         }
         if (opcode == 0x9) {
             sendWebSocketFrame(pSocket, 0xA, payload);
+            continue;
         }
-        // Text and binary client frames are intentionally ignored: this API has
-        // no remote-control commands.
+        if (opcode == 0xA) {
+            continue;
+        }
+        // The protocol is server-to-client only. Reject frames that could be
+        // misread as future commands instead of accumulating an input surface.
+        sendWebSocketFrame(pSocket, 0x8, QByteArray::fromHex("03f0"));
+        pSocket->disconnectFromHost();
+        return;
     }
 }
 
@@ -301,12 +393,14 @@ void Server::sendHttpResponse(QTcpSocket* pSocket,
         int status,
         const QByteArray& reason,
         const QByteArray& contentType,
-        const QByteArray& body) {
+        const QByteArray& body,
+        const QByteArray& extraHeaders) {
     QByteArray response = QByteArrayLiteral("HTTP/1.1 ") + QByteArray::number(status) + ' ' +
             reason + QByteArrayLiteral("\r\nContent-Type: ") + contentType +
             QByteArrayLiteral("\r\nContent-Length: ") + QByteArray::number(body.size()) +
             QByteArrayLiteral("\r\nCache-Control: no-store\r\n") +
             QByteArrayLiteral("X-Content-Type-Options: nosniff\r\n") +
+            extraHeaders +
             QByteArrayLiteral("Connection: close\r\n\r\n") + body;
     pSocket->write(response);
     pSocket->disconnectFromHost();
@@ -314,10 +408,6 @@ void Server::sendHttpResponse(QTcpSocket* pSocket,
 
 void Server::sendWebSocketFrame(
         QTcpSocket* pSocket, quint8 opcode, const QByteArray& payload) {
-    if (pSocket->bytesToWrite() > kMaximumQueuedOutputBytes) {
-        disconnectSlowClient(pSocket);
-        return;
-    }
     QByteArray frame;
     frame.append(static_cast<char>(0x80 | (opcode & 0x0f)));
     if (payload.size() < 126) {
@@ -332,6 +422,10 @@ void Server::sendWebSocketFrame(
         frame.append(reinterpret_cast<const char*>(&length), sizeof(length));
     }
     frame.append(payload);
+    if (pSocket->bytesToWrite() + frame.size() > kMaximumQueuedOutputBytes) {
+        disconnectSlowClient(pSocket);
+        return;
+    }
     pSocket->write(frame);
 }
 

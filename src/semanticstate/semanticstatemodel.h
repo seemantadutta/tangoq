@@ -14,13 +14,13 @@
 
 namespace mixxx::semanticstate {
 
-inline constexpr int kSchemaVersion = 1;
+inline constexpr int kSchemaVersion = 2;
 
 struct Track {
     QString id;
     QString artist;
     QString title;
-    qint64 durationMs{0};
+    std::optional<qint64> durationMs;
 };
 
 struct QueueItem {
@@ -31,9 +31,8 @@ struct QueueItem {
 struct Playback {
     QString state{QStringLiteral("stopped")};
     std::optional<Track> track;
-    int queuePosition{0};
-    qint64 positionMs{0};
-    qint64 durationMs{0};
+    std::optional<int> queuePosition;
+    std::optional<qint64> positionMs;
 };
 
 struct Tanda {
@@ -42,18 +41,22 @@ struct Tanda {
     QString name;
     int startPosition{0};
     int trackCount{0};
+};
+
+struct CurrentTanda {
+    Tanda tanda;
     int trackIndex{0};
 };
 
 struct Cortina {
     QString state{QStringLiteral("none")};
-    int queuePosition{0};
+    std::optional<int> queuePosition;
     std::optional<Track> track;
 };
 
 struct TangoQExtension {
     QVector<Tanda> tandas;
-    std::optional<Tanda> currentTanda;
+    std::optional<CurrentTanda> currentTanda;
     std::optional<Tanda> upcomingTanda;
     Cortina cortina;
 };

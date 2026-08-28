@@ -1096,6 +1096,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/semanticstate/semanticstatemodel.cpp
   src/semanticstate/semanticstatestore.cpp
   src/semanticstate/tangoqsemanticstateadapter.cpp
+  src/semanticstate/tangoqsemanticstateprojector.cpp
   src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditormodel.cpp
@@ -2283,6 +2284,7 @@ if(BUILD_TESTING)
     src/test/seratomarkerstest.cpp
     src/test/semanticstatestore_test.cpp
     src/test/semanticstateserver_test.cpp
+    src/test/tangoqsemanticstateprojector_test.cpp
     src/test/seratomarkers2test.cpp
     src/test/seratotagstest.cpp
     src/test/signalpathtest.cpp

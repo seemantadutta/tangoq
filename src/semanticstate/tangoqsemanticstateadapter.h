@@ -19,6 +19,7 @@ class TandaQueueState;
 
 namespace mixxx::semanticstate {
 
+struct ProjectionInput;
 class Store;
 
 class TangoQAdapter final : public QObject {
@@ -35,17 +36,19 @@ class TangoQAdapter final : public QObject {
   private:
     struct DeckObserver;
 
+    void observeDecks();
     void rebuildQueueCache();
-    void publish(const QString& changeType, bool rebuildQueue);
-    State buildState();
-    Playback buildPlayback(int activePosition) const;
-    TangoQExtension buildTangoQExtension(int activePosition) const;
+    void publish(bool rebuildQueue);
+    ProjectionInput buildProjectionInput() const;
     Track trackState(const TrackPointer& pTrack) const;
 
     Store* const m_pStore;
     const int m_autoDJPlaylistId;
     AutoDJProcessor* const m_pAutoDJProcessor;
     TandaQueueState* const m_pTandaQueueState;
+    PlayerManagerInterface* const m_pPlayerManager;
+    // A monitor session is the lifetime of this publisher instance. It is not
+    // an AutoDJ run, queue, tanda, or persisted milonga identity.
     const QString m_sessionId;
     const QDateTime m_startedAt;
     QVector<QueueItem> m_queue;

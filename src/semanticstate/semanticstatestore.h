@@ -18,7 +18,7 @@ class Store final : public QObject {
   public:
     explicit Store(QObject* pParent = nullptr);
 
-    bool publish(const State& state, const QString& changeType);
+    bool publish(const State& state);
     quint64 revision() const {
         return m_revision;
     }
