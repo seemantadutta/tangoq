@@ -30,6 +30,11 @@ class QModelIndex;
 class QPoint;
 class TandaQueueState;
 enum class TandaType;
+namespace mixxx::semanticstate {
+class Store;
+class TangoQAdapter;
+class Server;
+} // namespace mixxx::semanticstate
 
 class AutoDJFeature : public LibraryFeature {
     Q_OBJECT
@@ -143,6 +148,12 @@ class AutoDJFeature : public LibraryFeature {
     parented_ptr<QAction> m_pRemoveCrateFromAutoDjAction;
 
     QPointer<WLibrarySidebar> m_pSidebarWidget;
+
+    // Experimental, read-only semantic monitor. These are created only when
+    // --semantic-monitor-port is present and are destroyed before AutoDJ state.
+    std::unique_ptr<mixxx::semanticstate::Store> m_pSemanticStateStore;
+    std::unique_ptr<mixxx::semanticstate::TangoQAdapter> m_pSemanticStateAdapter;
+    std::unique_ptr<mixxx::semanticstate::Server> m_pSemanticStateServer;
 
   private slots:
     // Reacts to the [AutoDJ],show_autodj_dock control (from the View menu).

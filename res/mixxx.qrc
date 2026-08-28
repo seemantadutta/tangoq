@@ -2,6 +2,7 @@
 <RCC version="1.0">
     <qresource prefix="/">
         <file>../LICENSE</file>
+        <file>semanticmonitor/index.html</file>
         <file>images/library/ic_library_drag_and_drop.svg</file>
       <!-- open/closed lock icons for BPM button -->
         <file>images/library/ic_library_locked.svg</file>

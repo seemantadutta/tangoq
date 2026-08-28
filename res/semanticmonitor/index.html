@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TangoQ Semantic Monitor</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6f5; color: #17201d; }
+    header { padding: 20px; background: #173f35; color: #fff; }
+    h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: 0; }
+    #connection { color: #a8e8c5; font-weight: 700; }
+    main { max-width: 760px; margin: auto; padding: 0 20px 28px; }
+    section { padding: 18px 0; border-bottom: 1px solid #cbd3cf; }
+    h2 { margin: 0 0 12px; font-size: 16px; letter-spacing: 0; color: #8c352d; }
+    dl { display: grid; grid-template-columns: minmax(100px, 140px) 1fr; gap: 8px 14px; margin: 0; }
+    dt { color: #59645f; }
+    dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
+    #current { font-size: 20px; margin: 8px 0; overflow-wrap: anywhere; }
+    #time { font-variant-numeric: tabular-nums; color: #59645f; }
+    ol { margin: 0; padding-left: 28px; }
+    li { padding: 5px 0; overflow-wrap: anywhere; }
+    #recent { font-family: ui-monospace, monospace; font-size: 13px; overflow-wrap: anywhere; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #121715; color: #edf2ef; }
+      header { background: #0d342b; }
+      section { border-color: #3c4742; }
+      h2 { color: #f09b90; }
+      dt, #time { color: #acb7b1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TangoQ Semantic Monitor</h1>
+    <div id="connection">Connecting</div>
+  </header>
+  <main>
+    <section>
+      <dl>
+        <dt>Session</dt><dd id="session">-</dd>
+        <dt>Revision</dt><dd id="revision">0</dd>
+        <dt>Playback</dt><dd id="playback">Stopped</dd>
+      </dl>
+      <div id="current">No track</div>
+      <div id="time">00:00 / 00:00</div>
+    </section>
+    <section>
+      <h2>Tango</h2>
+      <dl>
+        <dt>Current tanda</dt><dd id="tanda">-</dd>
+        <dt>Cortina</dt><dd id="cortina">None</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Queue</h2>
+      <ol id="queue"></ol>
+    </section>
+    <section>
+      <h2>Recent semantic event</h2>
+      <div id="recent">snapshot pending</div>
+    </section>
+  </main>
+  <script>
+    const byId = (id) => document.getElementById(id);
+    let lastRevision = -1;
+
+    function formatTime(ms) {
+      const seconds = Math.max(0, Math.floor((ms || 0) / 1000));
+      return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+
+    function trackLabel(track) {
+      if (!track) return 'No track';
+      return [track.artist, track.title].filter(Boolean).join(' - ') || track.id;
+    }
+
+    function render(state, recent) {
+      if (!state || state.revision < lastRevision) return;
+      lastRevision = state.revision;
+      byId('session').textContent = state.session?.id || '-';
+      byId('revision').textContent = String(state.revision);
+      const playback = state.playback || {};
+      byId('playback').textContent = (playback.state || 'stopped').replace(/^./, c => c.toUpperCase());
+      byId('current').textContent = trackLabel(playback.track);
+      byId('time').textContent = `${formatTime(playback.positionMs)} / ${formatTime(playback.durationMs)}`;
+
+      const tango = state.extensions?.tangoq || {};
+      if (tango.currentTanda) {
+        const current = tango.currentTanda;
+        byId('tanda').textContent = `${current.trackIndex} / ${current.trackCount} (${current.type})`;
+      } else if (tango.upcomingTanda) {
+        byId('tanda').textContent = `Upcoming: ${tango.upcomingTanda.type}, ${tango.upcomingTanda.trackCount} tracks`;
+      } else {
+        byId('tanda').textContent = '-';
+      }
+      const cortina = tango.cortina || {};
+      byId('cortina').textContent = cortina.state === 'none'
+        ? 'None'
+        : `${cortina.state.replace(/^./, c => c.toUpperCase())}: ${trackLabel(cortina.track)}`;
+
+      const queue = byId('queue');
+      queue.replaceChildren();
+      for (const item of state.queue || []) {
+        const li = document.createElement('li');
+        li.textContent = trackLabel(item.track);
+        queue.appendChild(li);
+      }
+      if (!queue.children.length) {
+        const li = document.createElement('li');
+        li.textContent = 'Empty';
+        queue.appendChild(li);
+      }
+      byId('recent').textContent = recent;
+    }
+
+    async function refreshSnapshot(recent = 'snapshot') {
+      const response = await fetch('/api/state', {cache: 'no-store'});
+      render(await response.json(), recent);
+    }
+
+    function connect() {
+      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+      const socket = new WebSocket(`${scheme}://${location.host}/api/events`);
+      socket.addEventListener('open', () => { byId('connection').textContent = 'Connected'; });
+      socket.addEventListener('message', async (event) => {
+        const message = JSON.parse(event.data);
+        const state = message.snapshot;
+        if (message.type === 'state.changed' && message.revision > lastRevision + 1) {
+          await refreshSnapshot('snapshot after revision gap');
+          return;
+        }
+        render(state, message.type === 'snapshot' ? 'snapshot' : message.change);
+      });
+      socket.addEventListener('close', () => {
+        byId('connection').textContent = 'Reconnecting';
+        setTimeout(connect, 1000);
+      });
+      socket.addEventListener('error', () => socket.close());
+    }
+
+    refreshSnapshot().catch(() => {});
+    connect();
+  </script>
+</body>
+</html>

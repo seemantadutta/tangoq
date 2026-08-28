@@ -33,6 +33,9 @@ class CmdlineArgs final {
     bool getStartAutoDJ() const {
         return m_startAutoDJ;
     }
+    int getSemanticMonitorPort() const {
+        return m_semanticMonitorPort;
+    }
     bool getControllerDebug() const {
         return m_controllerDebug;
     }
@@ -93,6 +96,7 @@ class CmdlineArgs final {
     QList<QString> m_musicFiles;    // List of files to load into players at startup
     bool m_startInFullscreen;       // Start in fullscreen mode
     bool m_startAutoDJ;
+    int m_semanticMonitorPort;
     bool m_controllerDebug;
     bool m_controllerAbortOnWarning; // Controller Engine will be stricter
     bool m_developer; // Developer Mode

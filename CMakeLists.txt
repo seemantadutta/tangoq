@@ -1092,6 +1092,10 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/network/jsonwebtask.cpp
   src/network/networktask.cpp
   src/network/webtask.cpp
+  src/semanticstate/network/semanticstateserver.cpp
+  src/semanticstate/semanticstatemodel.cpp
+  src/semanticstate/semanticstatestore.cpp
+  src/semanticstate/tangoqsemanticstateadapter.cpp
   src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditormodel.cpp
@@ -2277,6 +2281,8 @@ if(BUILD_TESTING)
     src/test/searchqueryparsertest.cpp
     src/test/seratobeatgridtest.cpp
     src/test/seratomarkerstest.cpp
+    src/test/semanticstatestore_test.cpp
+    src/test/semanticstateserver_test.cpp
     src/test/seratomarkers2test.cpp
     src/test/seratotagstest.cpp
     src/test/signalpathtest.cpp

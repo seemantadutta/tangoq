@@ -50,6 +50,7 @@ bool calcUseColorsAuto() {
 CmdlineArgs::CmdlineArgs()
         : m_startInFullscreen(false), // Initialize vars
           m_startAutoDJ(false),
+          m_semanticMonitorPort(0),
           m_controllerDebug(false),
           m_controllerAbortOnWarning(false),
           m_developer(false),
@@ -188,6 +189,16 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                                       "Starts Auto DJ when Mixxx is launched.")
                             : QString());
     parser.addOption(startAutoDJ);
+
+    const QCommandLineOption semanticMonitorPort(
+            QStringLiteral("semantic-monitor-port"),
+            forUserFeedback
+                    ? QCoreApplication::translate("CmdlineArgs",
+                              "Enables the experimental read-only semantic monitor on the "
+                              "specified LAN port.")
+                    : QString(),
+            QStringLiteral("port"));
+    parser.addOption(semanticMonitorPort);
 
     // An option with a value
     const QCommandLineOption settingsPath(QStringLiteral("settings-path"),
@@ -406,6 +417,16 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     if (parser.isSet(startAutoDJ)) {
         m_startAutoDJ = true;
+    }
+
+    if (parser.isSet(semanticMonitorPort)) {
+        bool ok = false;
+        const int port = parser.value(semanticMonitorPort).toInt(&ok);
+        if (!ok || port < 1 || port > 65535) {
+            fputs("\nsemantic-monitor-port must be an integer from 1 to 65535.\n", stdout);
+            return false;
+        }
+        m_semanticMonitorPort = port;
     }
 
     if (parser.isSet(settingsPath)) {

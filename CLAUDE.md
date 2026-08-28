@@ -156,8 +156,8 @@ behaviour; `[AutoDJ],keep_queue_off` is its inverse, which exists because a skin
 - `ROADMAP.md` — the fork's roadmap: completed work, planned features, known
   issues, and long-term ideas.
 - `RELEASE_NOTES.md`, `INSTALL.md` — user-facing, for non-technical DJs.
-- `ghostdeck-phase1-plan.md` and `tanda-insights.md` are untracked scratch files
-  and unrelated to the current work — leave them alone.
+- `tanda-insights.md` is an untracked scratch file and unrelated to the current
+  work - leave it alone.
 
 ## Debugging a crash
 

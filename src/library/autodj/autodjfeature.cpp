@@ -19,9 +19,13 @@
 #include "library/trackset/crate/cratestorage.h"
 #include "library/treeitem.h"
 #include "moc_autodjfeature.cpp"
+#include "semanticstate/network/semanticstateserver.h"
+#include "semanticstate/semanticstatestore.h"
+#include "semanticstate/tangoqsemanticstateadapter.h"
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "util/clipboard.h"
+#include "util/cmdlineargs.h"
 #include "util/defs.h"
 #include "util/dnd.h"
 #include "widget/wdocktitlebar.h"
@@ -179,9 +183,36 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
     // connected first so the dock gating and toolbar react to the forced-on state.
     // Reverting the commit that added this restores the user-switchable mode.
     m_pAutoDJProcessor->lockTangoModeOn();
+
+    const int semanticMonitorPort = CmdlineArgs::Instance().getSemanticMonitorPort();
+    if (semanticMonitorPort > 0) {
+        m_pSemanticStateStore =
+                std::make_unique<mixxx::semanticstate::Store>(this);
+        m_pSemanticStateAdapter =
+                std::make_unique<mixxx::semanticstate::TangoQAdapter>(
+                        m_pSemanticStateStore.get(),
+                        &m_playlistDao,
+                        m_iAutoDJPlaylistId,
+                        m_pAutoDJProcessor,
+                        m_pTandaQueueState.get(),
+                        pPlayerManager,
+                        this);
+        m_pSemanticStateServer =
+                std::make_unique<mixxx::semanticstate::Server>(
+                        m_pSemanticStateStore.get(), this);
+        if (!m_pSemanticStateServer->start(
+                    static_cast<quint16>(semanticMonitorPort))) {
+            m_pSemanticStateServer.reset();
+            m_pSemanticStateAdapter.reset();
+            m_pSemanticStateStore.reset();
+        }
+    }
 }
 
 AutoDJFeature::~AutoDJFeature() {
+    m_pSemanticStateServer.reset();
+    m_pSemanticStateAdapter.reset();
+    m_pSemanticStateStore.reset();
     m_pAutoDJProcessor->getTableModel()->setTandaQueueState(nullptr);
     delete m_pAutoDJProcessor;
 }
