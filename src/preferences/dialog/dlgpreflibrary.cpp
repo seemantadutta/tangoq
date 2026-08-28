@@ -8,10 +8,9 @@
 #include <QFontMetrics>
 #include <QMessageBox>
 #include <QSignalBlocker>
-
-#include <cmath>
 #include <QStandardPaths>
 #include <QUrl>
+#include <cmath>
 
 #include "control/controlproxy.h"
 #include "defs_urls.h"

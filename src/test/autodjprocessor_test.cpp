@@ -687,7 +687,7 @@ TEST_F(AutoDJProcessorTest, FadePlayingCortinaNowDoesNotRequireAutomaticCortinaF
 
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
-    // stop has to pre-empt the transition: waiting for the track to end would be
+    // stop has to preempt the transition: waiting for the track to end would be
     // too late, because the next tanda is already playing by then.
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);

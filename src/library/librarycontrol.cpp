@@ -6,7 +6,6 @@
 #include <QModelIndex>
 #include <QWindow>
 #include <QtDebug>
-
 #include <algorithm>
 
 #include "control/controlencoder.h"

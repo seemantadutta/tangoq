@@ -17,8 +17,6 @@ current flow in code rather than assuming.
 
 **Use clear language, avoid run on sentences.**
 
-
-
 **Never launch `tangoq.exe`.** The user launches it. It has no
 `WIN32_EXECUTABLE` property, so it is a console-subsystem binary and its
 `qDebug` output arrives in the Claude Code window as mojibake. Redirecting both
