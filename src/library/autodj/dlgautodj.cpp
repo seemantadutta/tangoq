@@ -159,11 +159,11 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     setupActionButton(pushButtonAddRandomTrack, &DlgAutoDJ::addRandomTrackButton, tr("Random"));
 
     m_enableBtnTooltip = tr(
-            "Enable Auto DJ\n"
+            "Enable TangoQ\n"
             "\n"
             "Shortcut: Shift+F12");
     m_disableBtnTooltip = tr(
-            "Disable Auto DJ\n"
+            "Disable TangoQ\n"
             "\n"
             "Shortcut: Shift+F12");
     QString fadeBtnTooltip = tr(
@@ -171,29 +171,29 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             "\n"
             "Shortcut: Shift+F11");
     QString skipBtnTooltip = tr(
-            "Skip the next track in the Auto DJ queue\n"
+            "Skip the next track in the TangoQ queue\n"
             "\n"
             "Shortcut: Shift+F10");
     QString shuffleBtnTooltip = tr(
-            "Shuffle the content of the Auto DJ queue\n"
+            "Shuffle the content of the TangoQ queue\n"
             "\n"
             "Shortcut: Shift+F9");
     QString addRandomTrackBtnTooltip = tr(
-            "Adds a random track from track sources (crates) to the Auto DJ queue.\n"
+            "Adds a random track from track sources (crates) to the TangoQ queue.\n"
             "If no track sources are configured, the track is added from the library instead.");
     QString repeatBtnTooltip = tr(
             "Repeat the playlist");
     QString keepQueueBtnTooltip = tr(
             "Tango DJ mode (indicator).\n"
-            "Plays the Auto DJ list in order, keeps played tracks, and stops at\n"
-            "the end. Enable it in Preferences -> Auto DJ.");
+            "Plays the TangoQ list in order, keeps played tracks, and stops at\n"
+            "the end. Enable it in Preferences -> TangoQ.");
     QString spinBoxTransitionTooltip = tr(
             "Determines the duration of the transition");
     QString labelTransitionTooltip = tr(
             // "sec" as in seconds
             "Seconds");
     QString fadeModeTooltip = tr(
-            "Auto DJ Fade Modes\n"
+            "TangoQ Fade Modes\n"
             "\n"
             "Full Intro + Outro:\n"
             "Play the full intro and outro. Use the intro or outro length as the\n"
@@ -549,20 +549,20 @@ void DlgAutoDJ::autoDJError(AutoDJProcessor::AutoDJError error) {
     switch (error) {
     case AutoDJProcessor::ADJ_NOT_TWO_DECKS:
         QMessageBox::warning(nullptr,
-                tr("Auto DJ"),
-                tr("Auto DJ requires two decks assigned to opposite sides of the crossfader."),
+                tr("TangoQ"),
+                tr("TangoQ requires two decks assigned to opposite sides of the crossfader."),
                 QMessageBox::Ok);
         break;
     case AutoDJProcessor::ADJ_BOTH_DECKS_PLAYING:
         QMessageBox::warning(nullptr,
-                tr("Auto DJ"),
-                tr("One deck must be stopped to enable Auto DJ mode."),
+                tr("TangoQ"),
+                tr("One deck must be stopped to enable TangoQ mode."),
                 QMessageBox::Ok);
         break;
     case AutoDJProcessor::ADJ_UNUSED_DECK_PLAYING:
         QMessageBox::warning(nullptr,
-                tr("Auto DJ"),
-                tr("Decks not used for Auto DJ must be stopped to enable Auto DJ mode."),
+                tr("TangoQ"),
+                tr("Decks not used for TangoQ must be stopped to enable TangoQ mode."),
                 QMessageBox::Ok);
         break;
     case AutoDJProcessor::ADJ_OK:
@@ -906,9 +906,10 @@ void DlgAutoDJ::showLiveContextMenu(const QPoint& pos) {
 }
 
 void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
-    // The Auto DJ icon is a power symbol (left) + android (right) = "Auto DJ".
-    // While armed, a depleting red pie sits over just the power symbol (its
-    // opaque backdrop masks it); the android stays visible. The eaten part grows
+    // The button icon is a power symbol (left) + the TangoQ turntable mark
+    // (right). While armed, a depleting red pie sits over just the power symbol
+    // (its opaque backdrop masks it); the turntable mark stays visible. The
+    // eaten part grows
     // until the pie is empty when the window expires. The overlay ignores mouse
     // events, so a second press on the button confirms the stop.
     if (armed) {

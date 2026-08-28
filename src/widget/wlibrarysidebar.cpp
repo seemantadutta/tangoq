@@ -2,8 +2,10 @@
 
 #include <QHeaderView>
 #include <QUrl>
+#include <QWheelEvent>
 #include <QtDebug>
 
+#include "control/controlproxy.h"
 #include "library/sidebarmodel.h"
 #include "moc_wlibrarysidebar.cpp"
 #include "util/defs.h"
@@ -28,6 +30,36 @@ WLibrarySidebar::WLibrarySidebar(QWidget* parent)
     header()->setStretchLastSection(false);
     header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     header()->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+    m_pFontSizeKnob = new ControlProxy("[Library]", "font_size_knob", this);
+    m_iFontSizeWheelAccumulator = 0;
+}
+
+void WLibrarySidebar::wheelEvent(QWheelEvent* event) {
+    if (event->modifiers().testFlag(Qt::ControlModifier)) {
+        // Ctrl+wheel resizes the shared library font instead of scrolling the
+        // tree. Accumulate the delta so a high-resolution trackpad also steps.
+        constexpr int kWheelStep = 120; // one notch of a classic mouse wheel
+        m_iFontSizeWheelAccumulator += event->angleDelta().y();
+        int steps = 0;
+        while (m_iFontSizeWheelAccumulator >= kWheelStep) {
+            steps++;
+            m_iFontSizeWheelAccumulator -= kWheelStep;
+        }
+        while (m_iFontSizeWheelAccumulator <= -kWheelStep) {
+            steps--;
+            m_iFontSizeWheelAccumulator += kWheelStep;
+        }
+        if (steps != 0) {
+            // font_size_knob adds its value (points) to the library font size,
+            // clamped in LibraryControl. Reset to 0 so the next step registers.
+            m_pFontSizeKnob->set(steps);
+            m_pFontSizeKnob->set(0.0);
+        }
+        event->accept();
+        return;
+    }
+    QTreeView::wheelEvent(event);
 }
 
 void WLibrarySidebar::contextMenuEvent(QContextMenuEvent *event) {

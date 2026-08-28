@@ -441,7 +441,7 @@ void AutoDJFeature::slotAutoDJDockVisibilityChanged(bool visible) {
 }
 
 QVariant AutoDJFeature::title() {
-    return tr("Auto DJ");
+    return tr("TangoQ");
 }
 
 void AutoDJFeature::bindLibraryWidget(

@@ -23,11 +23,6 @@ const ConfigKey mixxx::library::prefs::kKeyNotationConfigKey =
                 mixxx::library::prefs::kConfigGroup,
                 QStringLiteral("key_notation")};
 
-const ConfigKey mixxx::library::prefs::kTrackDoubleClickActionConfigKey =
-        ConfigKey{
-                mixxx::library::prefs::kConfigGroup,
-                QStringLiteral("TrackLoadAction")};
-
 const ConfigKey mixxx::library::prefs::kEditMetadataSelectedClickConfigKey =
         ConfigKey{
                 mixxx::library::prefs::kConfigGroup,

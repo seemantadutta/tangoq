@@ -280,6 +280,12 @@ class AutoDJProcessor : public QObject {
     // TandaQueueModel, which owns the tanda spans, to drive the toolbar HUD pips.
     void setHudTandaState(int trackCount, int playingIndex);
 
+    // Publishes whether the set currently holds at least one tanda grouping.
+    // Called by TandaQueueModel on every grouping/queue edit. The skin Settings
+    // panel hides the "Progress Pips" toggle when this is false, since pips have
+    // nothing to draw without tandas.
+    void setHudHasTandaGroupings(bool hasGroupings);
+
     void setTransitionMode(TransitionMode newMode);
 
     AutoDJError shufflePlaylist(const QModelIndexList& selectedIndices);
@@ -670,6 +676,10 @@ class AutoDJProcessor : public QObject {
     ControlObject m_hudNextKind;
     ControlObject m_hudTandaTrackCount;
     ControlObject m_hudTandaPlayingIndex;
+    // Whether the set currently contains at least one tanda grouping (1) or none
+    // (0). Published by TandaQueueModel from the real span count. The skin hides
+    // the "Progress Pips" toggle when this is 0.
+    ControlObject m_hudHasTandaGroupings;
     QTimer m_hudTimer;
     // Stop-guard arm state: in LIVE mode the first disable request only arms a
     // short confirmation window; a second request within it actually stops.

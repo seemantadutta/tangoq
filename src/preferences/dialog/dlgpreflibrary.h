@@ -16,13 +16,6 @@ class ControlProxy;
 class DlgPrefLibrary : public DlgPreferencePage, public Ui::DlgPrefLibraryDlg  {
     Q_OBJECT
   public:
-    enum class TrackDoubleClickAction : int {
-        LoadToDeck = 0,
-        AddToAutoDJBottom = 1,
-        AddToAutoDJTop = 2,
-        Ignore = 3,
-    };
-
     enum class CoverArtFetcherQuality {
         Low = 0,
         Medium = 1,
@@ -61,6 +54,7 @@ class DlgPrefLibrary : public DlgPreferencePage, public Ui::DlgPrefLibraryDlg  {
 
   private slots:
     void slotRowHeightValueChanged(int);
+    void slotFontSizeValueChanged(int sizePt);
     void slotSelectFont();
     void slotSyncTrackMetadataToggled();
     void slotSearchDebouncingTimeoutMillisChanged(int);

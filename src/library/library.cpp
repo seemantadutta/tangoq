@@ -724,6 +724,13 @@ void Library::setRowHeight(int rowHeight) {
     emit setTrackTableRowHeight(rowHeight);
 }
 
+void Library::saveTrackTableFont() {
+    m_pConfig->set(ConfigKey(kConfigGroup, "Font"),
+            ConfigValue(m_trackTableFont.toString()));
+    m_pConfig->set(ConfigKey(kConfigGroup, "RowHeight"),
+            ConfigValue(m_iTrackTableRowHeight));
+}
+
 void Library::setEditMetadataSelectedClick(bool enabled) {
     m_editMetadataSelectedClick = enabled;
     emit setSelectedClick(enabled);

@@ -4,10 +4,13 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFontDialog>
+#include <QFontInfo>
 #include <QFontMetrics>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QUrl>
+#include <cmath>
 
 #include "control/controlproxy.h"
 #include "defs_urls.h"
@@ -107,6 +110,27 @@ DlgPrefLibrary::DlgPrefLibrary(
     updateSearchLineEditHistoryOptions();
 
     connect(btn_library_font, &QAbstractButton::clicked, this, &DlgPrefLibrary::slotSelectFont);
+    connect(spinBox_font_size,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefLibrary::slotFontSizeValueChanged);
+
+    // Surface the Ctrl/Cmd+scroll font-resize shortcut, which is otherwise
+    // invisible. Qt maps Qt::ControlModifier (what the wheel handler checks) to
+    // the Command key on macOS and to Ctrl elsewhere, so name the real key per
+    // platform.
+#ifdef Q_OS_MACOS
+    const QString kFontResizeModifier =
+            QStringLiteral("⌘"); // Command key (Qt maps ControlModifier to it)
+#else
+    const QString kFontResizeModifier = QStringLiteral("Ctrl");
+#endif
+    const QString fontResizeHint =
+            tr("Tip: hold %1 and scroll over the library to resize the font.")
+                    .arg(kFontResizeModifier);
+    label_fontSizeHint->setText(fontResizeHint);
+    label_fontSizeHint->setToolTip(fontResizeHint);
+    spinBox_font_size->setToolTip(fontResizeHint);
 
     // TODO(XXX) this string should be extracted from the soundsources
     QString builtInFormatsStr = "Ogg Vorbis, FLAC, WAVE, AIFF";
@@ -244,7 +268,6 @@ void DlgPrefLibrary::slotResetToDefaults() {
     checkBox_serato_metadata_export->setChecked(false);
     checkBox_use_relative_path->setChecked(false);
     checkBox_edit_metadata_selected_clicked->setChecked(kEditMetadataSelectedClickDefault);
-    radioButton_dbclick_deck->setChecked(true);
     spinbox_bpm_precision->setValue(BaseTrackTableModel::kBpmColumnPrecisionDefault);
     checkbox_played_track_color->setChecked(
             BaseTrackTableModel::kApplyPlayedTrackColorDefault);
@@ -301,23 +324,6 @@ void DlgPrefLibrary::slotUpdate() {
             ConfigKey("[Library]","ShowRekordboxLibrary"), true));
     checkBox_show_serato->setChecked(m_pConfig->getValue(
             ConfigKey("[Library]", "ShowSeratoLibrary"), true));
-
-    switch (m_pConfig->getValue<int>(
-            kTrackDoubleClickActionConfigKey,
-            static_cast<int>(TrackDoubleClickAction::LoadToDeck))) {
-    case static_cast<int>(TrackDoubleClickAction::AddToAutoDJBottom):
-        radioButton_dbclick_bottom->setChecked(true);
-        break;
-    case static_cast<int>(TrackDoubleClickAction::AddToAutoDJTop):
-        radioButton_dbclick_top->setChecked(true);
-        break;
-    case static_cast<int>(TrackDoubleClickAction::Ignore):
-        radioButton_dbclick_ignore->setChecked(true);
-        break;
-    default:
-        radioButton_dbclick_deck->setChecked(true);
-        break;
-    }
 
     switch (m_pConfig->getValue<int>(
             kCoverArtFetcherQualityConfigKey,
@@ -556,19 +562,6 @@ void DlgPrefLibrary::slotApply() {
     }
     m_pConfig->set(kCoverArtFetcherQualityConfigKey, ConfigValue(coverartfetcherquality_status));
 
-    int dbclick_status;
-    if (radioButton_dbclick_bottom->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::AddToAutoDJBottom);
-    } else if (radioButton_dbclick_top->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::AddToAutoDJTop);
-    } else if (radioButton_dbclick_deck->isChecked()) {
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::LoadToDeck);
-    } else { // radioButton_dbclick_ignore
-        dbclick_status = static_cast<int>(TrackDoubleClickAction::Ignore);
-    }
-    m_pConfig->set(kTrackDoubleClickActionConfigKey,
-            ConfigValue(dbclick_status));
-
     m_pConfig->set(kEditMetadataSelectedClickConfigKey,
             ConfigValue(checkBox_edit_metadata_selected_clicked->checkState()));
     m_pLibrary->setEditMetadataSelectedClick(
@@ -600,6 +593,14 @@ void DlgPrefLibrary::slotApply() {
 
 void DlgPrefLibrary::slotRowHeightValueChanged(int height) {
     m_pLibrary->setRowHeight(height);
+}
+
+void DlgPrefLibrary::slotFontSizeValueChanged(int sizePt) {
+    // Change only the size of the current library font, keeping its family and
+    // style. setLibraryFont() applies it live and re-syncs the spinbox.
+    QFont font = m_pLibrary->getTrackTableFont();
+    font.setPointSize(sizePt);
+    setLibraryFont(font);
 }
 
 void DlgPrefLibrary::setLibraryFont(const QFont& font) {
@@ -634,6 +635,18 @@ void DlgPrefLibrary::setLibraryFont(const QFont& font) {
     }
     fontDescription += ' ' + QString::number(font.pointSizeF()) + QStringLiteral("pt");
     lineEdit_library_font->setText(fontDescription);
+
+    // Keep the size spinbox in sync (blocking its signal so this does not loop
+    // back into slotFontSizeValueChanged). Fonts defined by pixel size report
+    // pointSizeF() <= 0, so fall back to the resolved size.
+    {
+        const QSignalBlocker blocker(spinBox_font_size);
+        double pointSize = font.pointSizeF();
+        if (pointSize <= 0.0) {
+            pointSize = QFontInfo(font).pointSizeF();
+        }
+        spinBox_font_size->setValue(static_cast<int>(std::lround(pointSize)));
+    }
 
     // Apply the font
     m_pLibrary->setFont(font);

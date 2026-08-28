@@ -194,7 +194,7 @@ DlgPreferences::DlgPreferences(
     addPageWidget(PreferencesPage(
                           new DlgPrefAutoDJ(this, m_pConfig),
                           new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
-            tr("Auto DJ"),
+            tr("TangoQ"),
             "ic_preferences_autodj.svg");
 
 #ifdef __BROADCAST__

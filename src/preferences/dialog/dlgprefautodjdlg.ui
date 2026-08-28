@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Auto DJ Preferences</string>
+   <string>TangoQ Preferences</string>
   </property>
   <layout class="QVBoxLayout" name="AutoDJGridLayout">
 
@@ -30,7 +30,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>Tanda transitions insert a fixed silent gap between every pair of tracks, set by the gap spinner in the Auto DJ toolbar (3 seconds by default). The same gap applies to every boundary: tanda→tanda, tanda→cortina and cortina→tanda. The settings below govern the cortina itself.</string>
+          <string>Tanda transitions insert a fixed silent gap between every pair of tracks, set by the gap spinner in the TangoQ toolbar (3 seconds by default). The same gap applies to every boundary: tanda→tanda, tanda→cortina and cortina→tanda. The settings below govern the cortina itself.</string>
          </property>
         </widget>
        </item>
@@ -49,7 +49,7 @@
          <item>
           <widget class="QSpinBox" name="CortinaLengthSpinBox">
            <property name="toolTip">
-            <string>Cortina length budget. In Cortina Fade mode it is the on-deck envelope length (fade-in + hold + fade-out); otherwise it is the play time assumed when estimating the set length and end time. This field is the default and can only be changed here while Auto DJ is stopped; during a set, nudge it live with the − / + buttons in the Auto DJ toolbar.</string>
+            <string>Cortina length budget. In Cortina Fade mode it is the on-deck envelope length (fade-in + hold + fade-out); otherwise it is the play time assumed when estimating the set length and end time. This field is the default and can only be changed here while TangoQ is stopped; during a set, nudge it live with the − / + buttons in the TangoQ toolbar.</string>
            </property>
            <property name="suffix">
             <string> s</string>
@@ -107,7 +107,7 @@
          <item>
           <widget class="QComboBox" name="CortinaFadeModeComboBox">
            <property name="toolTip">
-            <string>How cortinas are played. &quot;Hard cut&quot; keeps the current behavior (the cortina starts at full volume and is faded out manually with the crossfader). &quot;Cortina Fade&quot; automatically fades the cortina in and out using the times below. Can only be changed while Auto DJ is stopped.</string>
+            <string>How cortinas are played. &quot;Hard cut&quot; keeps the current behavior (the cortina starts at full volume and is faded out manually with the crossfader). &quot;Cortina Fade&quot; automatically fades the cortina in and out using the times below. Can only be changed while TangoQ is stopped.</string>
            </property>
            <item>
             <property name="text">
@@ -151,7 +151,7 @@
          <item>
           <widget class="QSpinBox" name="CortinaFadeInSpinBox">
            <property name="toolTip">
-            <string>Time over which the cortina fades in from silence (X). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while Auto DJ is stopped.</string>
+            <string>Time over which the cortina fades in from silence (X). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while TangoQ is stopped.</string>
            </property>
            <property name="suffix">
             <string> s</string>
@@ -209,7 +209,7 @@
          <item>
           <widget class="QSpinBox" name="CortinaFadeOutSpinBox">
            <property name="toolTip">
-            <string>Time over which the cortina fades out to silence (Z). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while Auto DJ is stopped.</string>
+            <string>Time over which the cortina fades out to silence (Z). Only used in &quot;Cortina Fade&quot; mode. Fade-in plus fade-out must not exceed the cortina length. Can only be changed while TangoQ is stopped.</string>
            </property>
            <property name="suffix">
             <string> s</string>
@@ -367,7 +367,7 @@
        <item row="2" column="1">
         <widget class="QTimeEdit" name="RequeueIgnoreTimeEdit">
          <property name="toolTip">
-          <string>Duration after which a track is eligible for selection by Auto DJ again</string>
+          <string>Duration after which a track is eligible for selection by TangoQ again</string>
          </property>
          <property name="displayFormat">
           <string>hh:mm</string>

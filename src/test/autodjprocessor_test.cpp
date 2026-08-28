@@ -687,7 +687,7 @@ TEST_F(AutoDJProcessorTest, FadePlayingCortinaNowDoesNotRequireAutomaticCortinaF
 
 TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // A row marked "pause after" hands the floor over for an announcement. The
-    // stop has to pre-empt the transition: waiting for the track to end would be
+    // stop has to preempt the transition: waiting for the track to end would be
     // too late, because the next tanda is already playing by then.
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
@@ -2514,4 +2514,23 @@ TEST_F(AutoDJProcessorTest, TrackZeroLength) {
     // Expect that the track is rejected an a new one is loaded
     // Signal that the request to load pTrack succeeded.
     deck1.fakeTrackLoadedEvent(pTrack);
+}
+
+// The skin's "Progress Pips" toggle is greyed out while the set has no tanda
+// groupings, driven by [AutoDJ],hud_has_tanda_groupings. TandaQueueModel
+// publishes it from the real span count via setHudHasTandaGroupings(); here we
+// verify the control the skin binds to defaults to "no groupings" and flips
+// 0<->1 as that setter is called.
+TEST_F(AutoDJProcessorTest, HudHasTandaGroupingsControlReflectsGroupingState) {
+    const ConfigKey key("[AutoDJ]", "hud_has_tanda_groupings");
+    // No groupings exist at construction, so the pips option starts greyed.
+    EXPECT_DOUBLE_EQ(0.0, ControlObject::get(key));
+
+    // A grouping appears: the control goes true so the skin ungreys the option.
+    pProcessor->setHudHasTandaGroupings(true);
+    EXPECT_DOUBLE_EQ(1.0, ControlObject::get(key));
+
+    // The last grouping is dissolved: the control goes false again.
+    pProcessor->setHudHasTandaGroupings(false);
+    EXPECT_DOUBLE_EQ(0.0, ControlObject::get(key));
 }

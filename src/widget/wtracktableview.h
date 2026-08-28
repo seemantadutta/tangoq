@@ -40,6 +40,7 @@ class WTrackTableView : public WLibraryTableView {
     void pasteFromSidebar() override;
     void keyPressEvent(QKeyEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void wheelEvent(QWheelEvent* pEvent) override;
     void activateSelectedTrack();
     void loadSelectedTrackToGroup(const QString& group, bool play);
     void assignNextTrackColor() override;
@@ -194,4 +195,8 @@ class WTrackTableView : public WLibraryTableView {
     ControlProxy* m_pKeyNotation;
     ControlProxy* m_pSortColumn;
     ControlProxy* m_pSortOrder;
+    // Drives [Library],font_size_knob for Ctrl+wheel live font resizing.
+    ControlProxy* m_pFontSizeKnob;
+    // Accumulates high-resolution wheel deltas so a trackpad also steps.
+    int m_iFontSizeWheelAccumulator;
 };

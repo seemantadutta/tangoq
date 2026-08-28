@@ -1,21 +1,23 @@
-# TangoMode — a Mixxx fork for tango DJs
+# TangoQ — a Mixxx fork for tango DJs
 
-This is a fork of [Mixxx](https://github.com/mixxxdj/mixxx) that adds **Tango DJ
-mode**: a cursor-based Auto DJ for DJs who play pre-arranged tanda sets at
-milongas. The binary is **`tangomode.exe`**, not `mixxx.exe`.
+This is a fork of [Mixxx](https://github.com/mixxxdj/mixxx) that reshapes it into
+a dedicated **tango DJ app** for DJs who play pre-arranged tanda sets at milongas.
+At its core is a cursor-based Auto DJ. The binary is **`tangoq.exe`**, not
+`mixxx.exe`.
 
-The guiding invariant for the whole fork: **with Tango mode off, this is stock
-Mixxx, byte for byte.** Every Tango behaviour is gated on
-`[AutoDJ],keep_queue`. When changing shared code, keep the stock path
-untouched and prove it with the existing tests.
+Positioning: TangoQ is a **one-way departure** from a stock DJ app to a dedicated
+tango DJ app. It is not a toggleable "tango mode" that you switch off to get stock
+Mixxx back. Internally, tango behaviour still keys off the `[AutoDJ],keep_queue`
+control (used for gating and skin visibility), so that control is the hook to
+trace when tango-specific behaviour is involved. Some of that plumbing predates
+the repositioning and may be simplified in an upcoming refactor, so verify the
+current flow in code rather than assuming.
 
 ## Hard rules
 
 **Use clear language, avoid run on sentences.**
 
-
-
-**Never launch `tangomode.exe`.** The user launches it. It has no
+**Never launch `tangoq.exe`.** The user launches it. It has no
 `WIN32_EXECUTABLE` property, so it is a console-subsystem binary and its
 `qDebug` output arrives in the Claude Code window as mojibake. Redirecting both
 streams with `Start-Process -RedirectStandardOutput/-RedirectStandardError` was
@@ -27,7 +29,7 @@ then hand over with a specific list of what to check by hand.
 - **Ready to test** — compiled and relinked, the binary on disk has the change.
 - **Build and test** — still needs building.
 
-`LNK1104: cannot open file 'tangomode.exe'` means the app is open. Ask the user
+`LNK1104: cannot open file 'tangoq.exe'` means the app is open. Ask the user
 to close it; once it relinks, *tell them it is ready* rather than starting it.
 
 **Skins load live from the source tree** (`res/skins/...`), because
@@ -51,8 +53,11 @@ cmake --build . --config RelWithDebInfo -- -j 2      # the app
 - **`-DWARNINGS_FATAL=ON`** (already set in the cache). The CMake option
   defaults to OFF but CI passes it, so without it a local build happily
   compiles code that fails the Windows job.
-- Pre-commit hooks do not fire locally. Scope them with `--from-ref`/`--to-ref`,
-  **never** `--all-files`.
+- Pre-commit hooks do not fire locally. Run them yourself before every push:
+  `pre-commit run --from-ref origin/tangomode --to-ref HEAD` (scope with
+  `--from-ref`/`--to-ref`, **never** `--all-files`). CI's "Detecting code style
+  issues" job lints the PR's changed files with clang-format, codespell and
+  markdownlint, so an unformatted push fails there even when the build is green.
 - Doc-only commits get `[skip ci]` — a docs push once cancelled an in-flight
   MSI build.
 
@@ -110,11 +115,10 @@ drives the design:
   use, and features can legitimately exist in one and not the other. Destructive
   conveniences are deliberately hidden in LIVE mode. Ask which mode a feature is
   for rather than assuming a gate that blocks in LIVE is a bug.
-- The user switches Tango mode on and off far more often than any DJ would,
-  because verifying that stock Mixxx still behaves like stock is part of the
-  routine. The toggle is **Ctrl+Alt+Shift+T** precisely because it should be
-  hard to hit by accident — don't optimise such things for discoverability
-  without asking.
+- TangoQ is a dedicated tango app, not a mode the user toggles. There is no
+  user-facing switch that returns it to stock Mixxx, so do not add tango on/off
+  affordances or optimise for discovering one without asking. (Internally, tango
+  behaviour still keys off `[AutoDJ],keep_queue`; see Codebase gotchas.)
 
 ## Codebase gotchas
 
@@ -129,19 +133,18 @@ drives the design:
   to a `tango_start_position` mirror rather than to `intro_start_position`.
 
 **A ControlObject does not emit `valueChanged` for a change it made itself.**
-`keep_queue` is a toggle with a change-request handler, so every route into
-Tango mode lands in `controlKeepQueueChangeRequest()` and `controlKeepQueue()`
-effectively never runs. Anything that must track `keep_queue` belongs in the
-request handler.
+`keep_queue` has a change-request handler, so every write to `keep_queue` lands
+in `controlKeepQueueChangeRequest()` and `controlKeepQueue()` effectively never
+runs. Anything that must track `keep_queue` belongs in the request handler.
 
 **The Auto DJ model fully rebuilds on every edit.** `BaseSqlTableModel::select()`
 emits a transient `rowsRemoved` (rowCount briefly 0) then `rowsInserted` with
 everything — there are no granular deltas. Code reacting to those signals must
 tolerate the transient empty state.
 
-**Key controls.** `[AutoDJ],keep_queue` is Tango mode; `[AutoDJ],keep_queue_off`
-is its inverse, which exists because a skin `<VisibilityControl>` takes a single
-bare ConfigKey and cannot negate.
+**Key controls.** `[AutoDJ],keep_queue` is the internal control that gates tango
+behaviour; `[AutoDJ],keep_queue_off` is its inverse, which exists because a skin
+`<VisibilityControl>` takes a single bare ConfigKey and cannot negate.
 
 ## Where things are written down
 
@@ -156,11 +159,11 @@ bare ConfigKey and cannot negate.
 ## Debugging a crash
 
 There is no debugger on this machine, but a full workflow exists: minidumps land
-in `%LOCALAPPDATA%\CrashDumps\tangomode.exe.<pid>.dmp`, WER records are in the
+in `%LOCALAPPDATA%\CrashDumps\tangoq.exe.<pid>.dmp`, WER records are in the
 Application event log under `Application Error` (Id 1000 gives faulting module +
 offset, Id 1001 the bucket), and `dbghelp.dll` ships with Windows and can be
 driven from Python via ctypes to symbolize. Match the PDB to the dump —
-`build/tangomode.pdb` is overwritten on every relink, and a stale one resolves to
+`build/tangoq.pdb` is overwritten on every relink, and a stale one resolves to
 plausible-looking nonsense rather than failing.
 
 A clean shutdown ends `mixxx.log` with `Mixxx shutdown complete with code 0`. If
