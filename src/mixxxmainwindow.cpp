@@ -143,6 +143,25 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
     m_pCentralWidget = (QWidget*)m_pLaunchImage;
     setCentralWidget(m_pCentralWidget);
 
+    // First run only (no saved geometry restored above): size the window to a
+    // landscape default *before* it is shown. The skin, installed later in
+    // initialize(), has a near-square 800x668 minimum; without this the window
+    // would be shown small (launch image) and then grown to that square minimum,
+    // and any later correction produces a visible resize flicker. Because
+    // 1280x800 is >= the skin minimum, installing the skin does not shrink it, so
+    // the window is painted at its landscape size from the very first frame.
+    // Sizing here (before show(), window not yet mapped) also avoids the GL
+    // startup crash a synchronous resize during skin load would cause.
+    // centreOnScreen() positions it once the screen is known.
+    if (!m_geometryRestored) {
+        const QScreen* pScreen = window()->screen();
+        const QRect available = pScreen
+                ? pScreen->availableGeometry()
+                : QRect(0, 0, 1280, 800);
+        resize(qMin(1280, static_cast<int>(available.width() * 0.9)),
+                qMin(800, static_cast<int>(available.height() * 0.9)));
+    }
+
     show();
 
     m_pGuiTick = new GuiTick();
@@ -584,7 +603,8 @@ void MixxxMainWindow::centreOnScreen() {
     }
     // availableGeometry() excludes the menu bar and Dock, so the window ends up
     // visually centred rather than centred on the raw display and overlapping them.
-    // Only the position is changed; the size the skin chose is preserved.
+    // Only the position is changed; the size (a first-run landscape default set
+    // before show(), or the restored/skin size) is preserved.
     const QRect available = pScreen->availableGeometry();
     move(available.center() - QPoint(width() / 2, height() / 2));
 }
