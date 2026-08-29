@@ -45,8 +45,9 @@
     <!-- Decks -->
       <!-- general -->
       <!-- Tango: lock to 2 decks and strip the controllerist deck surface
-           (hotcues, loops, beatjump, rate, key, vinyl) by forcing these off every
-           load (persist="false"). Spinny and cover art stay user-toggleable. -->
+           (hotcues, loops, beatjump, key, vinyl) by forcing these off every
+           load (persist="false"). Spinny, cover art and the rate/tempo slider
+           stay user-toggleable. -->
       <attribute persist="false" config_key="[Skin],show_4decks">0</attribute>
       <attribute persist="false" config_key="[Skin],show_hotcues">0</attribute>
       <attribute persist="false" config_key="[Skin],show_8_hotcues">0</attribute>
@@ -61,9 +62,12 @@
           See deck.xml and /helpers/skin_helper_deck_size.xml for documentation.
           0=mini 1=compact(default) 2=full deck -->
       <attribute persist="true" config_key="[TangoQ],deck_size_without_mixer">1</attribute>
-      <!-- Full deck -->
-      <attribute persist="false" config_key="[Skin],show_rate_controls">0</attribute>
-      <attribute persist="false" config_key="[Skin],show_rate_control_buttons">0</attribute>
+      <!-- Full deck. The rate/tempo slider and its adjust buttons are opt-in for
+           the minority of alt/nuevo tracks that need a speed nudge: toggled from
+           the deck settings menu, default off, and persisted like stock Mixxx.
+           Beatgrid controls stay stripped. -->
+      <attribute persist="true" config_key="[Skin],show_rate_controls">0</attribute>
+      <attribute persist="true" config_key="[Skin],show_rate_control_buttons">0</attribute>
       <attribute persist="false" config_key="[Skin],show_beatgrid_controls">0</attribute>
       <!-- Compact deck -->
       <attribute persist="true" config_key="[Skin],show_rate_controls_compact">1</attribute>
