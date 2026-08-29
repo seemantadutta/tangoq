@@ -98,23 +98,6 @@ TangoQAdapter::TangoQAdapter(Store* pStore,
             queueChanged,
             Qt::QueuedConnection);
 
-    // Track metadata edits are model changes without a queue DAO mutation.
-    // Queue the refresh so the model has completed applying the change first.
-    auto* pQueueModel = m_pAutoDJProcessor->getTableModel();
-    connect(pQueueModel,
-            &QAbstractItemModel::dataChanged,
-            this,
-            [this]() {
-                publish(true);
-            },
-            Qt::QueuedConnection);
-    connect(pQueueModel,
-            &QAbstractItemModel::modelReset,
-            this,
-            [this]() {
-                publish(true);
-            },
-            Qt::QueuedConnection);
     connect(
             m_pTandaQueueState,
             &TandaQueueState::spansChanged,
