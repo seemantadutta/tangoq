@@ -541,12 +541,25 @@ TrackModel::Capabilities TandaQueueModel::getCapabilities() const {
 }
 
 QString TandaQueueModel::getModelSetting(const QString& name) {
-    return m_pPlaylistModel->getModelSetting(name);
+    return m_pPlaylistModel->getModelSetting(mapModelSettingName(name));
 }
 
 bool TandaQueueModel::setModelSetting(
         const QString& name, const QVariant& value) {
-    return m_pPlaylistModel->setModelSetting(name, value);
+    return m_pPlaylistModel->setModelSetting(mapModelSettingName(name), value);
+}
+
+QString TandaQueueModel::mapModelSettingName(const QString& name) {
+    // The tango queue keeps its own column layout, separate from the plain Auto
+    // DJ playlist model it wraps (both share one model-settings namespace).
+    // DlgAutoDJ loads the plain model first, then switches to this proxy; that
+    // switch saves the plain model's header state under the shared
+    // "header_state_pb" key, and without a distinct key the proxy would restore
+    // that stock layout instead of applying the tango column defaults.
+    if (name == QStringLiteral("header_state_pb")) {
+        return QStringLiteral("tanda_header_state_pb");
+    }
+    return name;
 }
 
 int TandaQueueModel::defaultSortColumn() const {

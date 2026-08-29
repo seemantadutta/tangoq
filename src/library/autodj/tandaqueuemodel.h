@@ -153,6 +153,9 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     QModelIndex sourceIndexForInsertion(const QModelIndex& proxyIndex) const;
     bool isActiveTanda(const QUuid& id) const;
     QString tandaTypeLabel(const QUuid& id) const;
+    // Remaps the header-state key to a tango-specific one so the proxy's column
+    // layout stays independent of the wrapped Auto DJ playlist model.
+    static QString mapModelSettingName(const QString& name);
     QString tandaProgressStates(const TandaSpan& span) const;
 
     // Computes the current tanda's state (track count, playing index, ordinal in
