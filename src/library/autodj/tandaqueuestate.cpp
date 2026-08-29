@@ -375,6 +375,19 @@ bool TandaQueueState::changeType(const QUuid& id, TandaType type) {
     return true;
 }
 
+bool TandaQueueState::setName(const QUuid& id, const QString& name) {
+    const int index = indexById(id);
+    if (index < 0 || m_spans.at(index).name == name) {
+        return false;
+    }
+    // An empty name reverts the tanda to its automatic type label; the display
+    // side (TandaQueueModel::tandaSummary) already falls back to it.
+    m_spans[index].name = name;
+    save();
+    emit spansChanged();
+    return true;
+}
+
 bool TandaQueueState::setCollapsed(const QUuid& id, bool collapsed) {
     const int index = indexById(id);
     if (index < 0 || m_spans.at(index).collapsed == collapsed) {

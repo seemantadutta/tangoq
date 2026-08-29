@@ -61,6 +61,7 @@ class WTandaQueueView final : public WTrackTableView {
     void toggleTanda(const QUuid& id);
     int destinationAnchorForDrop(const QPoint& position, const QUuid& id) const;
     void moveContextTanda(bool up);
+    void renameContextTanda();
     void showTandaHeaderMenu(const QPoint& globalPos, const QUuid& id);
     void showError(const QString& message);
 
@@ -70,6 +71,7 @@ class WTandaQueueView final : public WTrackTableView {
     QMenu* m_pChangeTandaTypeMenu;
     QAction* m_pTandaSeparator;
     QAction* m_pToggleCollapsedAction;
+    QAction* m_pRenameAction;
     QAction* m_pUngroupAction;
     QAction* m_pRemoveAction;
     QAction* m_pMoveUpAction;

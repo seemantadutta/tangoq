@@ -124,6 +124,16 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     bool updateTrackMood(Track* pTrack, const QString& mood) const override;
 #endif
 
+    // Rename support for the queue view's "Rename tanda..." action.
+    // tandaLabel() is the editable label (custom name, or the auto type label);
+    // tandaSummary() is the full "label - N track(s)" string shown collapsed.
+    QString tandaLabel(const QUuid& id) const;
+    QString tandaSummary(const QUuid& id) const;
+    // Applies text edited from the tandaSummary() prefill: strips the count
+    // suffix to recover the label, reverting to the auto name if it matches the
+    // type label. Returns true if the stored name changed.
+    bool renameTandaFromDisplayText(const QUuid& id, const QString& text);
+
   private slots:
     void rebuild();
     void sourceDataChanged(const QModelIndex& topLeft,
@@ -143,7 +153,6 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     QModelIndex sourceIndexForInsertion(const QModelIndex& proxyIndex) const;
     bool isActiveTanda(const QUuid& id) const;
     QString tandaTypeLabel(const QUuid& id) const;
-    QString tandaSummary(const QUuid& id) const;
     QString tandaProgressStates(const TandaSpan& span) const;
 
     // Computes the current tanda's state (track count, playing index, ordinal in

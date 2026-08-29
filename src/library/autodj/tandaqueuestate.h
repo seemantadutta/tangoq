@@ -61,6 +61,8 @@ class TandaQueueState : public QObject {
             QString* pError = nullptr);
     bool ungroup(const QUuid& id);
     bool changeType(const QUuid& id, TandaType type);
+    /// Sets a custom display name; an empty name reverts to the auto type label.
+    bool setName(const QUuid& id, const QString& name);
     bool setCollapsed(const QUuid& id, bool collapsed);
 
     const TandaSpan* spanById(const QUuid& id) const;

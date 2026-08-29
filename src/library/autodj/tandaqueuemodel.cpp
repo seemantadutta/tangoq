@@ -811,14 +811,38 @@ QString TandaQueueModel::tandaTypeLabel(const QUuid& id) const {
     return tr("Tanda");
 }
 
+QString TandaQueueModel::tandaLabel(const QUuid& id) const {
+    const TandaSpan* pSpan = m_pState->spanById(id);
+    if (!pSpan) {
+        return {};
+    }
+    return pSpan->name.isEmpty() ? tandaTypeLabel(id) : pSpan->name;
+}
+
 QString TandaQueueModel::tandaSummary(const QUuid& id) const {
     const TandaSpan* pSpan = m_pState->spanById(id);
     if (!pSpan) {
         return {};
     }
-    QString label = pSpan->name.isEmpty() ? tandaTypeLabel(id)
-                                          : pSpan->name;
-    return tr("%1 — %n track(s)", nullptr, pSpan->members.size()).arg(label);
+    return tr("%1 - %n track(s)", nullptr, pSpan->members.size()).arg(tandaLabel(id));
+}
+
+bool TandaQueueModel::renameTandaFromDisplayText(const QUuid& id, const QString& text) {
+    // The dialog prefills the full "label - N track(s)" summary with only the
+    // label selected, so a normal edit changes just the label. Strip the known
+    // count suffix to recover the new label; if the user did edit into the
+    // suffix, fall back to storing the whole entry. An empty result or a match
+    // with the auto type label reverts the tanda to its automatic name.
+    const QString label = tandaLabel(id);
+    const QString suffix = tandaSummary(id).mid(label.length());
+    QString newLabel = text.endsWith(suffix)
+            ? text.left(text.length() - suffix.length())
+            : text;
+    newLabel = newLabel.trimmed();
+    if (newLabel == tandaTypeLabel(id)) {
+        newLabel.clear();
+    }
+    return m_pState->setName(id, newLabel);
 }
 
 QString TandaQueueModel::tandaProgressStates(const TandaSpan& span) const {
