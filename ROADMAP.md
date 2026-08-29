@@ -18,6 +18,7 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
 ## Completed
 
 ### Tango mode & queue
+
 - **Tango mode is permanent.** TangoQ is a tango-only build: Tango mode is locked
   on at startup and its UI switch (the preferences checkbox and keyboard shortcut)
   has been removed. The gating code is retained, so the change is cleanly
@@ -36,6 +37,7 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   clears the decks as well as the queue state, for a truly clean slate.
 
 ### Auto DJ transitions & timing
+
 - **Auto DJ disables after the last track finishes**, not when it starts to play.
 - **Pause-after-any-track**, cortinas included, plus a session display name for any
   track. Together these cover announcements, performance tracks and intro/outro
@@ -64,6 +66,7 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   correct across midnight and when a set runs past its target.
 
 ### Cockpit & HUD
+
 - **Toolbar HUD** with a large countdown to the next track / cortina / set end, and
   a row of tanda progress pips.
 - **Final-30-seconds "breathe".** In the last 30 seconds the countdown pulses from
@@ -80,6 +83,7 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   stock mode, so plain Mixxx never shows the Tango marker.
 
 ### Branding & packaging
+
 - Renamed the app binary / target to the fork name (`tangoq.exe`).
 - Rebranded user-facing dialogs and menus, the About dialog, version info, the
   package summary / installer shortcut tooltip, and the macOS microphone-permission
@@ -87,6 +91,7 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   notices are retained).
 
 ### Stability
+
 - **Fixed a crash on quit in Tango mode with tracks on the decks.** `PlayerManager`
   was destroyed before the `Library` that owns `AutoDJProcessor`; a deck destructor
   emitted `PlayerInfo::trackChanged` from `unloadTrack()`, which was answered inline
@@ -116,8 +121,10 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
 ## Planned
 
 ### Set-time accuracy: audible / start-cue durations
+
 Use each track's audible span everywhere the set time is shown, so estimates match
 what actually plays.
+
 - **Selection-duration line** (near LIVE): currently whole-file, with cortina length
   counted as `min(CortinaLength, file)`. Upgrade each non-cortina track to its
   audible span — `LAS − FAS` from the `N60dBSound` cue when analyzed, and `LAS − S`
@@ -133,23 +140,69 @@ what actually plays.
   and the set calculation agree on what a queued track costs.
 
 ### Cockpit & UI
+
 - Curated right-click menu in the toolbar area (`QMainWindow`-based).
 - Remove the disabled "Add to Auto DJ (bottom / replace)" entries entirely rather
   than greying them out.
 - Rename "Set DJ Start" / "Set DJ Start here" to **"Set Start"** / **"Set Start here"**.
 
 ### Now-playing / external display
+
 Export the currently playing track to external display software (OBS or any screen
 tool). Leans on the existing now-playing tracking; the main decision is mechanism —
 a now-playing text/JSON file that other software reads is simpler and more flexible
 than a built-in second window.
 
 ### macOS packaging follow-ups (require a Mac)
+
 - Decide the TangoQ macOS icon source and point `packaging/macos/regenerate_icns.sh`
   at it; it still references the upstream Mixxx artwork.
 - Build with `-DMACOS_BUNDLE=ON` (see `tools/tangoq_build_macos.sh`) and visually
   verify the Dock/Finder icon, the microphone-permission prompt, the About dialog,
   and the resulting `.dmg`.
+
+### Version & upgrade-path decoupling from Mixxx
+
+TangoQ's product version (`TANGOQ_VERSION`, 1.0.x) is what `VersionStore::version()`
+returns, but `upgrade.cpp` still reasons about the config file in Mixxx's number
+line. A live bug follows: TangoQ's `1.0.1` sorts **below** every Mixxx threshold, so
+`upgrade.cpp:572` (`configVersion < QVersionNumber(2,4,0)`) re-fires the Mixxx 2.4
+migration on every TangoQ-to-TangoQ upgrade, silently resetting the user's
+`[Waveform] WaveformType` and `FrameRate`.
+
+Its own cycle, test-first (the migration runs against real users' configs):
+
+- Introduce a TangoQ-owned config-schema counter (e.g. `[Config] TangoQConfigVersion`),
+  separate from the displayed product version, and stop routing TangoQ through the
+  Mixxx version-threshold ladder.
+- Baseline: every TangoQ config is already past the pre-2.5.6 Mixxx migrations, so
+  short-circuit the legacy ladder for any TangoQ config and run only TangoQ
+  migrations off the new counter.
+- Handle existing early-access configs already carrying `Version = 1.0.1` (or, from
+  the old shared-settings bug, `2.5.6`).
+- Write the failing test first: reproduce the spurious 2.4 re-migration in the
+  `upgrade`/processor tests before changing the logic.
+
+**DB schema numbering (bundle with the above).** The DB schema version is already
+independent of the "2.5.6" string — it is a monotonic integer
+(`MixxxDb::kRequiredSchemaVersion`, currently 39, in `mixxxdb.cpp`). Only open item:
+adopt a TangoQ offset (start fork-specific `res/schema.xml` revisions at e.g. 1000)
+so future TangoQ schema changes cannot collide with upstream's increments when
+merging.
+
+### Sunrise (daylight) color scheme
+
+A warm khaki/sand "daylight" palette for the TangoQ skin, requested by a DJ. The
+source is Dj.Anth0n1's `LateNight_Sunrise-Color-Scheme` (github.com/DjAnth0n1) — a
+full LateNight clone whose only real change is ~47 recolored QSS values (dark
+backgrounds → `#cccc99`/`#999973`, text → `#12120d`, amber accents → `#d09300`). It
+is a GPL derivative of LateNight.
+
+Do **not** adopt his files: they carry the full controllerist LateNight surface that
+TangoQ deliberately strips. Port the palette instead — add a `style_sunrise.qss`
+(TangoQ's `style_classic.qss` recolored with those values) plus a
+`<Scheme>Sunrise</Scheme>` block in `res/skins/TangoQ/skin.xml`, and credit
+Dj.Anth0n1 in the scheme/README. Skin XML/QSS only, restart-only.
 
 ---
 
