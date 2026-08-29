@@ -4139,7 +4139,13 @@ set(CPACK_DEBIAN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 set(CPACK_DEBIAN_UPLOAD_PPA_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackDebUploadPPA.cmake")
 set(CPACK_DEBIAN_INSTALL_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackDebInstall.cmake")
 
-set(CPACK_WIX_UPGRADE_GUID "921DC99C-4DCF-478D-B950-50685CB9E6BE")
+# TangoQ MSI UpgradeCode. This MUST stay different from upstream Mixxx's
+# (921DC99C-4DCF-478D-B950-50685CB9E6BE). WiX uses the UpgradeCode as the
+# "product family" key: when it matched Mixxx's, Windows treated TangoQ and an
+# installed Mixxx 2.5.6 as the same product and refused to install alongside it
+# (or hijacked its upgrade path). This fork-specific GUID lets TangoQ and Mixxx
+# coexist. Do NOT revert to upstream's value when merging from upstream.
+set(CPACK_WIX_UPGRADE_GUID "F10598B3-D0E4-47FC-9E86-E2EC982931BB")
 set(CPACK_WIX_LICENSE_RTF "${CMAKE_CURRENT_BINARY_DIR}/packaging/wix/LICENSE.rtf")
 set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
 set(CPACK_WIX_PROPERTY_ARPHELPLINK "${CPACK_PACKAGE_HOMEPAGE_URL}")
