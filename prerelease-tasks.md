@@ -569,7 +569,7 @@ diverged from the ideal, prompting a re-anchor. Rule:
 - Ships as one numeric control `hud_flow_mismatch` (0/1), computed in the resolver
   (part of the type-aware step) and painted by the HUD.
 
-```
+```text
 ideal:   T  T  V  T  T  M
 strip:   T [V] V  T  T  M   !     ← occupied slot 2 (V) contradicts ideal (T)
 partial: T [T]                    ← T or TT: matches, no !
@@ -614,3 +614,35 @@ gates** — reversible, upstream-mergeable, and preserves a hidden dev switch fo
 stock-parity checks — rather than **(A)** ripping out all 56 `keep_queue` gates.
 Decoupled from the HUD. If adopted, update the "stock byte-for-byte with Tango
 off" invariant in `CLAUDE.md`. **Pending: A vs B.**
+
+---
+
+## 6. Windows installer UpgradeCode — FIXED (needs a 1.0.2 release note)
+
+The companion to section 1: that one was the shared *settings* directory, this is
+the shared *installer* identity.
+
+**Cause:** `CPACK_WIX_UPGRADE_GUID` was inherited byte-for-byte from upstream
+Mixxx (`921DC99C-4DCF-478D-B950-50685CB9E6BE`). WiX uses the UpgradeCode as the
+"product family" key, so Windows treated TangoQ and an installed Mixxx 2.5.6 as
+the same product: installing TangoQ over Mixxx hit the already-installed / major-
+upgrade path instead of installing alongside it.
+
+**Fix:** gave TangoQ its own fork-specific UpgradeCode
+(`F10598B3-D0E4-47FC-9E86-E2EC982931BB`) in `CMakeLists.txt`, with a comment
+warning not to revert it on an upstream merge. TangoQ and Mixxx can now coexist.
+
+**Consequence for early-access users — must be in the 1.0.2 release notes.**
+Changing the UpgradeCode means the new installer no longer upgrades an existing
+(old-GUID) TangoQ in place; installing 1.0.2 leaves two TangoQ entries unless the
+old one is removed first. `RELEASE_NOTES.md` is currently stale (still describes
+the removed "Enable Tango DJ mode" toggle) and should be rewritten fresh for
+1.0.2; include this line:
+
+> **Upgrading from an earlier TangoQ:** this version changes the installer's
+> product identity, so Windows will not upgrade an existing TangoQ in place.
+> **Uninstall your current TangoQ first**, then install this one.
+
+**Verify on Windows when the MSI is built:** (1) installs cleanly with stock
+Mixxx 2.5.6 present, no already-installed block; (2) Add/Remove Programs lists
+"Mixxx" and "TangoQ" separately; (3) both run side by side.
