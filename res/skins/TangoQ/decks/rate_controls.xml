@@ -74,38 +74,9 @@
             </Children>
           </WidgetGroup><!-- BpmRateTapContainer -->
 
-          <WidgetGroup>
-            <ObjectName>SyncBox</ObjectName>
-            <Layout>horizontal</Layout>
-            <SizePolicy>min,min</SizePolicy>
-            <Children>
-              <PushButton>
-                <TooltipId>sync_enabled</TooltipId>
-                <ObjectName>SyncDeck</ObjectName>
-                <Size>40f,22f</Size>
-                <NumberStates>2</NumberStates>
-                <RightClickIsPushButton>true</RightClickIsPushButton>
-                <Connection>
-                  <ConfigKey><Variable name="Group"/>,sync_enabled</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-                <Connection>
-                  <ConfigKey><Variable name="Group"/>,sync_leader</ConfigKey>
-                  <ButtonState>RightButton</ButtonState>
-                </Connection>
-              </PushButton>
-              <PushButton>
-                <TooltipId>sync_leader</TooltipId>
-                <ObjectName>SyncLeader</ObjectName>
-                <Size>22f,22f</Size>
-                <NumberStates>3</NumberStates>
-                <Connection>
-                  <ConfigKey><Variable name="Group"/>,sync_leader</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
-            </Children>
-          </WidgetGroup>
+          <!-- Tango: Sync and Sync Leader removed. Tango DJs play pre-arranged
+               tandas and never beatmatch or tempo-sync decks, so these only add
+               clutter to the rate area. -->
 
           <WidgetGroup><Size>0min,0me</Size></WidgetGroup>
 
@@ -190,21 +161,8 @@
                         <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_perm_up_small</SetVariable>
                       </Template>
 
-                      <Template src="skins:TangoQ/controls/button_1state_right.xml">
-                        <SetVariable name="TooltipId">rate_temp_up_rate_temp_up_small</SetVariable>
-                        <SetVariable name="ObjectName">RateTempUp</SetVariable>
-                        <SetVariable name="Size">26f,26f</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="Group"/>,rate_temp_up</SetVariable>
-                        <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_temp_up_small</SetVariable>
-                      </Template>
-
-                      <Template src="skins:TangoQ/controls/button_1state_right.xml">
-                        <SetVariable name="TooltipId">rate_temp_down_rate_temp_down_small</SetVariable>
-                        <SetVariable name="ObjectName">RateTempDown</SetVariable>
-                        <SetVariable name="Size">26f,26f</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="Group"/>,rate_temp_down</SetVariable>
-                        <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_temp_down_small</SetVariable>
-                      </Template>
+                      <!-- Tango: temporary rate-nudge buttons removed; only the
+                           permanent step buttons above and below are kept. -->
 
                       <Template src="skins:TangoQ/controls/button_1state_right.xml">
                         <SetVariable name="TooltipId">rate_perm_down_rate_perm_down_small</SetVariable>
@@ -233,21 +191,8 @@
                         <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_perm_down_small</SetVariable>
                       </Template>
 
-                      <Template src="skins:TangoQ/controls/button_1state_right.xml">
-                        <SetVariable name="TooltipId">rate_temp_down_rate_temp_down_small</SetVariable>
-                        <SetVariable name="ObjectName">RateTempDownRev</SetVariable>
-                        <SetVariable name="Size">26f,26f</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="Group"/>,rate_temp_down</SetVariable>
-                        <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_temp_down_small</SetVariable>
-                      </Template>
-
-                      <Template src="skins:TangoQ/controls/button_1state_right.xml">
-                        <SetVariable name="TooltipId">rate_temp_up_rate_temp_up_small</SetVariable>
-                        <SetVariable name="ObjectName">RateTempUpRev</SetVariable>
-                        <SetVariable name="Size">26f,26f</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="Group"/>,rate_temp_up</SetVariable>
-                        <SetVariable name="ConfigKeyRight"><Variable name="Group"/>,rate_temp_up_small</SetVariable>
-                      </Template>
+                      <!-- Tango: temporary rate-nudge buttons removed; only the
+                           permanent step buttons above and below are kept. -->
 
                       <Template src="skins:TangoQ/controls/button_1state_right.xml">
                         <SetVariable name="TooltipId">rate_perm_up_rate_perm_up_small</SetVariable>
