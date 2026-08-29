@@ -446,9 +446,29 @@ bool TandaQueueModel::isColumnInternal(int column) {
 
 bool TandaQueueModel::isColumnHiddenByDefault(int column) {
     if (column == tandaTypeColumn()) {
-        return false; // shown by default in Tango mode
+        return false; // Item Type: shown by default in Tango mode
     }
-    return m_pPlaylistModel->isColumnHiddenByDefault(column);
+    // TangoQ: a fresh install (no persisted header state) shows only #, Preview,
+    // Item Type, Title, Artist and Album. Every other column is hidden by
+    // default and can be re-enabled from the header's right-click menu.
+    return !(column == m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ARTIST) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ALBUM));
+}
+
+QList<int> TandaQueueModel::defaultColumnOrder() const {
+    // Left-to-right order for a fresh install. Matches isColumnHiddenByDefault(),
+    // with the appended Item Type column sitting just after Preview.
+    return {
+            m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW),
+            tandaTypeColumn(),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ARTIST),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ALBUM),
+    };
 }
 
 const QList<int>& TandaQueueModel::searchColumns() const {

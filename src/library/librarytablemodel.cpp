@@ -88,6 +88,26 @@ bool LibraryTableModel::isColumnInternal(int column) {
             column == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_COVERART_HASH);
 }
 
+bool LibraryTableModel::isColumnHiddenByDefault(int column) {
+    // TangoQ: a fresh install (no persisted header state) shows only Preview,
+    // Title, Artist and Album. Every other column is hidden by default and can
+    // be re-enabled from the header's right-click menu.
+    return !(column == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_PREVIEW) ||
+            column == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE) ||
+            column == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_ARTIST) ||
+            column == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_ALBUM));
+}
+
+QList<int> LibraryTableModel::defaultColumnOrder() const {
+    // Left-to-right order for a fresh install. Matches isColumnHiddenByDefault().
+    return {
+            fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_PREVIEW),
+            fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE),
+            fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_ARTIST),
+            fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_ALBUM),
+    };
+}
+
 TrackModel::Capabilities LibraryTableModel::getCapabilities() const {
     return Capability::ReceiveDrops |
             Capability::AddToTrackSet |

@@ -89,6 +89,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     const QString currentSearch() const override;
     bool isColumnInternal(int column) override;
     bool isColumnHiddenByDefault(int column) override;
+    QList<int> defaultColumnOrder() const override;
     const QList<int>& searchColumns() const override;
     void removeTracks(const QModelIndexList& indices) override;
     void cutTracks(const QModelIndexList& indices) override;

@@ -320,6 +320,25 @@ void WTrackTableViewHeader::loadDefaultHeaderState() {
             resizeSection(i, header_size);
         }
     }
+
+    // Apply the model's preferred default column order. This runs only from the
+    // no-persisted-state path (see restoreHeaderState()), so a fresh install
+    // gets these columns left-to-right while an existing user keeps their saved
+    // layout. Each listed column is moved to the next front visual slot;
+    // anything not listed drifts behind them, which is fine since those columns
+    // are hidden by default.
+    TrackModel* pTrackModel = getTrackModel();
+    if (pTrackModel) {
+        int targetVisualIndex = 0;
+        const QList<int> order = pTrackModel->defaultColumnOrder();
+        for (int logicalIndex : order) {
+            if (logicalIndex < 0 || logicalIndex >= count()) {
+                continue;
+            }
+            moveSection(visualIndex(logicalIndex), targetVisualIndex);
+            ++targetVisualIndex;
+        }
+    }
 }
 
 bool WTrackTableViewHeader::hasPersistedHeaderState() {

@@ -145,6 +145,13 @@ class TrackModel {
     // if no header state exists, we may hide some columns so that the user can
     // reactivate them
     virtual bool isColumnHiddenByDefault(int column) = 0;
+    // Logical column indices in the left-to-right visual order a fresh install
+    // should present. Applied only when there is no persisted header state; an
+    // empty list (the default) leaves columns in model order. Columns not listed
+    // keep their relative order behind the ones that are.
+    virtual QList<int> defaultColumnOrder() const {
+        return {};
+    }
     virtual const QList<int>& searchColumns() const { return m_emptyColumns; }
 
     virtual void removeTracks(const QModelIndexList& indices) {
