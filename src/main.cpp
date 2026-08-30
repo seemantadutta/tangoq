@@ -102,6 +102,13 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
         // Qt event loop.
         if (ErrorDialogHandler::instance()->checkError()) {
             exitCode = kFatalErrorOnStartupExitCode;
+        } else if (mainWindow.closeRequestedDuringStartup()) {
+            // The user closed the window while it was still starting up. That
+            // close was deferred (handling it mid-construction would crash), so
+            // honour it now by exiting cleanly instead of showing the window.
+            qDebug() << "Close requested during startup; exiting without "
+                        "showing the main window";
+            exitCode = 0;
         } else {
             qDebug() << "Displaying main window";
             mainWindow.show();

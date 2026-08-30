@@ -109,6 +109,8 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
 #endif
           m_inRebootMixxxView(false),
+          m_initializationComplete(false),
+          m_closeRequestedDuringStartup(false),
           m_geometryRestored(false),
           m_geometryCentred(false),
           m_pTangoModeControl(nullptr),
@@ -502,6 +504,10 @@ void MixxxMainWindow::initialize() {
         qDebug("Enabling Auto DJ from CLI flag.");
         ControlObject::set(ConfigKey("[AutoDJ]", "enabled"), 1.0);
     }
+
+    // From here on the services confirmExit() inspects exist, so closeEvent()
+    // may handle a close normally instead of deferring it.
+    m_initializationComplete = true;
 }
 
 MixxxMainWindow::~MixxxMainWindow() {
@@ -1509,7 +1515,16 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
 void MixxxMainWindow::closeEvent(QCloseEvent *event) {
     // WARNING: We can receive a CloseEvent while only partially
     // initialized. This is because we call QApplication::processEvents to
-    // render LaunchImage progress in the constructor.
+    // render LaunchImage progress before the real event loop starts. At that
+    // point the services confirmExit() inspects (PlayerManager and friends) may
+    // not exist yet, so running it would dereference null and crash. Defer the
+    // close: remember it, let initialization finish, and main() quits cleanly
+    // afterwards instead of showing the main window.
+    if (!m_initializationComplete) {
+        m_closeRequestedDuringStartup = true;
+        event->ignore();
+        return;
+    }
     if (!confirmExit()) {
         event->ignore();
         return;
