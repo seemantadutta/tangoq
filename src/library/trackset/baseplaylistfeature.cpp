@@ -102,17 +102,17 @@ void BasePlaylistFeature::initActions() {
             this,
             &BasePlaylistFeature::slotTogglePlaylistLock);
 
-    m_pAddToAutoDJAction = new QAction(tr("Add to Auto DJ Queue (bottom)"), this);
+    m_pAddToAutoDJAction = new QAction(tr("Add to TangoQ"), this);
     connect(m_pAddToAutoDJAction,
             &QAction::triggered,
             this,
             &BasePlaylistFeature::slotAddToAutoDJ);
-    m_pAddToAutoDJTopAction = new QAction(tr("Add to Auto DJ Queue (top)"), this);
+    m_pAddToAutoDJTopAction = new QAction(tr("Add to TangoQ (top)"), this);
     connect(m_pAddToAutoDJTopAction,
             &QAction::triggered,
             this,
             &BasePlaylistFeature::slotAddToAutoDJTop);
-    m_pAddToAutoDJReplaceAction = new QAction(tr("Add to Auto DJ Queue (replace)"), this);
+    m_pAddToAutoDJReplaceAction = new QAction(tr("Add to TangoQ (replace)"), this);
     connect(m_pAddToAutoDJReplaceAction,
             &QAction::triggered,
             this,

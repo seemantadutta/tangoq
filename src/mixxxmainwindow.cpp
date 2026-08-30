@@ -158,8 +158,19 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
         const QRect available = pScreen
                 ? pScreen->availableGeometry()
                 : QRect(0, 0, 1280, 800);
-        resize(qMin(1280, static_cast<int>(available.width() * 0.9)),
-                qMin(800, static_cast<int>(available.height() * 0.9)));
+        const int w = qMin(1280, static_cast<int>(available.width() * 0.9));
+        const int h = qMin(800, static_cast<int>(available.height() * 0.9));
+        resize(w, h);
+        // Centre before show() as well, so the first mapped frame is already in
+        // its final position. Without this the window is mapped at the window
+        // manager's default corner and centreOnScreen() moves it *after* show(),
+        // a visible corner->centre jump on the first run (the restored-geometry
+        // path never moves, which is why only a fresh start flickers). Moving
+        // here is safe because the window is not yet mapped. centreOnScreen()
+        // still runs from showEvent() as a safety net for the rare case where
+        // the screen guessed here differs from the actual one; when they agree
+        // its move() to the same point is a no-op.
+        move(available.center() - QPoint(w / 2, h / 2));
     }
 
     show();

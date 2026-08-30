@@ -4,6 +4,7 @@
 #include <QMenu>
 #include <QSqlTableModel>
 
+#include "control/controlobject.h"
 #include "library/library.h"
 #include "library/library_prefs.h"
 #include "library/playlisttablemodel.h"
@@ -197,7 +198,12 @@ void SetlogFeature::onRightClickChild(const QPoint& globalPos, const QModelIndex
         m_pLockPlaylistAction->setText(locked ? tr("Unlock") : tr("Lock"));
 
         menu.addAction(m_pAddToAutoDJAction);
-        menu.addAction(m_pAddToAutoDJTopAction);
+        // Tango: adding to the top of the pre-arranged queue would disrupt the
+        // planned milonga, so offer it only when Tango mode is off.
+        if (ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                    QStringLiteral("keep_queue"))) <= 0.0) {
+            menu.addAction(m_pAddToAutoDJTopAction);
+        }
         menu.addSeparator();
         menu.addAction(m_pRenamePlaylistAction);
         if (playlistId != m_currentPlaylistId) {

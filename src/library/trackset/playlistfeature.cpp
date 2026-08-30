@@ -4,6 +4,7 @@
 #include <QSqlTableModel>
 #include <QtDebug>
 
+#include "control/controlobject.h"
 #include "library/library.h"
 #include "library/parser.h"
 #include "library/playlisttablemodel.h"
@@ -80,8 +81,14 @@ void PlaylistFeature::onRightClickChild(
     menu.addAction(m_pLockPlaylistAction);
     menu.addSeparator();
     menu.addAction(m_pAddToAutoDJAction);
-    menu.addAction(m_pAddToAutoDJTopAction);
-    menu.addAction(m_pAddToAutoDJReplaceAction);
+    // Tango: adding to the top or replacing the pre-arranged queue would disrupt
+    // the planned milonga, so offer those only when Tango mode is off (matching
+    // the track context menu).
+    if (ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                QStringLiteral("keep_queue"))) <= 0.0) {
+        menu.addAction(m_pAddToAutoDJTopAction);
+        menu.addAction(m_pAddToAutoDJReplaceAction);
+    }
     menu.addSeparator();
     menu.addAction(m_pAnalyzePlaylistAction);
     menu.addSeparator();
