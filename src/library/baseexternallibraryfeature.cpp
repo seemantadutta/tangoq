@@ -24,19 +24,19 @@ BaseExternalLibraryFeature::BaseExternalLibraryFeature(
         const QString& iconName)
         : LibraryFeature(pLibrary, pConfig, iconName),
           m_pTrackCollection(pLibrary->trackCollectionManager()->internalCollection()) {
-    m_pAddToAutoDJAction = make_parented<QAction>(tr("Add to Auto DJ Queue (bottom)"), this);
+    m_pAddToAutoDJAction = make_parented<QAction>(tr("Add to TangoQ"), this);
     connect(m_pAddToAutoDJAction,
             &QAction::triggered,
             this,
             &BaseExternalLibraryFeature::slotAddToAutoDJ);
 
-    m_pAddToAutoDJTopAction = make_parented<QAction>(tr("Add to Auto DJ Queue (top)"), this);
+    m_pAddToAutoDJTopAction = make_parented<QAction>(tr("Add to TangoQ (top)"), this);
     connect(m_pAddToAutoDJTopAction,
             &QAction::triggered,
             this,
             &BaseExternalLibraryFeature::slotAddToAutoDJTop);
 
-    m_pAddToAutoDJReplaceAction = make_parented<QAction>(tr("Add to Auto DJ Queue (replace)"), this);
+    m_pAddToAutoDJReplaceAction = make_parented<QAction>(tr("Add to TangoQ (replace)"), this);
     connect(m_pAddToAutoDJReplaceAction,
             &QAction::triggered,
             this,

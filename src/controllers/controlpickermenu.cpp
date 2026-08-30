@@ -910,16 +910,16 @@ ControlPickerMenu::ControlPickerMenu(QWidget* pParent)
     pLibraryMenu->addSeparator();
     // Auto DJ
     addLibraryControl("AutoDjAddBottom",
-            tr("Add to Auto DJ Queue (bottom)"),
-            tr("Append the selected track to the Auto DJ Queue"),
+            tr("Add to TangoQ"),
+            tr("Append the selected track to the TangoQ queue"),
             pLibraryMenu);
     addLibraryControl("AutoDjAddTop",
-            tr("Add to Auto DJ Queue (top)"),
-            tr("Prepend selected track to the Auto DJ Queue"),
+            tr("Add to TangoQ (top)"),
+            tr("Prepend selected track to the TangoQ queue"),
             pLibraryMenu);
     addLibraryControl("AutoDjAddReplace",
-            tr("Add to Auto DJ Queue (replace)"),
-            tr("Replace Auto DJ Queue with selected tracks"),
+            tr("Add to TangoQ (replace)"),
+            tr("Replace TangoQ queue with selected tracks"),
             pLibraryMenu);
     pLibraryMenu->addSeparator();
     // Search box
