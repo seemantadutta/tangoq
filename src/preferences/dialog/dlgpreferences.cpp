@@ -192,7 +192,8 @@ DlgPreferences::DlgPreferences(
             "ic_preferences_effects.svg");
 
     addPageWidget(PreferencesPage(
-                          new DlgPrefAutoDJ(this, m_pConfig),
+                          new DlgPrefAutoDJ(
+                                  this, m_pConfig, pLibrary->autoDJFeature()),
                           new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("TangoQ"),
             "ic_preferences_autodj.svg");

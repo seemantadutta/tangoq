@@ -6,11 +6,16 @@
 
 class QWidget;
 class ControlProxy;
+class AutoDJFeature;
 
 class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     Q_OBJECT
   public:
-    DlgPrefAutoDJ(QWidget* pParent, UserSettingsPointer pConfig);
+    DlgPrefAutoDJ(QWidget* pParent,
+            UserSettingsPointer pConfig,
+            AutoDJFeature* pAutoDJFeature);
+
+    bool okayToClose() const override;
 
   public slots:
     void slotUpdate() override;
@@ -31,6 +36,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
 #endif
     void slotSetRequeueIgnoreTime(const QTime& a_rTime);
     void slotSetRandomQueueMin(int);
+    void slotStateMonitorToggled(bool enabled);
     void slotConsiderRepeatPlaylistState(bool);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRandomQueue(Qt::CheckState state);
@@ -45,8 +51,11 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     // Enables/disables the cortina fade-in/out inputs depending on whether
     // the Cortina Fade transition mode is selected.
     void updateCortinaFadeEnabled();
+    void updateStateMonitorStatus();
 
     UserSettingsPointer m_pConfig;
+    AutoDJFeature* const m_pAutoDJFeature;
+    bool m_stateMonitorConfigValid{true};
     // Observes the live [AutoDJ],cortina_length so the (stop-only) length field
     // reflects cockpit nudges made while Auto DJ is running, even though it stays
     // greyed out then.

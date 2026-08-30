@@ -3,6 +3,7 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QStringList>
 #include <QUrl>
 #include <QUuid>
 #include <QVariant>
@@ -67,6 +68,11 @@ class AutoDJFeature : public LibraryFeature {
     TandaQueueState* tandaQueueState() const {
         return m_pTandaQueueState.get();
     }
+    bool setSemanticMonitorEnabled(
+            bool enabled, quint16 port, QString* pError = nullptr);
+    bool semanticMonitorEnabled() const;
+    quint16 semanticMonitorPort() const;
+    QStringList semanticMonitorUrls() const;
     QUuid makeTanda(const QVector<int>& oneBasedPositions,
             TandaType type,
             QString* pError = nullptr);
@@ -97,6 +103,7 @@ class AutoDJFeature : public LibraryFeature {
     // The id of the AutoDJ playlist.
     int m_iAutoDJPlaylistId;
     AutoDJProcessor* m_pAutoDJProcessor;
+    PlayerManagerInterface* const m_pPlayerManager;
     std::unique_ptr<TandaQueueState> m_pTandaQueueState;
     bool m_tandaMoveInProgress{false};
     parented_ptr<TreeItemModel> m_pSidebarModel;
@@ -149,8 +156,8 @@ class AutoDJFeature : public LibraryFeature {
 
     QPointer<WLibrarySidebar> m_pSidebarWidget;
 
-    // Experimental, read-only semantic monitor. These are created only when
-    // --semantic-monitor-port is present and are destroyed before AutoDJ state.
+    // Experimental, read-only state monitor. The preferences UI controls
+    // this owner; networking and semantic model access stay out of the dialog.
     std::unique_ptr<mixxx::semanticstate::Store> m_pSemanticStateStore;
     std::unique_ptr<mixxx::semanticstate::TangoQAdapter> m_pSemanticStateAdapter;
     std::unique_ptr<mixxx::semanticstate::Server> m_pSemanticStateServer;

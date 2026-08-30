@@ -77,32 +77,18 @@ Server::~Server() {
 
 bool Server::start(quint16 requestedPort) {
     if (m_pServer->isListening()) {
-        qWarning() << "TangoQ semantic monitor is already listening on port" << port();
+        qWarning() << "TangoQ state monitor is already listening on port" << port();
         return false;
     }
     if (!m_pServer->listen(QHostAddress::AnyIPv4, requestedPort)) {
-        qWarning() << "TangoQ semantic monitor could not listen on port"
+        qWarning() << "TangoQ state monitor could not listen on port"
                    << requestedPort << ':' << m_pServer->errorString();
         return false;
     }
 
-    qWarning() << "Experimental TangoQ semantic monitor enabled on port" << port();
-    bool loggedLanAddress = false;
-    const auto addresses = QNetworkInterface::allAddresses();
-    for (const auto& address : addresses) {
-        if (address.protocol() == QAbstractSocket::IPv4Protocol &&
-                !address.isLoopback()) {
-            qWarning().noquote()
-                    << QStringLiteral("TangoQ semantic monitor: http://%1:%2/")
-                               .arg(address.toString())
-                               .arg(port());
-            loggedLanAddress = true;
-        }
-    }
-    if (!loggedLanAddress) {
-        qWarning().noquote()
-                << QStringLiteral("TangoQ semantic monitor: http://127.0.0.1:%1/")
-                           .arg(port());
+    qWarning() << "Experimental TangoQ state monitor enabled on port" << port();
+    for (const QString& url : urls()) {
+        qWarning().noquote() << "TangoQ state monitor:" << url;
     }
     return true;
 }
@@ -128,11 +114,34 @@ quint16 Server::port() const {
     return m_pServer->serverPort();
 }
 
+QStringList Server::urls() const {
+    if (!isListening()) {
+        return {};
+    }
+
+    QStringList result;
+    const auto addresses = QNetworkInterface::allAddresses();
+    for (const auto& address : addresses) {
+        if (address.protocol() == QAbstractSocket::IPv4Protocol &&
+                !address.isLoopback()) {
+            result.append(QStringLiteral("http://%1:%2/")
+                            .arg(address.toString())
+                            .arg(port()));
+        }
+    }
+    if (result.isEmpty()) {
+        result.append(QStringLiteral("http://127.0.0.1:%1/").arg(port()));
+    }
+    result.removeDuplicates();
+    result.sort();
+    return result;
+}
+
 void Server::acceptConnections() {
     while (m_pServer->hasPendingConnections()) {
         QTcpSocket* pSocket = m_pServer->nextPendingConnection();
         if (m_clients.size() >= kMaximumClients) {
-            qWarning() << "Rejecting TangoQ semantic monitor client: connection limit reached";
+            qWarning() << "Rejecting TangoQ state monitor client: connection limit reached";
             pSocket->abort();
             pSocket->deleteLater();
             continue;
@@ -272,7 +281,8 @@ void Server::handleHttpRequest(QTcpSocket* pSocket, const QByteArray& request) {
                 200,
                 QByteArrayLiteral("OK"),
                 QByteArrayLiteral("application/json; charset=utf-8"),
-                m_pStore->snapshotJson());
+                m_pStore->snapshotJson(),
+                QByteArrayLiteral("Cache-Control: no-store\r\n"));
         return;
     }
     if (path == QByteArrayLiteral("/")) {
@@ -282,7 +292,8 @@ void Server::handleHttpRequest(QTcpSocket* pSocket, const QByteArray& request) {
                     200,
                     QByteArrayLiteral("OK"),
                     QByteArrayLiteral("text/html; charset=utf-8"),
-                    file.readAll());
+                    file.readAll(),
+                    QByteArrayLiteral("Cache-Control: no-store\r\n"));
         } else {
             sendHttpResponse(pSocket,
                     500,
@@ -430,7 +441,7 @@ void Server::sendWebSocketFrame(
 }
 
 void Server::disconnectSlowClient(QTcpSocket* pSocket) {
-    qWarning() << "Disconnecting slow TangoQ semantic monitor client"
+    qWarning() << "Disconnecting slow TangoQ state monitor client"
                << pSocket->peerAddress().toString();
     pSocket->abort();
 }

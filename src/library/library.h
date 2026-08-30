@@ -81,6 +81,10 @@ class Library: public QObject {
     /// which is responsible for placing it via QMainWindow::addDockWidget().
     QDockWidget* createAutoDJDockWidget(QWidget* parent);
 
+    AutoDJFeature* autoDJFeature() const {
+        return m_pAutoDJFeature;
+    }
+
     /// Needed for exposing models to QML
     LibraryTableModel* trackTableModel() const;
 

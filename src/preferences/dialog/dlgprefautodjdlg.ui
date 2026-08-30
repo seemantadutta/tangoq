@@ -16,6 +16,86 @@
   <layout class="QVBoxLayout" name="AutoDJGridLayout">
 
    <item>
+    <widget class="QGroupBox" name="StateMonitorOptions">
+     <property name="title">
+      <string>TangoQ state monitor</string>
+     </property>
+     <layout class="QVBoxLayout" name="StateMonitorLayout">
+      <item>
+       <widget class="QCheckBox" name="StateMonitorEnableCheckBox">
+        <property name="text">
+         <string>Enable TangoQ state monitor</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="StateMonitorPortLayout">
+        <item>
+         <widget class="QLabel" name="StateMonitorPortLabel">
+          <property name="text">
+           <string>Port</string>
+          </property>
+          <property name="buddy">
+           <cstring>StateMonitorPortSpinBox</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="StateMonitorPortSpinBox">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>65535</number>
+          </property>
+          <property name="value">
+           <number>39087</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="StateMonitorPortSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="StateMonitorStatusLabel">
+        <property name="text">
+         <string>Stopped</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByMouse</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="StateMonitorPrivacyLabel">
+        <property name="text">
+         <string>Read-only track and session information will be visible to devices on the local network.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <item>
     <widget class="QGroupBox" name="TangoOptions">
       <property name="title">
        <string>Cortina Settings</string>

@@ -36,6 +36,11 @@
 namespace {
 
 const QString kViewName = QStringLiteral("Auto DJ");
+const ConfigKey kStateMonitorEnabledKey(
+        QStringLiteral("[TangoQ]"), QStringLiteral("StateMonitorEnabled"));
+const ConfigKey kStateMonitorPortKey(
+        QStringLiteral("[TangoQ]"), QStringLiteral("StateMonitorPort"));
+constexpr int kDefaultStateMonitorPort = 39087;
 
 } // namespace
 
@@ -64,6 +69,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_playlistDao(m_pTrackCollection->getPlaylistDAO()),
           m_iAutoDJPlaylistId(findOrCrateAutoDjPlaylistId(m_playlistDao)),
           m_pAutoDJProcessor(nullptr),
+          m_pPlayerManager(pPlayerManager),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_pAutoDJView(nullptr),
           m_showAutoDJDockControl(ConfigKey(
@@ -184,37 +190,89 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
     // Reverting the commit that added this restores the user-switchable mode.
     m_pAutoDJProcessor->lockTangoModeOn();
 
-    const int semanticMonitorPort = CmdlineArgs::Instance().getSemanticMonitorPort();
-    if (semanticMonitorPort > 0) {
-        m_pSemanticStateStore =
-                std::make_unique<mixxx::semanticstate::Store>(this);
-        m_pSemanticStateAdapter =
-                std::make_unique<mixxx::semanticstate::TangoQAdapter>(
-                        m_pSemanticStateStore.get(),
-                        &m_playlistDao,
-                        m_iAutoDJPlaylistId,
-                        m_pAutoDJProcessor,
-                        m_pTandaQueueState.get(),
-                        pPlayerManager,
-                        this);
-        m_pSemanticStateServer =
-                std::make_unique<mixxx::semanticstate::Server>(
-                        m_pSemanticStateStore.get(), this);
-        if (!m_pSemanticStateServer->start(
-                    static_cast<quint16>(semanticMonitorPort))) {
-            m_pSemanticStateServer.reset();
-            m_pSemanticStateAdapter.reset();
-            m_pSemanticStateStore.reset();
-        }
+    const int commandLinePort = CmdlineArgs::Instance().getSemanticMonitorPort();
+    const bool monitorEnabled = commandLinePort > 0 ||
+            m_pConfig->getValue(kStateMonitorEnabledKey, false);
+    const int monitorPort = commandLinePort > 0
+            ? commandLinePort
+            : m_pConfig->getValue(
+                      kStateMonitorPortKey, kDefaultStateMonitorPort);
+    if (monitorEnabled && monitorPort > 0 && monitorPort <= 65535) {
+        setSemanticMonitorEnabled(true, static_cast<quint16>(monitorPort));
+    } else if (monitorEnabled) {
+        qWarning() << "TangoQ state monitor has invalid configured port"
+                   << monitorPort << "; listener not started";
     }
 }
 
 AutoDJFeature::~AutoDJFeature() {
-    m_pSemanticStateServer.reset();
-    m_pSemanticStateAdapter.reset();
-    m_pSemanticStateStore.reset();
+    setSemanticMonitorEnabled(false, 0);
     m_pAutoDJProcessor->getTableModel()->setTandaQueueState(nullptr);
     delete m_pAutoDJProcessor;
+}
+
+bool AutoDJFeature::setSemanticMonitorEnabled(
+        bool enabled, quint16 requestedPort, QString* pError) {
+    if (!enabled) {
+        const bool wasEnabled = semanticMonitorEnabled();
+        m_pSemanticStateServer.reset();
+        m_pSemanticStateAdapter.reset();
+        m_pSemanticStateStore.reset();
+        if (wasEnabled) {
+            qWarning() << "TangoQ state monitor disabled";
+        }
+        return true;
+    }
+
+    if (requestedPort == 0) {
+        if (pError) {
+            *pError = tr("The state monitor port must be between 1 and 65535.");
+        }
+        return false;
+    }
+    if (semanticMonitorEnabled() && semanticMonitorPort() == requestedPort) {
+        return true;
+    }
+
+    // Bind a replacement before discarding the running server so a bad port
+    // cannot interrupt an already working monitor.
+    auto pStore = std::make_unique<mixxx::semanticstate::Store>(this);
+    auto pAdapter = std::make_unique<mixxx::semanticstate::TangoQAdapter>(
+            pStore.get(),
+            &m_playlistDao,
+            m_iAutoDJPlaylistId,
+            m_pAutoDJProcessor,
+            m_pTandaQueueState.get(),
+            m_pPlayerManager,
+            this);
+    auto pServer = std::make_unique<mixxx::semanticstate::Server>(
+            pStore.get(), this);
+    if (!pServer->start(requestedPort)) {
+        if (pError) {
+            *pError = tr(
+                    "TangoQ could not listen on port %1. The port may "
+                    "already be in use.")
+                              .arg(requestedPort);
+        }
+        return false;
+    }
+
+    m_pSemanticStateServer = std::move(pServer);
+    m_pSemanticStateAdapter = std::move(pAdapter);
+    m_pSemanticStateStore = std::move(pStore);
+    return true;
+}
+
+bool AutoDJFeature::semanticMonitorEnabled() const {
+    return m_pSemanticStateServer && m_pSemanticStateServer->isListening();
+}
+
+quint16 AutoDJFeature::semanticMonitorPort() const {
+    return semanticMonitorEnabled() ? m_pSemanticStateServer->port() : 0;
+}
+
+QStringList AutoDJFeature::semanticMonitorUrls() const {
+    return semanticMonitorEnabled() ? m_pSemanticStateServer->urls() : QStringList{};
 }
 
 QUuid AutoDJFeature::makeTanda(const QVector<int>& oneBasedPositions,

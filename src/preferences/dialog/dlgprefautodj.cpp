@@ -6,14 +6,32 @@
 
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
+#include "library/autodj/autodjfeature.h"
 #include "moc_dlgprefautodj.cpp"
 
+namespace {
+
+const ConfigKey kStateMonitorEnabledKey(
+        QStringLiteral("[TangoQ]"), QStringLiteral("StateMonitorEnabled"));
+const ConfigKey kStateMonitorPortKey(
+        QStringLiteral("[TangoQ]"), QStringLiteral("StateMonitorPort"));
+constexpr int kDefaultStateMonitorPort = 39087;
+
+} // namespace
+
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
-        UserSettingsPointer pConfig)
+        UserSettingsPointer pConfig,
+        AutoDJFeature* pAutoDJFeature)
         : DlgPreferencePage(pParent),
           m_pConfig(pConfig),
+          m_pAutoDJFeature(pAutoDJFeature),
           m_pCortinaLengthControl(nullptr) {
     setupUi(this);
+
+    connect(StateMonitorEnableCheckBox,
+            &QCheckBox::toggled,
+            this,
+            &DlgPrefAutoDJ::slotStateMonitorToggled);
 
     // The minimum available for randomly-selected tracks
     MinimumAvailableSpinBox->setValue(
@@ -215,9 +233,34 @@ void DlgPrefAutoDJ::slotUpdate() {
     // is only safe to alter while Auto DJ is stopped.
     CortinaFadeModeComboBox->setEnabled(!autoDJRunning);
     updateCortinaFadeEnabled();
+    m_stateMonitorConfigValid = true;
+    const bool monitorEnabled =
+            m_pAutoDJFeature && m_pAutoDJFeature->semanticMonitorEnabled();
+    StateMonitorEnableCheckBox->setChecked(monitorEnabled);
+    StateMonitorPortSpinBox->setValue(monitorEnabled
+                    ? m_pAutoDJFeature->semanticMonitorPort()
+                    : m_pConfig->getValue(
+                              kStateMonitorPortKey, kDefaultStateMonitorPort));
+    updateStateMonitorStatus();
 }
 
 void DlgPrefAutoDJ::slotApply() {
+    const bool monitorEnabled = StateMonitorEnableCheckBox->isChecked();
+    const int monitorPort = StateMonitorPortSpinBox->value();
+    QString error;
+    m_stateMonitorConfigValid = m_pAutoDJFeature &&
+            m_pAutoDJFeature->setSemanticMonitorEnabled(
+                    monitorEnabled, static_cast<quint16>(monitorPort), &error);
+    if (m_stateMonitorConfigValid) {
+        m_pConfig->setValue(kStateMonitorEnabledKey, monitorEnabled);
+        m_pConfig->setValue(kStateMonitorPortKey, monitorPort);
+        updateStateMonitorStatus();
+    } else {
+        StateMonitorStatusLabel->setText(error.isEmpty()
+                        ? tr("The state monitor is unavailable.")
+                        : error);
+    }
+
     // Copy from Buffer to actual values
     //  Route cortina length through the live control so the AutoDJProcessor
     //  persists it to [Auto DJ],CortinaLength and the cockpit readout updates
@@ -278,6 +321,16 @@ void DlgPrefAutoDJ::slotCancel() {
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
 
+    m_stateMonitorConfigValid = true;
+    const bool monitorEnabled =
+            m_pAutoDJFeature && m_pAutoDJFeature->semanticMonitorEnabled();
+    StateMonitorEnableCheckBox->setChecked(monitorEnabled);
+    StateMonitorPortSpinBox->setValue(monitorEnabled
+                    ? m_pAutoDJFeature->semanticMonitorPort()
+                    : m_pConfig->getValue(
+                              kStateMonitorPortKey, kDefaultStateMonitorPort));
+    updateStateMonitorStatus();
+
     MinimumAvailableSpinBox->setValue(
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "MinimumAvailable"), 20));
@@ -318,6 +371,9 @@ void DlgPrefAutoDJ::slotCancel() {
 }
 
 void DlgPrefAutoDJ::slotResetToDefaults() {
+    StateMonitorEnableCheckBox->setChecked(false);
+    StateMonitorPortSpinBox->setValue(kDefaultStateMonitorPort);
+
     CortinaLengthSpinBox->setValue(45);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
 
@@ -348,6 +404,36 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "EnableRandomQueueBuff"), false);
     RandomQueueMinimumSpinBox->setEnabled(false);
     RandomQueueCheckBox->setEnabled(true);
+}
+
+bool DlgPrefAutoDJ::okayToClose() const {
+    return m_stateMonitorConfigValid;
+}
+
+void DlgPrefAutoDJ::slotStateMonitorToggled(bool enabled) {
+    StateMonitorPortLabel->setEnabled(enabled);
+    StateMonitorPortSpinBox->setEnabled(enabled);
+    m_stateMonitorConfigValid = true;
+    updateStateMonitorStatus();
+}
+
+void DlgPrefAutoDJ::updateStateMonitorStatus() {
+    const bool running =
+            m_pAutoDJFeature && m_pAutoDJFeature->semanticMonitorEnabled();
+    if (StateMonitorEnableCheckBox->isChecked() != running) {
+        StateMonitorStatusLabel->setText(
+                StateMonitorEnableCheckBox->isChecked()
+                        ? tr("Stopped; will start when applied")
+                        : tr("Listening; will stop when applied"));
+        return;
+    }
+    if (!running) {
+        StateMonitorStatusLabel->setText(tr("Stopped"));
+        return;
+    }
+    StateMonitorStatusLabel->setText(
+            tr("Listening at %1")
+                    .arg(m_pAutoDJFeature->semanticMonitorUrls().join(", ")));
 }
 
 void DlgPrefAutoDJ::slotSetMinimumAvailable(int a_iValue) {

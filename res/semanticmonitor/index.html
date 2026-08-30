@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TangoQ Semantic Monitor</title>
+  <title>TangoQ state monitor</title>
   <style>
     :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
     * { box-sizing: border-box; }
@@ -34,7 +34,7 @@
 </head>
 <body>
   <header>
-    <h1>TangoQ Semantic Monitor</h1>
+    <h1>TangoQ state monitor</h1>
     <div id="connection">Connecting</div>
   </header>
   <main>
@@ -73,6 +73,8 @@
   <script>
     const byId = (id) => document.getElementById(id);
     let lastRevision = -1;
+    let refreshInFlight = false;
+    let pendingRefreshReason = '';
 
     function formatTime(ms) {
       if (!Number.isFinite(ms)) return '--:--';
@@ -130,8 +132,19 @@
     }
 
     async function refreshSnapshot(recent = 'snapshot') {
-      const response = await fetch('/api/state', {cache: 'no-store'});
-      render(await response.json(), recent);
+      pendingRefreshReason = recent;
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      try {
+        while (pendingRefreshReason) {
+          const reason = pendingRefreshReason;
+          pendingRefreshReason = '';
+          const response = await fetch('/api/state', {cache: 'no-store'});
+          render(await response.json(), reason);
+        }
+      } finally {
+        refreshInFlight = false;
+      }
     }
 
     function connect() {
@@ -140,12 +153,11 @@
       socket.addEventListener('open', () => { byId('connection').textContent = 'Connected'; });
       socket.addEventListener('message', async (event) => {
         const message = JSON.parse(event.data);
-        const state = message.snapshot;
-        if (message.type === 'state.changed' && message.revision > lastRevision + 1) {
-          await refreshSnapshot('snapshot after revision gap');
+        if (message.type === 'state.changed') {
+          await refreshSnapshot(`state.changed (revision ${message.revision})`);
           return;
         }
-        render(state, message.type);
+        render(message.snapshot, message.type);
       });
       socket.addEventListener('close', () => {
         byId('connection').textContent = 'Reconnecting';

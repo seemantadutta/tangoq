@@ -194,7 +194,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
             QStringLiteral("semantic-monitor-port"),
             forUserFeedback
                     ? QCoreApplication::translate("CmdlineArgs",
-                              "Enables the experimental read-only semantic monitor on the "
+                              "Enables the experimental read-only TangoQ state monitor on the "
                               "specified LAN port.")
                     : QString(),
             QStringLiteral("port"));

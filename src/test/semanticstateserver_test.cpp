@@ -164,6 +164,7 @@ TEST(SemanticStateServerTest, HttpSnapshotIsReadOnlyAndHasBoundedRoutes) {
     const QByteArray response = httpRequest(server.port(),
             QByteArrayLiteral("GET /api/state HTTP/1.1\r\nHost: localhost\r\n\r\n"));
     EXPECT_TRUE(response.startsWith("HTTP/1.1 200 OK\r\n"));
+    EXPECT_TRUE(response.contains("Cache-Control: no-store\r\n"));
     const qsizetype bodyOffset = response.indexOf("\r\n\r\n") + 4;
     const QJsonObject snapshot =
             QJsonDocument::fromJson(response.mid(bodyOffset)).object();

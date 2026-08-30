@@ -7,6 +7,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QObject>
+#include <QStringList>
 #include <memory>
 
 class QTcpServer;
@@ -25,6 +26,7 @@ class Server final : public QObject {
     void stop();
     bool isListening() const;
     quint16 port() const;
+    QStringList urls() const;
 
   private:
     struct Client {
