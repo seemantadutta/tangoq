@@ -50,6 +50,12 @@ class MixxxMainWindow : public QMainWindow {
 #endif
     /// Initialize main window after creation. Should only be called once.
     void initialize();
+    /// True if the user tried to close the window during startup (before the
+    /// event loop runs). main() checks this after initialize() to quit cleanly
+    /// instead of showing the main window.
+    bool closeRequestedDuringStartup() const {
+        return m_closeRequestedDuringStartup;
+    }
     /// creates the menu_bar and inserts the file Menu
     void createMenuBar();
     void connectMenuBar();
@@ -152,6 +158,15 @@ class MixxxMainWindow : public QMainWindow {
     const bool m_supportsGlobalMenuBar;
 #endif
     bool m_inRebootMixxxView;
+    /// False until initialize() has fully run. Startup pumps the event loop
+    /// (QApplication::processEvents) to draw launch-image progress before the
+    /// real event loop starts, so a close event can arrive while the services
+    /// confirmExit() inspects (PlayerManager and friends) do not yet exist.
+    /// While this is false, closeEvent() must not touch them.
+    bool m_initializationComplete;
+    /// Set when a close is requested during startup, so it can be honoured once
+    /// initialization has finished. See closeRequestedDuringStartup().
+    bool m_closeRequestedDuringStartup;
     /// Whether saved window geometry was restored at startup. False on a first
     /// run, which is when the window gets centred instead.
     bool m_geometryRestored;
