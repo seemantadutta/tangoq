@@ -307,33 +307,40 @@
       <SetVariable name="SliderScheme">palemoon</SetVariable>
       <SetVariable name="StyleScheme">palemoon</SetVariable>
 
-      <!-- Waveform & Overview colors -->
-      <SetVariable name="BgColorOverview_12">#19191a</SetVariable>
-      <SetVariable name="BgColorOverview_34">#001b23</SetVariable>
+      <!-- Waveform & Overview colors. High Contrast pushes the waveform
+        background to pure black and brightens the two-tone signal, keeping the
+        warm amber / teal tango identity but at higher luminance. -->
+      <SetVariable name="BgColorOverview_12">#141414</SetVariable>
+      <SetVariable name="BgColorOverview_34">#001820</SetVariable>
       <SetVariable name="BgColorOverview_SamPre">rgba(15, 15, 15, 20)</SetVariable>
-      <SetVariable name="BgColorWaveform_12">#0f0f0e</SetVariable>
-      <SetVariable name="BgColorWaveform_34">#001b23</SetVariable>
-      <SetVariable name="SignalColor_12">#d9b28c</SetVariable>
-      <SetVariable name="SignalColor_34">#7bc6c3</SetVariable>
+      <SetVariable name="BgColorWaveform_12">#000000</SetVariable>
+      <SetVariable name="BgColorWaveform_34">#00141a</SetVariable>
+      <SetVariable name="SignalColor_12">#ffc785</SetVariable>
+      <SetVariable name="SignalColor_34">#9df0ec</SetVariable>
 
-      <SetVariable name="SignalHighColor">mediumblue</SetVariable><!-- #0000cd -->
-      <SetVariable name="SignalMidColor">darkgreen</SetVariable><!-- #006400 -->
+      <!-- RGB waveform band colours. Only W3C named colours are accepted here,
+        so these are the brightest named colours that keep the band hues. -->
+      <SetVariable name="SignalHighColor">dodgerblue</SetVariable><!-- #1e90ff -->
+      <SetVariable name="SignalMidColor">limegreen</SetVariable><!-- #32cd32 -->
       <SetVariable name="SignalLowColor">orangered</SetVariable><!-- #ff4500 -->
 
       <SetVariable name="DimBrightThresholdOverview">127</SetVariable>
       <SetVariable name="DimBrightThresholdWaveform">105</SetVariable>
       <SetVariable name="DimBrightThresholdHotcueBtn">105</SetVariable>
 
-      <SetVariable name="AxesColor">#999</SetVariable>
-      <SetVariable name="BeatColor">#999</SetVariable>
-      <SetVariable name="PlayPosColor">#00c6ff</SetVariable>
-      <SetVariable name="CueColor">#ff7a01</SetVariable>
-      <SetVariable name="LoopColor">#00b400</SetVariable>
-      <SetVariable name="IntroOutroColor">#2c5c9a</SetVariable>
-      <SetVariable name="PlayedOverlayColor">#dd151515</SetVariable>
-      <SetVariable name="EndOfTrackColor">#f856e7</SetVariable>
-      <SetVariable name="SlipBorderOutlineColor">#f08c00</SetVariable>
-      <SetVariable name="PassthroughLabelColor">#b24c12</SetVariable>
+      <!-- Grid, markers and cues: brighter and more saturated so they read at a
+        glance in a dark room. IntroOutro in particular jumps from a muted navy
+        to a clearly visible blue. -->
+      <SetVariable name="AxesColor">#b8b8b8</SetVariable>
+      <SetVariable name="BeatColor">#b8b8b8</SetVariable>
+      <SetVariable name="PlayPosColor">#00e5ff</SetVariable>
+      <SetVariable name="CueColor">#ff9500</SetVariable>
+      <SetVariable name="LoopColor">#00e000</SetVariable>
+      <SetVariable name="IntroOutroColor">#5a9bff</SetVariable>
+      <SetVariable name="PlayedOverlayColor">#aa101010</SetVariable>
+      <SetVariable name="EndOfTrackColor">#ff6bf0</SetVariable>
+      <SetVariable name="SlipBorderOutlineColor">#ffa61a</SetVariable>
+      <SetVariable name="PassthroughLabelColor">#d9631f</SetVariable>
       <SetVariable name="OverviewFontSizeDeck">13</SetVariable>
       <SetVariable name="OverviewFontSizeDeckMini">11</SetVariable>
       <SetVariable name="OverviewFontSizeSampler">10</SetVariable>
@@ -351,15 +358,15 @@
       <SetVariable name="ArcRadiusSmall">12.0</SetVariable>
       <SetVariable name="ArcThicknessBig">2</SetVariable>
       <SetVariable name="ArcRoundCaps">true</SetVariable>
-      <!-- Arc Colors -->
-      <SetVariable name="ArcColorEq">#858585</SetVariable>
-      <SetVariable name="ArcColorGain">#b96300</SetVariable>
-      <SetVariable name="ArcColorFx12Quick">#518f00</SetVariable>
-      <SetVariable name="ArcColorFx34">#028392</SetVariable>
-      <SetVariable name="ArcColorFxParameter">#6d6d6d</SetVariable>
-      <SetVariable name="ArcColorGainLow">#8d3b11</SetVariable>
-      <SetVariable name="ArcColorMstBal">#a00000</SetVariable>
-      <SetVariable name="ArcColorFxMix">#a00000</SetVariable>
+      <!-- Arc Colors: brighter value arcs so knob positions read in the dark. -->
+      <SetVariable name="ArcColorEq">#b5b5b5</SetVariable>
+      <SetVariable name="ArcColorGain">#e88400</SetVariable>
+      <SetVariable name="ArcColorFx12Quick">#6fc200</SetVariable>
+      <SetVariable name="ArcColorFx34">#05b3c6</SetVariable>
+      <SetVariable name="ArcColorFxParameter">#9c9c9c</SetVariable>
+      <SetVariable name="ArcColorGainLow">#c25320</SetVariable>
+      <SetVariable name="ArcColorMstBal">#d40000</SetVariable>
+      <SetVariable name="ArcColorFxMix">#d40000</SetVariable>
       <!-- Knob pointers = suffix for indicator image url -->
       <SetVariable name="KnobColorEq">grey</SetVariable>
       <SetVariable name="KnobColorQuickEffect">green</SetVariable>
@@ -368,11 +375,11 @@
       <SetVariable name="KnobColorFxParameter">grey</SetVariable>
       <SetVariable name="EqKillDotSize">9f,9f</SetVariable>
 
-      <!-- Slider bar settings -->
-      <SetVariable name="BarBgColor">#020202</SetVariable>
-      <SetVariable name="BarColorVolume">#257b82</SetVariable>
-      <SetVariable name="BarColorCrossfader">#257b82</SetVariable>
-      <SetVariable name="BarColorPitch">#888</SetVariable>
+      <!-- Slider bar settings: brighter fader/crossfader bars on black. -->
+      <SetVariable name="BarBgColor">#000000</SetVariable>
+      <SetVariable name="BarColorVolume">#38b8c2</SetVariable>
+      <SetVariable name="BarColorCrossfader">#38b8c2</SetVariable>
+      <SetVariable name="BarColorPitch">#b5b5b5</SetVariable>
       <SetVariable name="BarWidth">2</SetVariable>
       <SetVariable name="BarMarginVolume">8,8</SetVariable>
       <SetVariable name="BarMarginPitch">7,8</SetVariable>
