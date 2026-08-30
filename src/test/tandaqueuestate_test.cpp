@@ -75,6 +75,31 @@ TEST_F(TandaQueueStateTest, ClassificationRequiresConsecutiveOrdinaryRows) {
     EXPECT_EQ(1, state.spans().size());
 }
 
+TEST_F(TandaQueueStateTest, SetNameStoresPersistsAndRevertsToAuto) {
+    TandaQueueState state(config());
+    state.restore(queue({1, 2, 3, 4}));
+    const QUuid tanda = state.classify({1, 2, 3}, TandaType::Vals);
+    ASSERT_FALSE(tanda.isNull());
+    // A fresh tanda has no custom name (display falls back to the type label).
+    EXPECT_TRUE(state.spans().first().name.isEmpty());
+
+    // Setting a name stores it and reports the change; a no-op returns false.
+    EXPECT_TRUE(state.setName(tanda, QStringLiteral("La Cumparsita")));
+    EXPECT_EQ(QStringLiteral("La Cumparsita"), state.spans().first().name);
+    EXPECT_FALSE(state.setName(tanda, QStringLiteral("La Cumparsita")));
+
+    // The custom name survives a save/restore round-trip.
+    TandaQueueState restored(config());
+    restored.restore(queue({1, 2, 3, 4}));
+    ASSERT_EQ(1, restored.spans().size());
+    EXPECT_EQ(QStringLiteral("La Cumparsita"), restored.spans().first().name);
+
+    // An empty name reverts to the automatic label (an empty stored name).
+    const QUuid restoredId = restored.spans().first().id;
+    EXPECT_TRUE(restored.setName(restoredId, QString()));
+    EXPECT_TRUE(restored.spans().first().name.isEmpty());
+}
+
 TEST_F(TandaQueueStateTest, RestoreUsesExactMembersAndRefusesDuplicateAmbiguity) {
     TandaQueueState original(config());
     original.restore(queue({1, 2, 3, 4}));

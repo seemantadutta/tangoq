@@ -15,8 +15,10 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFontMetrics>
+#include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
@@ -95,6 +97,7 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
           m_pChangeTandaTypeMenu(new QMenu(tr("Change tanda type"), this)),
           m_pTandaSeparator(new QAction(this)),
           m_pToggleCollapsedAction(new QAction(this)),
+          m_pRenameAction(new QAction(tr("Rename tanda..."), this)),
           m_pUngroupAction(new QAction(tr("Unmake Tanda"), this)),
           m_pRemoveAction(new QAction(tr("Remove"), this)),
           m_pMoveUpAction(new QAction(tr("Move tanda up"), this)),
@@ -142,6 +145,9 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
 
     connect(m_pToggleCollapsedAction, &QAction::triggered, this, [this] {
         toggleTanda(m_contextTandaId);
+    });
+    connect(m_pRenameAction, &QAction::triggered, this, [this] {
+        renameContextTanda();
     });
     connect(m_pUngroupAction, &QAction::triggered, this, [this] {
         if (!m_contextTandaId.isNull()) {
@@ -602,6 +608,34 @@ void WTandaQueueView::moveContextTanda(bool up) {
     }
 }
 
+void WTandaQueueView::renameContextTanda() {
+    TandaQueueModel* pModel = tandaModel();
+    if (pModel == nullptr || m_contextTandaId.isNull()) {
+        return;
+    }
+    // Prefill the full "label - N track(s)" summary but preselect only the
+    // label, so typing replaces the name while the live track count is kept.
+    const QString label = pModel->tandaLabel(m_contextTandaId);
+    const QString summary = pModel->tandaSummary(m_contextTandaId);
+
+    QInputDialog dialog(this);
+    dialog.setWindowTitle(tr("Rename Tanda"));
+    dialog.setLabelText(tr("Tanda name:"));
+    dialog.setInputMode(QInputDialog::TextInput);
+    dialog.setTextValue(summary);
+    if (auto* pLineEdit = dialog.findChild<QLineEdit*>()) {
+        const int labelLength = static_cast<int>(label.length());
+        // Deferred so it runs after the dialog's show-time select-all.
+        QTimer::singleShot(0, pLineEdit, [pLineEdit, labelLength] {
+            pLineEdit->setSelection(0, labelLength);
+        });
+    }
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    pModel->renameTandaFromDisplayText(m_contextTandaId, dialog.textValue());
+}
+
 void WTandaQueueView::showTandaHeaderMenu(
         const QPoint& globalPos, const QUuid& id) {
     if (id.isNull()) {
@@ -612,6 +646,7 @@ void WTandaQueueView::showTandaHeaderMenu(
     menu.setObjectName(QStringLiteral("AutoDJContextMenu"));
     menu.addAction(m_pToggleCollapsedAction);
     menu.addMenu(m_pChangeTandaTypeMenu);
+    menu.addAction(m_pRenameAction);
     menu.addAction(m_pUngroupAction);
     menu.addAction(m_pRemoveAction);
     menu.addSeparator();

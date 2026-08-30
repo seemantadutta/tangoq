@@ -12,6 +12,9 @@ class LibraryTableModel : public BaseSqlTableModel {
     void setTableModel();
 
     bool isColumnInternal(int column) final;
+    // TangoQ: a fresh install shows only a handful of columns, in a set order.
+    bool isColumnHiddenByDefault(int column) final;
+    QList<int> defaultColumnOrder() const final;
     // Takes a list of locations and add the tracks to the library. Returns the
     // number of successful additions.
     int addTracks(const QModelIndex& index, const QList<QString>& locations) final;

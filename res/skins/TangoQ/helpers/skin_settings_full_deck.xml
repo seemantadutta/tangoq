@@ -3,9 +3,9 @@ Description:
   Options for the full deck.
 
   Tango DJ build: the deck-content toggles unrelated to playing a tanda set
-  (Hotcues, Loop, Beatjump, Rate, Key, Vinyl) are removed here, and their
-  controls are force-hidden in skin.xml. What remains is the cue points and the
-  spinny/cover art.
+  (Hotcues, Loop, Beatjump, Key, Vinyl) are removed here, and their controls are
+  force-hidden in skin.xml. What remains is the cue points, the spinny/cover art,
+  and the Rate Controls (opt-in, default off) for nudging alt/nuevo tracks.
 -->
 <Template>
   <WidgetGroup>
@@ -34,6 +34,35 @@ Description:
           <Transform><Not/></Transform>
           <BindProperty>visible</BindProperty>
         </Connection>
+      </WidgetGroup>
+
+      <WidgetGroup><Size>0me,5f</Size></WidgetGroup>
+
+      <!-- Rate Controls: the rate/tempo slider, opt-in (default off in
+           skin.xml) for the minority of alt/nuevo tracks that need a speed
+           nudge. Rate Adjust Buttons is the dependent sub-item, greyed out
+           while Rate Controls is off, exactly as in stock Mixxx. -->
+      <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+        <SetVariable name="TooltipId">show_rate_controls</SetVariable>
+        <SetVariable name="Text">Rate Controls</SetVariable>
+        <SetVariable name="Setting">[Skin],show_rate_controls</SetVariable>
+      </Template>
+
+      <WidgetGroup>
+        <ObjectName>SkinSettingsSubMenu</ObjectName>
+        <Layout>stacked</Layout>
+        <Size>180min,18f</Size>
+        <Children>
+          <!-- translucent cover while Rate Controls is off -->
+          <Template src="skins:TangoQ/helpers/skin_settings_cover_inverted.xml">
+            <SetVariable name="Setting">[Skin],show_rate_controls</SetVariable>
+          </Template>
+          <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+            <SetVariable name="TooltipId">show_rate_control_buttons</SetVariable>
+            <SetVariable name="Text">Rate Adjust Buttons</SetVariable>
+            <SetVariable name="Setting">[Skin],show_rate_control_buttons</SetVariable>
+          </Template>
+        </Children>
       </WidgetGroup>
 
       <WidgetGroup><Size>0me,5f</Size></WidgetGroup>

@@ -446,9 +446,29 @@ bool TandaQueueModel::isColumnInternal(int column) {
 
 bool TandaQueueModel::isColumnHiddenByDefault(int column) {
     if (column == tandaTypeColumn()) {
-        return false; // shown by default in Tango mode
+        return false; // Item Type: shown by default in Tango mode
     }
-    return m_pPlaylistModel->isColumnHiddenByDefault(column);
+    // TangoQ: a fresh install (no persisted header state) shows only #, Preview,
+    // Item Type, Title, Artist and Album. Every other column is hidden by
+    // default and can be re-enabled from the header's right-click menu.
+    return !(column == m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ARTIST) ||
+            column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ALBUM));
+}
+
+QList<int> TandaQueueModel::defaultColumnOrder() const {
+    // Left-to-right order for a fresh install. Matches isColumnHiddenByDefault(),
+    // with the appended Item Type column sitting just after Preview.
+    return {
+            m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW),
+            tandaTypeColumn(),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ARTIST),
+            m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ALBUM),
+    };
 }
 
 const QList<int>& TandaQueueModel::searchColumns() const {
@@ -521,12 +541,25 @@ TrackModel::Capabilities TandaQueueModel::getCapabilities() const {
 }
 
 QString TandaQueueModel::getModelSetting(const QString& name) {
-    return m_pPlaylistModel->getModelSetting(name);
+    return m_pPlaylistModel->getModelSetting(mapModelSettingName(name));
 }
 
 bool TandaQueueModel::setModelSetting(
         const QString& name, const QVariant& value) {
-    return m_pPlaylistModel->setModelSetting(name, value);
+    return m_pPlaylistModel->setModelSetting(mapModelSettingName(name), value);
+}
+
+QString TandaQueueModel::mapModelSettingName(const QString& name) {
+    // The tango queue keeps its own column layout, separate from the plain Auto
+    // DJ playlist model it wraps (both share one model-settings namespace).
+    // DlgAutoDJ loads the plain model first, then switches to this proxy; that
+    // switch saves the plain model's header state under the shared
+    // "header_state_pb" key, and without a distinct key the proxy would restore
+    // that stock layout instead of applying the tango column defaults.
+    if (name == QStringLiteral("header_state_pb")) {
+        return QStringLiteral("tanda_header_state_pb");
+    }
+    return name;
 }
 
 int TandaQueueModel::defaultSortColumn() const {
@@ -791,14 +824,38 @@ QString TandaQueueModel::tandaTypeLabel(const QUuid& id) const {
     return tr("Tanda");
 }
 
+QString TandaQueueModel::tandaLabel(const QUuid& id) const {
+    const TandaSpan* pSpan = m_pState->spanById(id);
+    if (!pSpan) {
+        return {};
+    }
+    return pSpan->name.isEmpty() ? tandaTypeLabel(id) : pSpan->name;
+}
+
 QString TandaQueueModel::tandaSummary(const QUuid& id) const {
     const TandaSpan* pSpan = m_pState->spanById(id);
     if (!pSpan) {
         return {};
     }
-    QString label = pSpan->name.isEmpty() ? tandaTypeLabel(id)
-                                          : pSpan->name;
-    return tr("%1 — %n track(s)", nullptr, pSpan->members.size()).arg(label);
+    return tr("%1 - %n track(s)", nullptr, pSpan->members.size()).arg(tandaLabel(id));
+}
+
+bool TandaQueueModel::renameTandaFromDisplayText(const QUuid& id, const QString& text) {
+    // The dialog prefills the full "label - N track(s)" summary with only the
+    // label selected, so a normal edit changes just the label. Strip the known
+    // count suffix to recover the new label; if the user did edit into the
+    // suffix, fall back to storing the whole entry. An empty result or a match
+    // with the auto type label reverts the tanda to its automatic name.
+    const QString label = tandaLabel(id);
+    const QString suffix = tandaSummary(id).mid(label.length());
+    QString newLabel = text.endsWith(suffix)
+            ? text.left(text.length() - suffix.length())
+            : text;
+    newLabel = newLabel.trimmed();
+    if (newLabel == tandaTypeLabel(id)) {
+        newLabel.clear();
+    }
+    return m_pState->setName(id, newLabel);
 }
 
 QString TandaQueueModel::tandaProgressStates(const TandaSpan& span) const {
