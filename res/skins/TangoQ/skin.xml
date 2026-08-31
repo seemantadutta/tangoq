@@ -193,6 +193,11 @@
       <SetVariable name="SignalHighColor">mediumblue</SetVariable><!-- #0000cd -->
       <SetVariable name="SignalMidColor">darkgreen</SetVariable><!-- #006400 -->
       <SetVariable name="SignalLowColor">orangered</SetVariable><!-- #ff4500 -->
+      <!-- Preserve the renderer's stock RGB fallback colours explicitly so
+        adding scheme wiring does not alter the Default waveform. -->
+      <SetVariable name="SignalRGBHighColor">#0000ff</SetVariable>
+      <SetVariable name="SignalRGBMidColor">#00ff00</SetVariable>
+      <SetVariable name="SignalRGBLowColor">#ff0000</SetVariable>
 
       <SetVariable name="DimBrightThresholdOverview">127</SetVariable>
       <SetVariable name="DimBrightThresholdWaveform">105</SetVariable>
@@ -269,10 +274,8 @@
     </Scheme><!-- Default -->
     <Scheme>
       <Name>High Contrast</Name>
-      <!-- High Contrast is a legibility-focused variant of Default for playing
-        in dark rooms. Stage 1 is an exact clone of Default (same palemoon
-        assets and style_highcontrast.qss is a verbatim copy of
-        style_palemoon.qss); later stages retune colours for contrast. -->
+      <!-- High Contrast retains TangoQ's simplified layout and uses a
+        Sunrise-derived palette with the compatible Classic control assets. -->
       <LaunchImageStyle>
         LaunchImage {
           background-color: #0f0f0f;
@@ -300,45 +303,43 @@
         }
       </LaunchImageStyle>
 
-      <Style src="skins:TangoQ/style_highcontrast.qss"/>
+      <Style src="skins:TangoQ/style_classic.qss"/>
 
-      <SetVariable name="BtnScheme">palemoon</SetVariable>
-      <SetVariable name="KnobScheme">palemoon</SetVariable>
-      <SetVariable name="SliderScheme">palemoon</SetVariable>
-      <SetVariable name="StyleScheme">palemoon</SetVariable>
+      <SetVariable name="BtnScheme">classic</SetVariable>
+      <SetVariable name="KnobScheme">classic</SetVariable>
+      <SetVariable name="SliderScheme">classic</SetVariable>
+      <SetVariable name="StyleScheme">classic</SetVariable>
 
-      <!-- Waveform & Overview colors. High Contrast pushes the waveform
-        background to pure black and brightens the two-tone signal, keeping the
-        warm amber / teal tango identity but at higher luminance. -->
-      <SetVariable name="BgColorOverview_12">#141414</SetVariable>
-      <SetVariable name="BgColorOverview_34">#001820</SetVariable>
-      <SetVariable name="BgColorOverview_SamPre">rgba(15, 15, 15, 20)</SetVariable>
-      <SetVariable name="BgColorWaveform_12">#000000</SetVariable>
-      <SetVariable name="BgColorWaveform_34">#00141a</SetVariable>
-      <SetVariable name="SignalColor_12">#ffc785</SetVariable>
-      <SetVariable name="SignalColor_34">#9df0ec</SetVariable>
+      <!-- Waveform and overview palette adapted from the LateNight Sunrise
+        color scheme by Dj.Anth0n1:
+        https://github.com/DjAnth0n1/LateNight_Sunrise-Color-Scheme -->
+      <SetVariable name="BgColorOverview_12">rgba(15, 15, 15, 20)</SetVariable>
+      <SetVariable name="BgColorOverview_34">rgba(0, 27, 35, 120)</SetVariable>
+      <SetVariable name="BgColorOverview_SamPre">#0f0f0f</SetVariable>
+      <SetVariable name="BgColorWaveform_12">#0f0f0e</SetVariable>
+      <SetVariable name="BgColorWaveform_34">#001b23</SetVariable>
+      <SetVariable name="SignalColor_12">#e7c413</SetVariable>
+      <SetVariable name="SignalColor_34">#09b2ae</SetVariable>
 
-      <!-- RGB waveform band colours. Only W3C named colours are accepted here,
-        so these are the brightest named colours that keep the band hues. -->
-      <SetVariable name="SignalHighColor">dodgerblue</SetVariable><!-- #1e90ff -->
-      <SetVariable name="SignalMidColor">limegreen</SetVariable><!-- #32cd32 -->
-      <SetVariable name="SignalLowColor">orangered</SetVariable><!-- #ff4500 -->
+      <SetVariable name="SignalHighColor">blue</SetVariable>
+      <SetVariable name="SignalMidColor">green</SetVariable>
+      <SetVariable name="SignalLowColor">red</SetVariable>
+      <SetVariable name="SignalRGBHighColor">blue</SetVariable>
+      <SetVariable name="SignalRGBMidColor">green</SetVariable>
+      <SetVariable name="SignalRGBLowColor">red</SetVariable>
 
       <SetVariable name="DimBrightThresholdOverview">127</SetVariable>
       <SetVariable name="DimBrightThresholdWaveform">105</SetVariable>
       <SetVariable name="DimBrightThresholdHotcueBtn">105</SetVariable>
 
-      <!-- Grid, markers and cues: brighter and more saturated so they read at a
-        glance in a dark room. IntroOutro in particular jumps from a muted navy
-        to a clearly visible blue. -->
-      <SetVariable name="AxesColor">#b8b8b8</SetVariable>
-      <SetVariable name="BeatColor">#b8b8b8</SetVariable>
-      <SetVariable name="PlayPosColor">#00e5ff</SetVariable>
-      <SetVariable name="CueColor">#ff9500</SetVariable>
-      <SetVariable name="LoopColor">#00e000</SetVariable>
-      <SetVariable name="IntroOutroColor">#5a9bff</SetVariable>
-      <SetVariable name="PlayedOverlayColor">#aa101010</SetVariable>
-      <SetVariable name="EndOfTrackColor">#ff6bf0</SetVariable>
+      <SetVariable name="AxesColor">#ffffff</SetVariable>
+      <SetVariable name="BeatColor">#ffffff</SetVariable>
+      <SetVariable name="PlayPosColor">#00c8ff</SetVariable>
+      <SetVariable name="CueColor">#ff001c</SetVariable>
+      <SetVariable name="LoopColor">#00ff00</SetVariable>
+      <SetVariable name="IntroOutroColor">#0000ff</SetVariable>
+      <SetVariable name="PlayedOverlayColor">#bb000000</SetVariable>
+      <SetVariable name="EndOfTrackColor">#f856e7</SetVariable>
       <SetVariable name="SlipBorderOutlineColor">#ffa61a</SetVariable>
       <SetVariable name="PassthroughLabelColor">#d9631f</SetVariable>
       <SetVariable name="OverviewFontSizeDeck">13</SetVariable>
@@ -347,11 +348,11 @@
       <SetVariable name="OverviewFontSizePreview">9</SetVariable>
 
       <SetVariable name="TopRegion_BtnType">embedded</SetVariable>
-      <SetVariable name="SubRegion_BtnType">embedded</SetVariable>
+      <SetVariable name="SubRegion_BtnType">elevated</SetVariable>
 
       <!-- Knob settings -->
-      <SetVariable name="PotiMinAngle">-130</SetVariable>
-      <SetVariable name="PotiMaxAngle">130</SetVariable>
+      <SetVariable name="PotiMinAngle">-135</SetVariable>
+      <SetVariable name="PotiMaxAngle">135</SetVariable>
       <!-- Arc Settings -->
       <SetVariable name="ArcRadiusBig">14.5</SetVariable>
       <SetVariable name="ArcRadiusCompact">12.5</SetVariable>
@@ -368,12 +369,14 @@
       <SetVariable name="ArcColorMstBal">#d40000</SetVariable>
       <SetVariable name="ArcColorFxMix">#d40000</SetVariable>
       <!-- Knob pointers = suffix for indicator image url -->
-      <SetVariable name="KnobColorEq">grey</SetVariable>
+      <SetVariable name="KnobColorEq">red</SetVariable>
       <SetVariable name="KnobColorQuickEffect">green</SetVariable>
       <SetVariable name="KnobColorFx12">green</SetVariable>
       <SetVariable name="KnobColorFx34">blue</SetVariable>
-      <SetVariable name="KnobColorFxParameter">grey</SetVariable>
-      <SetVariable name="EqKillDotSize">9f,9f</SetVariable>
+      <SetVariable name="KnobColorFxParameter">white</SetVariable>
+      <!-- Classic knob backgrounds already contain arcs, so hide the separate
+        EQ kill dots to avoid a misleading overlapping indicator. -->
+      <SetVariable name="EqKillDotSize">0f,0f</SetVariable>
 
       <!-- Slider bar settings: brighter fader/crossfader bars on black. -->
       <SetVariable name="BarBgColor">#000000</SetVariable>

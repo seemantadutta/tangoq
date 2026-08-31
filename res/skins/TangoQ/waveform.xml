@@ -24,9 +24,9 @@
             <SignalHighColor></SignalHighColor>
             <SignalMidColor></SignalMidColor>
             <SignalLowColor></SignalLowColor>
-            <SignalRGBHighColor></SignalRGBHighColor>
-            <SignalRGBMidColor></SignalRGBMidColor>
-            <SignalRGBLowColor></SignalRGBLowColor>
+            <SignalRGBHighColor><Variable name="SignalRGBHighColor"/></SignalRGBHighColor>
+            <SignalRGBMidColor><Variable name="SignalRGBMidColor"/></SignalRGBMidColor>
+            <SignalRGBLowColor><Variable name="SignalRGBLowColor"/></SignalRGBLowColor>
             <BeatColor><Variable name="BeatColor"/></BeatColor>
             <AxesColor><Variable name="AxesColor"/></AxesColor>
             <BeatHighlightColor></BeatHighlightColor>
