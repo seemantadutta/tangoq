@@ -29,7 +29,7 @@ class LegacySkin : public mixxx::skin::Skin {
     QPixmap preview(const QString& schemeName) const override;
 
     QString name() const override;
-    QString description() const override;
+    QString description(const QString& schemeName = QString()) const override;
     QList<QString> colorschemes() const override;
 
     bool fitsScreenSize(const QScreen& screen) const override;

@@ -4,6 +4,7 @@
 
 #include "coreservices.h"
 #include "skin/legacy/legacyskinparser.h"
+#include "util/xml.h"
 
 namespace {
 
@@ -72,10 +73,30 @@ QList<QString> LegacySkin::colorschemes() const {
     return LegacySkinParser::getSchemeList(path().absoluteFilePath());
 }
 
-QString LegacySkin::description() const {
+QString LegacySkin::description(const QString& schemeName) const {
     DEBUG_ASSERT(isValid());
-    SkinManifest manifest = LegacySkinParser::getSkinManifest(
-            LegacySkinParser::openSkin(path().absoluteFilePath()));
+    const QDomElement skinDocument =
+            LegacySkinParser::openSkin(path().absoluteFilePath());
+    if (!schemeName.isEmpty()) {
+        const QDomNode schemesNode = skinDocument.namedItem(QStringLiteral("Schemes"));
+        for (QDomNode schemeNode = schemesNode.firstChild();
+                !schemeNode.isNull();
+                schemeNode = schemeNode.nextSibling()) {
+            if (!schemeNode.isElement() ||
+                    XmlParse::selectNodeQString(schemeNode, QStringLiteral("Name")) !=
+                            schemeName) {
+                continue;
+            }
+            const QString schemeDescription = XmlParse::selectNodeQString(
+                    schemeNode, QStringLiteral("Description"));
+            if (!schemeDescription.isEmpty()) {
+                return schemeDescription;
+            }
+            break;
+        }
+    }
+
+    SkinManifest manifest = LegacySkinParser::getSkinManifest(skinDocument);
     QString description = QString::fromStdString(manifest.description());
     if (!manifest.has_description() || description.isEmpty()) {
         return QString();

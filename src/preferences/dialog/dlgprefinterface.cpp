@@ -411,6 +411,7 @@ void DlgPrefInterface::slotSetScheme(int) {
 
     m_colorScheme = newScheme;
     slotSetSkinPreview();
+    slotSetSkinDescription();
 }
 
 void DlgPrefInterface::slotSetSkinDescription() {
@@ -418,7 +419,7 @@ void DlgPrefInterface::slotSetSkinDescription() {
         return;
     }
 
-    const QString description = m_pSkin->description();
+    const QString description = m_pSkin->description(m_colorScheme);
     if (!description.isEmpty()) {
         skinDescriptionText->show();
         skinDescriptionText->setText(description);

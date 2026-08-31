@@ -36,7 +36,7 @@ class Skin {
     virtual QPixmap preview(const QString& schemeName) const = 0;
 
     virtual QString name() const = 0;
-    virtual QString description() const = 0;
+    virtual QString description(const QString& schemeName = QString()) const = 0;
     virtual QList<QString> colorschemes() const = 0;
 
     virtual bool fitsScreenSize(const QScreen& screen) const = 0;

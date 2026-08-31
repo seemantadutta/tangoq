@@ -1,4 +1,10 @@
-/* LateNight 2.3 // Classic theme
+/* TangoQ High Contrast // Sunrise-derived theme
+
+Sunrise palette adapted from the LateNight Sunrise Color Scheme by Dj.Anth0n1:
+https://github.com/DjAnth0n1/LateNight_Sunrise-Color-Scheme
+
+The LateNight skin and this adapted styling are distributed under CC BY-SA 3.0:
+https://creativecommons.org/licenses/by-sa/3.0/
 
 * containers
   * colors, borders, background tiles
@@ -49,7 +55,7 @@ WLibrary,
 QAbstractScrollArea::corner,
 /* Prevent cut-off or shifted stars on macOS */
 WStarRating {
-  background-color: #1e1e1e;
+  background-color: #cccc99;
 }
 
 /* borders of elevated containers */
@@ -89,7 +95,7 @@ WTrackProperty:hover,
 WTrackProperty:hover[selected="false"],
 WTrackProperty:hover[selected="true"],
 #BpmTapContainer:hover {
-  background-color: #151517;
+  background-color: #cccc99;
   border-radius: 1px;
   }
   #BpmTap[pressed="true"] {
@@ -119,6 +125,7 @@ WSearchLineEdit,
   #KeyText {
     border-top: 1px solid #0c0c0c;
     border-bottom: 1px solid #0c0c0c;
+    background-color: #999973;
   }
   #WaveformBox1,
   #WaveformBox2,
@@ -132,7 +139,7 @@ WSearchLineEdit,
   #MainControls, #HeadphoneControls,
   #FxParametersBg,
   #SamplerHotcues {
-    background-image: url(skins:TangoQ/classic/style/background_tile.png);
+    background-color: #999973;
   }
 
 #FxParametersFocusBg {
@@ -179,7 +186,7 @@ WSearchLineEdit,
   border-bottom: 1px solid #111;
   border-right: 1px solid #111;
   border-radius: 2px;
-  background-color: #171717;
+  background-color: #cccc99;
   }
 
 #VuMeterBox,
@@ -206,13 +213,14 @@ WSearchLineEdit,
   border-left: 1px solid #585858;
   border-top-left-radius: 2px;
   border-bottom-left-radius: 2px;
+  background-color: #6d6d52;
 }
 
 #SubmenuCover {
-  background-color: rgba(15, 15, 15, 180);
+  background-color: rgba(109, 109, 82, 180);
 }
 #SkinSettingsMixerToggle {
-  background-color: rgba(15, 15, 15, 255);
+  background-color: rgba(109, 109, 82, 255);
 }
 
 /* Cover for the beatgrid edit buttons in the waveform container
@@ -1160,19 +1168,10 @@ WSearchLineEdit QAbstractScrollArea,
   font-family: "Open Sans";
   font-weight: bold;
 }
-/* yellow */
-#Deck1 WLabel, #DeckCompact1 WLabel, #DeckMini1 WLabel,
-  #Deck1 WStarRating, #DeckCompact1 WStarRating,
-#Deck2 WLabel, #DeckCompact2 WLabel, #DeckMini2 WLabel,
-  #Deck2 WStarRating, #DeckCompact2 WStarRating,
-#MicAuxLabel,
-#SamplerTitle, #SamplerTitleMini,
-#SamplerBpm, #SamplerBpmMini,
-#PreviewDeckTextBox, #PreviewTitle, #PreviewBPM,
+/* Sunrise gold for the dark library and menus. */
 #CategoryLabel,
 #SkinSettingsLabelButton,
 #SkinSettingsNumToggleHeader[displayValue="1"],
-WSearchLineEdit,
 WTrackTableView,
 #LibraryBPMSpinBox,
 #LibraryBPMButton::item,
@@ -1181,7 +1180,6 @@ WLibraryTextBrowser,
 WLibrarySidebar,
 #LibraryFeatureControls QLabel,
 #LibraryFeatureControls QRadioButton,
-QToolTip,
 WLibrarySidebar QMenu,
 WTrackTableViewHeader QMenu,
 WTrackTableViewHeader QMenu QCheckBox,
@@ -1204,7 +1202,6 @@ WCoverArtMenu,
 WCueMenuPopup,
 WCueMenuPopup QLabel,
 #CueLabelEdit,
-#LatencyLabel, WTime,
 QMenu#AutoDJContextMenu {
   color: #f0bb2b;
 }
@@ -1217,13 +1214,22 @@ QMenu#AutoDJContextMenu {
     color: #b9901f;
   }
 
-/* light blue */
+/* Near-black text on the light Sunrise work surfaces. */
+#Deck1 WLabel, #DeckCompact1 WLabel, #DeckMini1 WLabel,
+  #Deck1 WStarRating, #DeckCompact1 WStarRating,
+#Deck2 WLabel, #DeckCompact2 WLabel, #DeckMini2 WLabel,
+  #Deck2 WStarRating, #DeckCompact2 WStarRating,
+#MicAuxLabel,
+#SamplerTitle, #SamplerTitleMini,
+#SamplerBpm, #SamplerBpmMini,
+#PreviewDeckTextBox, #PreviewTitle, #PreviewBPM,
 #Deck3 WLabel, #DeckCompact3 WLabel, #DeckMini3 WLabel,
   #Deck3 WStarRating, #DeckCompact3 WStarRating,
 #Deck4 WLabel, #DeckCompact4 WLabel, #DeckMini4 WLabel,
   #Deck4 WStarRating, #DeckCompact4 WStarRating,
-#AuxSubTitle {
-  color: #0bd9d1;
+#AuxSubTitle,
+#LatencyLabel, WTime {
+  color: #12120d;
 }
 
 /* green for Fx 1/2 */
@@ -1252,7 +1258,6 @@ QMenu#AutoDJContextMenu {
   }
 
 /* Grey */
-#PreviewLabel,
 WEffectSelector:!editable,
 WEffectSelector:!editable:on,
 WEffectSelector QAbstractScrollArea,
@@ -1268,17 +1273,21 @@ WBeatSpinBox, #spinBoxTransition, #spinBoxTandaGap,
   color: #888;
 }
 
-/* Darker grey for knob labels & inactive decks/units */
+/* Near-black labels on the Sunrise work surfaces. */
+#MainMenu::item,
+#PreviewLabel,
 #KnobLabel,
 #FxKnobLabel,
 #FxButtonLabel,
 #FxUnitLabel[highlight="0"],
 #MicAuxLabelUnconfigured,
 #LibraryFeatureControls QPushButton:!enabled {
-  color: #666;
+  color: #12120d;
 }
 
-#MainMenu::item,
+/* Light text on menus and controls that retain dark surfaces. */
+QToolTip,
+WSearchLineEdit,
 #MainMenu QMenu::item,
 #MainMenu QMenu QCheckBox,
 WPushButton#VinylStatus[displayValue="0"], /* off */
@@ -1304,7 +1313,7 @@ WPushButton#TangoSetStart[displayValue="0"],
 WPushButton#TangoSetStart[displayValue="1"],
 WPushButton#TangoResetStart,
 WPushButton#TangoResetStart[displayValue="0"] {
-  color: #d2d2d1;
+  color: #12120d;
   font-weight: bold;
   }
 
@@ -1339,7 +1348,7 @@ QPushButton#pushButtonRecording:checked {
 #FxKnobLabel,
 #FxButtonLabel {
   padding: 0px;
-  background-color: #151515;
+  background-color: #999973;
 }
 
   #SkinSettingsButton,
@@ -1498,6 +1507,7 @@ WPushButton#LibExpand,
 #PlayCueMini WPushButton[displayValue="0"],
 WPushButton#CueDeck[displayValue="0"],
 WPushButton#PlayIndicator[value="0"],
+WPushButton#PlayPreview[displayValue="0"],
 WPushButton#LoopActivate[displayValue="0"],
 #FxAssignButtons WPushButton[displayValue="0"],
 #VinylControls WPushButton[displayValue="0"],
@@ -1520,7 +1530,7 @@ WPushButton#GuiToggleButton[displayValue="0"],
 WPushButton#BroadcastButton[displayValue="0"],
 WPushButton#SkinSettingsToggle[displayValue="0"],
 WCueMenuPopup QPushButton {
-  background-color: #262626;
+  background-color: #6d6d52;
 }
 
 /* Orange for 'partially active' status */
@@ -2212,8 +2222,8 @@ WLibrary,
 #SidebarBox {
   padding: 2px 0px 0px 2px;
   border-bottom: 0px;
-  border-left: 0px;
-  border-right: 0px;
+  border-left: 2px;
+  border-right: 2px;
   border-bottom-right-radius: 0px;
   border-bottom-left-radius: 0px;
   border-top-left-radius: 0px;
@@ -2222,12 +2232,10 @@ WLibrary,
 WTrackTableView,
 WLibraryTextBrowser,
 WLibrarySidebar {
-  border-top: 1px solid #0a0a0a;
-  border-right: 1px solid qlineargradient(x1:0, y1:0, x2:0, y2:1,
-    stop:0 #333,
-    stop:1 #444);
+  border-top: 2px solid #cccc99;
+  border-right: 2px solid #cccc99;
   border-bottom: 1px solid #444;
-  border-left: 1px solid #0a0a0a;
+  border-left: 2px solid #cccc99;
   background-color: #0f0f0f;
   alternate-background-color: #1a1a1a;
 /* In selected library rows this sets the color of
@@ -2241,7 +2249,7 @@ WLibrarySidebar {
 WTrackTableView:focus,
 WLibrarySidebar:focus,
 WLibraryTextBrowser:focus {
-  border: 1px solid #d09300;
+  border: 2px solid #cccc99;
 }
 
 /* Selected rows in Tree and Tracks table */
@@ -2563,7 +2571,7 @@ WSearchLineEdit QAbstractScrollArea QScrollBar::corner {
 /*********** library search bar *********************************/
 WSearchLineEdit {
   padding: 2px;
-  background-color: #0f0f0f;
+  background-color: #6d6d52;
   selection-color: #000;
   selection-background-color: #ccc;
   }
@@ -2699,10 +2707,6 @@ QMenu#AutoDJContextMenu {
 #CrossfaderButtonContainer_Deck,
 #CrossfaderButtonContainer_Aux,
 WPushButton#CrossfaderButton[value="0"],
-QToolTip,
-#MainMenu QMenu,
-#MainMenu QMenu::item,
-#MainMenu QMenu QCheckBox,
 WLibrarySidebar QMenu,
 WLibrarySidebar QMenu::item,
 WTrackTableViewHeader QMenu,
@@ -2737,6 +2741,13 @@ WSearchLineEdit::item,
 QMenu#AutoDJContextMenu,
 QMenu#AutoDJContextMenu::item {
   background-color: #0f0f0f;
+}
+
+QToolTip,
+#MainMenu QMenu,
+#MainMenu QMenu::item,
+#MainMenu QMenu QCheckBox {
+  background-color: #6d6d52;
 }
 /* These menus have no icons, checkmarks or submenus, so drop the reserved side
    columns and let each item hug its text. */

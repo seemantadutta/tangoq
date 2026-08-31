@@ -2247,6 +2247,7 @@ if(BUILD_TESTING)
     src/test/keyfactorytest.cpp
     src/test/keyutilstest.cpp
     src/test/lcstest.cpp
+    src/test/legacyskin_test.cpp
     src/test/learningutilstest.cpp
     src/test/libraryscannertest.cpp
     src/test/librarytest.cpp
