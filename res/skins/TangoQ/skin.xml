@@ -32,7 +32,7 @@
     <title>TangoQ</title>
     <author>owilliams, ronso0</author>
     <version>2.4.0.01</version>
-    <description>A wide nighttime skin with stacked waveforms, 4 decks in 3 configurations and up to 16 samplers.</description>
+    <description>A dark themed TangoQ color scheme, with 2 decks and tango specific controls</description>
     <language>en</language>
     <license>Creative Commons Attribution, Share-Alike 3.0 Unported</license>
     <attributes>
@@ -130,6 +130,7 @@
   <Schemes>
     <Scheme>
       <Name>Default</Name>
+      <Description>A dark themed TangoQ color scheme, with 2 decks and tango specific controls</Description>
       <!-- Mix any of the existing button, knob, slider or style theme subsets.
         The button templates for example link to skins:TangoQ/BtnTheme/buttons/btn_...
 
@@ -274,6 +275,7 @@
     </Scheme><!-- Default -->
     <Scheme>
       <Name>High Contrast</Name>
+      <Description>A high-contrast color scheme for dark DJ booths, based on the default TangoQ layout</Description>
       <!-- High Contrast retains TangoQ's simplified layout and uses a
         Sunrise-derived palette with the compatible Classic control assets. -->
       <LaunchImageStyle>
