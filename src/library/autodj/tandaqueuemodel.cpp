@@ -17,6 +17,7 @@
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/performanceregistry.h"
+#include "library/autodj/tandacolorpalette.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -38,17 +39,36 @@ QString tandaTypeLetter(TandaType type) {
     }
     return {};
 }
+
+TandaColorCategory colorCategory(TandaType type) {
+    switch (type) {
+    case TandaType::Tango:
+        return TandaColorCategory::Tango;
+    case TandaType::Vals:
+        return TandaColorCategory::Vals;
+    case TandaType::Milonga:
+        return TandaColorCategory::Milonga;
+    case TandaType::NuevoAlternative:
+        return TandaColorCategory::NuevoAlternative;
+    }
+    return TandaColorCategory::Regular;
+}
+
 } // namespace
 
 TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
         TandaQueueState* pState,
         AutoDJProcessor* pProcessor,
-        QObject* pParent)
+        QObject* pParent,
+        TandaColorPalette* pColorPalette)
         : QAbstractProxyModel(pParent),
           TrackModel(QSqlDatabase(), "autodj_tanda_queue"),
           m_pPlaylistModel(pSourceModel),
           m_pState(pState),
-          m_pProcessor(pProcessor) {
+          m_pProcessor(pProcessor),
+          m_pColorPalette(pColorPalette
+                          ? pColorPalette
+                          : new TandaColorPalette(UserSettingsPointer(), this)) {
     setSourceModel(pSourceModel);
 
     connect(m_pState,
@@ -75,24 +95,33 @@ TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
             &QAbstractItemModel::dataChanged,
             this,
             &TandaQueueModel::sourceDataChanged);
-    // The "C"/"P" in the type column track cortina and performance marks, which
-    // live outside the source model, so refresh that column directly when
-    // either changes.
-    const auto refreshTypeColumn = [this]() {
+    // Cortina and performance marks select the whole row's category color as
+    // well as its type-column label, so refresh every role across the row.
+    const auto refreshTrackCategories = [this]() {
         if (rowCount() > 0) {
-            emit dataChanged(index(0, tandaTypeColumn()),
-                    index(rowCount() - 1, tandaTypeColumn()),
-                    {Qt::DisplayRole, Qt::ForegroundRole});
+            emit dataChanged(index(0, 0),
+                    index(rowCount() - 1, columnCount() - 1),
+                    {Qt::DisplayRole, Qt::BackgroundRole, Qt::ForegroundRole});
         }
     };
     connect(&CortinaRegistry::instance(),
             &CortinaRegistry::cortinaMarksChanged,
             this,
-            refreshTypeColumn);
+            refreshTrackCategories);
     connect(&PerformanceRegistry::instance(),
             &PerformanceRegistry::performanceMarksChanged,
             this,
-            refreshTypeColumn);
+            refreshTrackCategories);
+    connect(m_pColorPalette,
+            &TandaColorPalette::changed,
+            this,
+            [this]() {
+                if (rowCount() > 0) {
+                    emit dataChanged(index(0, 0),
+                            index(rowCount() - 1, columnCount() - 1),
+                            {Qt::BackgroundRole, Qt::ForegroundRole});
+                }
+            });
     rebuild();
 }
 
@@ -161,6 +190,26 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == TandaIdRole) {
             return pRow->tandaId;
         }
+        const TrackId trackId = m_pPlaylistModel->getTrackId(
+                m_pPlaylistModel->index(pRow->sourceRow, 0));
+        TandaColorCategory category = TandaColorCategory::Regular;
+        if (CortinaRegistry::instance().contains(trackId)) {
+            category = TandaColorCategory::Cortina;
+        } else if (PerformanceRegistry::instance().contains(trackId)) {
+            category = TandaColorCategory::Performance;
+        } else if (!pRow->tandaId.isNull()) {
+            if (const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId)) {
+                category = colorCategory(pSpan->type);
+            }
+        }
+        const int cursor = m_pProcessor
+                ? m_pProcessor->activeKeepQueuePosition()
+                : 0;
+        const QColor background = m_pColorPalette->resolved(category,
+                tandaTrackColorState(pRow->sourceRow + 1, cursor));
+        if (role == Qt::BackgroundRole) {
+            return QBrush(background);
+        }
         // Constituent tracks carry no tanda letter. A cortina or performance
         // track shows a dim, lowercase mark here ("c" / "p") - deliberately
         // subordinate to the bold T/V/M tanda letters so the eye rides the
@@ -172,8 +221,6 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
             }
             if (m_pPlaylistModel->showCortinaMarks() &&
                     (role == Qt::DisplayRole || role == Qt::ForegroundRole)) {
-                const TrackId trackId = m_pPlaylistModel->getTrackId(
-                        m_pPlaylistModel->index(pRow->sourceRow, 0));
                 if (CortinaRegistry::instance().contains(trackId)) {
                     return role == Qt::DisplayRole
                             ? QVariant(QStringLiteral("c"))
@@ -185,7 +232,12 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                             : QVariant(QBrush(QColor(0x60, 0x82, 0x72)));
                 }
             }
-            return {};
+            return role == Qt::ForegroundRole
+                    ? QVariant(QBrush(TandaColorPalette::autoTextColor(background)))
+                    : QVariant();
+        }
+        if (role == Qt::ForegroundRole) {
+            return QBrush(TandaColorPalette::autoTextColor(background));
         }
         if (role == Qt::DisplayRole && !pRow->tandaId.isNull() &&
                 proxyIndex.column() == summaryColumn()) {
@@ -226,15 +278,18 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         font.setBold(true);
         return font;
     }
+    const int cursor = m_pProcessor
+            ? m_pProcessor->activeKeepQueuePosition()
+            : 0;
+    const QColor background = m_pColorPalette->resolved(
+            colorCategory(pSpan->type),
+            tandaHeaderColorState(
+                    pSpan->anchorPosition, pSpan->members.size(), cursor));
     if (role == Qt::BackgroundRole) {
-        return QBrush(QColor(52, 61, 72));
+        return QBrush(background);
     }
-    const bool active = isActiveTanda(pRow->tandaId);
     if (role == Qt::ForegroundRole) {
-        if (active) {
-            return QBrush(QColor(0xee, 0x44, 0x44));
-        }
-        return QBrush(QColor(225, 230, 236));
+        return QBrush(TandaColorPalette::autoTextColor(background));
     }
     if (role == Qt::TextAlignmentRole) {
         return (proxyIndex.column() == disclosureColumn() ||
@@ -338,6 +393,17 @@ QString TandaQueueModel::tandaProgressStatesForRow(int proxyRow) const {
     }
     const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
     return pSpan ? tandaProgressStates(*pSpan) : QString();
+}
+
+QColor TandaQueueModel::tandaBaseColorForRow(int proxyRow) const {
+    const VisibleRow* pRow = visibleRow(proxyRow);
+    if (!pRow || pRow->kind != RowKind::TandaHeader) {
+        return {};
+    }
+    const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
+    return pSpan
+            ? m_pColorPalette->base(colorCategory(pSpan->type))
+            : QColor();
 }
 
 QModelIndexList TandaQueueModel::mapSelectionToSource(
@@ -718,6 +784,14 @@ void TandaQueueModel::publishHudTandaState() {
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
         const QModelIndex& bottomRight,
         const QVector<int>& roles) {
+    QVector<int> proxyRoles = roles;
+    // The base model announces the active-track change as a foreground update.
+    // In the color-coded queue that same cursor transition also changes row
+    // backgrounds, so include both roles in the proxy notification.
+    if (proxyRoles.contains(Qt::ForegroundRole) &&
+            !proxyRoles.contains(Qt::BackgroundRole)) {
+        proxyRoles.append(Qt::BackgroundRole);
+    }
     QSet<QUuid> changedTandas;
     for (int sourceRow = topLeft.row(); sourceRow <= bottomRight.row(); ++sourceRow) {
         if (const TandaSpan* pSpan = m_pState->spanAtPosition(sourceRow + 1)) {
@@ -734,7 +808,7 @@ void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
             }
             emit dataChanged(index(proxyRow, topLeft.column()),
                     index(proxyRow, bottomRight.column()),
-                    roles);
+                    proxyRoles);
         }
     }
     for (int proxyRow = 0; proxyRow < m_visibleRows.size(); ++proxyRow) {
@@ -772,38 +846,6 @@ QModelIndex TandaQueueModel::sourceIndexForInsertion(
         }
     }
     return {};
-}
-
-bool TandaQueueModel::isActiveTanda(const QUuid& id) const {
-    const TandaSpan* pSpan = m_pState->spanById(id);
-    if (!pSpan) {
-        return false;
-    }
-    if (m_pProcessor) {
-        const int activePosition = m_pProcessor->activeKeepQueuePosition();
-        if (activePosition > 0) {
-            return activePosition >= pSpan->anchorPosition &&
-                    activePosition < pSpan->anchorPosition + pSpan->members.size();
-        }
-    }
-    const QColor activeColor(0xee, 0x44, 0x44);
-    for (int offset = 0; offset < pSpan->members.size(); ++offset) {
-        const int sourceRow = pSpan->anchorPosition - 1 + offset;
-        if (sourceRow < 0 || sourceRow >= m_pPlaylistModel->rowCount()) {
-            continue;
-        }
-        const QVariant value = m_pPlaylistModel->data(
-                m_pPlaylistModel->index(sourceRow, 0), Qt::ForegroundRole);
-        if (value.canConvert<QColor>() &&
-                value.value<QColor>() == activeColor) {
-            return true;
-        }
-        if (value.canConvert<QBrush>() &&
-                value.value<QBrush>().color() == activeColor) {
-            return true;
-        }
-    }
-    return false;
 }
 
 QString TandaQueueModel::tandaTypeLabel(const QUuid& id) const {

@@ -368,6 +368,7 @@ void WTandaQueueView::paintEvent(QPaintEvent* pEvent) {
 
         const QString progressStates = pModel->tandaProgressStatesForRow(row);
         if (!progressStates.isEmpty()) {
+            const QColor pipColor = pModel->tandaBaseColorForRow(row);
             QFont headerFont = font();
             headerFont.setBold(true);
             const QFontMetrics fontMetrics(headerFont);
@@ -382,7 +383,7 @@ void WTandaQueueView::paintEvent(QPaintEvent* pEvent) {
                                 pipTop,
                                 kProgressPipDiameter,
                                 kProgressPipDiameter),
-                        headerColor,
+                        pipColor.isValid() ? pipColor : headerColor,
                         state);
                 pipLeft += kProgressPipDiameter + kProgressPipGap;
             }

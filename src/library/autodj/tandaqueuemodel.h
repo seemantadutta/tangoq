@@ -8,6 +8,7 @@
 #pragma once
 
 #include <QAbstractProxyModel>
+#include <QColor>
 #include <QUuid>
 #include <QVector>
 
@@ -17,6 +18,7 @@ class PlaylistTableModel;
 class AutoDJProcessor;
 struct TandaSpan;
 class TandaQueueState;
+class TandaColorPalette;
 
 /// Tango-only presentation adapter for the flat Auto DJ playlist.
 ///
@@ -40,7 +42,8 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     TandaQueueModel(PlaylistTableModel* pSourceModel,
             TandaQueueState* pState,
             AutoDJProcessor* pProcessor = nullptr,
-            QObject* pParent = nullptr);
+            QObject* pParent = nullptr,
+            TandaColorPalette* pColorPalette = nullptr);
 
     QModelIndex mapToSource(const QModelIndex& proxyIndex) const override;
     QModelIndex mapFromSource(const QModelIndex& sourceIndex) const override;
@@ -67,6 +70,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     int disclosureColumn() const;
     int summaryColumn() const;
     QString tandaProgressStatesForRow(int proxyRow) const;
+    QColor tandaBaseColorForRow(int proxyRow) const;
     // This helper shares a name with QAbstractProxyModel::mapSelectionToSource
     // but takes a different argument; keep the base overload visible so it is not
     // hidden (-Woverloaded-virtual).
@@ -151,7 +155,6 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     // Index of the appended, source-less "Tanda Type" column.
     int tandaTypeColumn() const;
     QModelIndex sourceIndexForInsertion(const QModelIndex& proxyIndex) const;
-    bool isActiveTanda(const QUuid& id) const;
     QString tandaTypeLabel(const QUuid& id) const;
     // Remaps the header-state key to a tango-specific one so the proxy's column
     // layout stays independent of the wrapped Auto DJ playlist model.
@@ -166,6 +169,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     PlaylistTableModel* const m_pPlaylistModel;
     TandaQueueState* const m_pState;
     AutoDJProcessor* const m_pProcessor;
+    TandaColorPalette* const m_pColorPalette;
     QVector<VisibleRow> m_visibleRows;
     QVector<int> m_proxyRowBySourceRow;
 };

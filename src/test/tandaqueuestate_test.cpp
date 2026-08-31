@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <QBrush>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,6 +19,7 @@
 #include "control/controlpotmeter.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/performanceregistry.h"
+#include "library/autodj/tandacolorpalette.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
@@ -500,6 +502,64 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksPerformanceTracks) {
     CortinaRegistry::instance().unmark(a);
     PerformanceRegistry::instance().unmark(a);
     EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
+}
+
+TEST_F(TandaQueueDaoTest, RowColorsFollowCategoryWithCortinaPrecedence) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda row color test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId regular = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId valsA = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId valsB = addTrack(QStringLiteral("cover-test-png.mp3"));
+    const TrackId special = addTrack(QStringLiteral("cover-test-vbr.mp3"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist(
+            {regular, valsA, valsB, special}, playlistId));
+
+    PlaylistTableModel source(
+            nullptr, trackCollectionManager(), "tanda_row_color_test");
+    source.selectPlaylist(playlistId);
+    source.select();
+    ASSERT_EQ(4, source.rowCount());
+
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({regular, valsA, valsB, special});
+    const QUuid tanda = state.classify({2, 3}, TandaType::Vals);
+    ASSERT_FALSE(tanda.isNull());
+    ASSERT_TRUE(state.setCollapsed(tanda, false));
+
+    TandaColorPalette palette(config());
+    TandaQueueModel model(&source, &state, nullptr, nullptr, &palette);
+    ASSERT_EQ(5, model.rowCount());
+
+    const auto backgroundForRow = [&model](int row) {
+        return model.data(model.index(row, 0), Qt::BackgroundRole)
+                .value<QBrush>()
+                .color();
+    };
+    const auto foregroundForRow = [&model](int row) {
+        return model.data(model.index(row, 0), Qt::ForegroundRole)
+                .value<QBrush>()
+                .color();
+    };
+
+    EXPECT_EQ(palette.base(TandaColorCategory::Regular), backgroundForRow(0));
+    EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(1));
+    EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(2));
+    EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(3));
+    EXPECT_EQ(TandaColorPalette::autoTextColor(backgroundForRow(1)),
+            foregroundForRow(1));
+
+    PerformanceRegistry::instance().mark(special);
+    EXPECT_EQ(palette.base(TandaColorCategory::Performance), backgroundForRow(4));
+    // The model keeps a deterministic fallback if marks somehow coexist even
+    // though the menu normally makes them mutually exclusive.
+    CortinaRegistry::instance().mark(special);
+    EXPECT_EQ(palette.base(TandaColorCategory::Cortina), backgroundForRow(4));
+
+    CortinaRegistry::instance().unmark(special);
+    PerformanceRegistry::instance().unmark(special);
 }
 
 TEST_F(TandaQueueDaoTest, RemoveHeaderExpandsToTandaMembers) {
