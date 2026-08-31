@@ -1,7 +1,8 @@
+#include "skin/legacy/legacyskin.h"
+
 #include <QFile>
 #include <QTemporaryDir>
 
-#include "skin/legacy/legacyskin.h"
 #include "test/mixxxtest.h"
 
 namespace {
@@ -36,8 +37,8 @@ TEST(LegacySkinTest, UsesSchemeDescriptionWithManifestFallback) {
     skinFile.close();
 
     const mixxx::skin::legacy::LegacySkin skin(QFileInfo(tempDir.path()));
-    EXPECT_QSTRING_EQ(
-            QStringLiteral("Default scheme description"), skin.description(QStringLiteral("Default")));
+    EXPECT_QSTRING_EQ(QStringLiteral("Default scheme description"),
+            skin.description(QStringLiteral("Default")));
     EXPECT_QSTRING_EQ(QStringLiteral("Manifest description"),
             skin.description(QStringLiteral("Without Description")));
     EXPECT_QSTRING_EQ(QStringLiteral("Manifest description"),
