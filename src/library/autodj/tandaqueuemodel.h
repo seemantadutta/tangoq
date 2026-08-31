@@ -70,7 +70,6 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     int disclosureColumn() const;
     int summaryColumn() const;
     QString tandaProgressStatesForRow(int proxyRow) const;
-    QColor tandaBaseColorForRow(int proxyRow) const;
     // This helper shares a name with QAbstractProxyModel::mapSelectionToSource
     // but takes a different argument; keep the base overload visible so it is not
     // hidden (-Woverloaded-virtual).

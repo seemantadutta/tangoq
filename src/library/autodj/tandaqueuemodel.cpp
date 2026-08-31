@@ -201,10 +201,9 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == Qt::BackgroundRole && background.isValid()) {
             return QBrush(background);
         }
-        // Constituent tracks normally carry no tanda letter. The current track
-        // repeats its tanda type beside the play marker so the marker never
-        // replaces the T/V/M/N designation. Cortina and performance tracks use
-        // lowercase c/p marks as quiet punctuation in the TTVTTM flow.
+        // The current track always shows only the play marker. Non-current
+        // cortina and performance tracks use lowercase c/p marks as quiet
+        // punctuation in the TTVTTM flow; tanda type remains on the header.
         if (proxyIndex.column() == tandaTypeColumn()) {
             const bool isCurrent = m_pProcessor &&
                     m_pProcessor->activeKeepQueuePosition() ==
@@ -213,6 +212,9 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                 return QVariant::fromValue(Qt::AlignCenter);
             }
             if (role == Qt::DisplayRole) {
+                if (isCurrent) {
+                    return QStringLiteral("▶");
+                }
                 QString typeMark;
                 if (m_pPlaylistModel->showCortinaMarks()) {
                     if (CortinaRegistry::instance().contains(trackId)) {
@@ -221,19 +223,7 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                         typeMark = QStringLiteral("p");
                     }
                 }
-                if (isCurrent && typeMark.isEmpty() &&
-                        !pRow->tandaId.isNull()) {
-                    if (const TandaSpan* pSpan =
-                                    m_pState->spanById(pRow->tandaId)) {
-                        typeMark = tandaTypeLetter(pSpan->type);
-                    }
-                }
-                if (!isCurrent) {
-                    return typeMark;
-                }
-                return typeMark.isEmpty()
-                        ? QVariant(QStringLiteral("▶"))
-                        : QVariant(QStringLiteral("▶ %1").arg(typeMark));
+                return typeMark;
             }
             if (role == Qt::ForegroundRole) {
                 if (background.isValid()) {
@@ -307,7 +297,15 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
     }
 
     if (proxyIndex.column() == tandaTypeColumn()) {
-        return tandaTypeLetter(pSpan->type);
+        const QString typeLetter = tandaTypeLetter(pSpan->type);
+        const int cursor = m_pProcessor
+                ? m_pProcessor->activeKeepQueuePosition()
+                : 0;
+        const bool isCurrent = cursor >= pSpan->anchorPosition &&
+                cursor < pSpan->anchorPosition + pSpan->members.size();
+        return isCurrent
+                ? QVariant(QStringLiteral("▶%1").arg(typeLetter))
+                : QVariant(typeLetter);
     }
     if (proxyIndex.column() == summaryColumn()) {
         return QStringLiteral("      %1").arg(tandaSummary(pRow->tandaId));
@@ -398,17 +396,6 @@ QString TandaQueueModel::tandaProgressStatesForRow(int proxyRow) const {
     }
     const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
     return pSpan ? tandaProgressStates(*pSpan) : QString();
-}
-
-QColor TandaQueueModel::tandaBaseColorForRow(int proxyRow) const {
-    const VisibleRow* pRow = visibleRow(proxyRow);
-    if (!pRow || pRow->kind != RowKind::TandaHeader) {
-        return {};
-    }
-    const TandaSpan* pSpan = m_pState->spanById(pRow->tandaId);
-    return pSpan
-            ? m_pColorPalette->base(colorCategory(pSpan->type))
-            : QColor();
 }
 
 QModelIndexList TandaQueueModel::mapSelectionToSource(
