@@ -201,9 +201,9 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == Qt::BackgroundRole && background.isValid()) {
             return QBrush(background);
         }
-        // The current track always shows only the play marker. Non-current
-        // cortina and performance tracks use lowercase c/p marks as quiet
-        // punctuation in the TTVTTM flow; tanda type remains on the header.
+        // A current constituent or ordinary track shows only the play marker.
+        // Cortina and performance tracks retain their lowercase c/p designation
+        // beside it as quiet punctuation in the TTVTTM flow.
         if (proxyIndex.column() == tandaTypeColumn()) {
             const bool isCurrent = m_pProcessor &&
                     m_pProcessor->activeKeepQueuePosition() ==
@@ -212,9 +212,6 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                 return QVariant::fromValue(Qt::AlignCenter);
             }
             if (role == Qt::DisplayRole) {
-                if (isCurrent) {
-                    return QStringLiteral("▶");
-                }
                 QString typeMark;
                 if (m_pPlaylistModel->showCortinaMarks()) {
                     if (CortinaRegistry::instance().contains(trackId)) {
@@ -223,7 +220,12 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                         typeMark = QStringLiteral("p");
                     }
                 }
-                return typeMark;
+                if (!isCurrent) {
+                    return typeMark;
+                }
+                return typeMark.isEmpty()
+                        ? QVariant(QStringLiteral("▶"))
+                        : QVariant(QStringLiteral("▶%1").arg(typeMark));
             }
             if (role == Qt::ForegroundRole) {
                 if (background.isValid()) {
