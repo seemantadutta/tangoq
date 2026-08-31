@@ -201,27 +201,47 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == Qt::BackgroundRole && background.isValid()) {
             return QBrush(background);
         }
-        // Constituent tracks carry no tanda letter. A cortina or performance
-        // track shows a lowercase mark here ("c" / "p"), subordinate to the
-        // bold T/V/M tanda letters so the eye rides the TTVTTM flow and treats
-        // these special tracks as punctuation.
+        // Constituent tracks normally carry no tanda letter. The current track
+        // repeats its tanda type beside the play marker so the marker never
+        // replaces the T/V/M/N designation. Cortina and performance tracks use
+        // lowercase c/p marks as quiet punctuation in the TTVTTM flow.
         if (proxyIndex.column() == tandaTypeColumn()) {
+            const bool isCurrent = m_pProcessor &&
+                    m_pProcessor->activeKeepQueuePosition() ==
+                            pRow->sourceRow + 1;
             if (role == Qt::TextAlignmentRole) {
                 return QVariant::fromValue(Qt::AlignCenter);
             }
-            if (m_pPlaylistModel->showCortinaMarks() &&
-                    (role == Qt::DisplayRole || role == Qt::ForegroundRole)) {
-                if (CortinaRegistry::instance().contains(trackId)) {
-                    return role == Qt::DisplayRole
-                            ? QVariant(QStringLiteral("c"))
-                            : QVariant(QBrush(
-                                      TandaColorPalette::autoTextColor(background)));
+            if (role == Qt::DisplayRole) {
+                QString typeMark;
+                if (m_pPlaylistModel->showCortinaMarks()) {
+                    if (CortinaRegistry::instance().contains(trackId)) {
+                        typeMark = QStringLiteral("c");
+                    } else if (PerformanceRegistry::instance().contains(trackId)) {
+                        typeMark = QStringLiteral("p");
+                    }
                 }
-                if (PerformanceRegistry::instance().contains(trackId)) {
-                    return role == Qt::DisplayRole
-                            ? QVariant(QStringLiteral("p"))
-                            : QVariant(QBrush(
-                                      TandaColorPalette::autoTextColor(background)));
+                if (isCurrent && typeMark.isEmpty() &&
+                        !pRow->tandaId.isNull()) {
+                    if (const TandaSpan* pSpan =
+                                    m_pState->spanById(pRow->tandaId)) {
+                        typeMark = tandaTypeLetter(pSpan->type);
+                    }
+                }
+                if (!isCurrent) {
+                    return typeMark;
+                }
+                return typeMark.isEmpty()
+                        ? QVariant(QStringLiteral("▶"))
+                        : QVariant(QStringLiteral("▶ %1").arg(typeMark));
+            }
+            if (role == Qt::ForegroundRole) {
+                if (background.isValid()) {
+                    return QBrush(TandaColorPalette::autoTextColor(background));
+                }
+                if (isCurrent) {
+                    return m_pPlaylistModel->data(
+                            m_pPlaylistModel->index(pRow->sourceRow, 0), role);
                 }
             }
             return {};
@@ -786,6 +806,14 @@ void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
             emit dataChanged(index(proxyRow, topLeft.column()),
                     index(proxyRow, bottomRight.column()),
                     roles);
+            if (roles.isEmpty() || roles.contains(Qt::ForegroundRole)) {
+                // The source model announces now-playing changes as foreground
+                // updates. The source-less Item Type column also carries the
+                // current-track arrow, so repaint it in the same pass.
+                emit dataChanged(index(proxyRow, tandaTypeColumn()),
+                        index(proxyRow, tandaTypeColumn()),
+                        {Qt::DisplayRole, Qt::ForegroundRole});
+            }
         }
     }
     for (int proxyRow = 0; proxyRow < m_visibleRows.size(); ++proxyRow) {
