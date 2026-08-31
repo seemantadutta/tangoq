@@ -5,9 +5,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QPainter>
 #include <QPushButton>
-#include <QSizePolicy>
 #include <QVBoxLayout>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 #include <QTimeZone>
@@ -20,8 +18,7 @@
 
 namespace {
 
-constexpr std::array<TandaColorCategory, 7> kTandaColorCategories = {
-        TandaColorCategory::Regular,
+constexpr std::array<TandaColorCategory, 6> kTandaColorCategories = {
         TandaColorCategory::Cortina,
         TandaColorCategory::Performance,
         TandaColorCategory::Tango,
@@ -29,8 +26,7 @@ constexpr std::array<TandaColorCategory, 7> kTandaColorCategories = {
         TandaColorCategory::Milonga,
         TandaColorCategory::NuevoAlternative,
 };
-constexpr std::array<const char*, 7> kTandaColorObjectNames = {
-        "Regular",
+constexpr std::array<const char*, 6> kTandaColorObjectNames = {
         "Cortina",
         "Performance",
         "Tango",
@@ -40,47 +36,6 @@ constexpr std::array<const char*, 7> kTandaColorObjectNames = {
 };
 
 } // namespace
-
-class TandaColorPreview final : public QWidget {
-  public:
-    explicit TandaColorPreview(QWidget* pParent = nullptr)
-            : QWidget(pParent) {
-        setMinimumSize(126, 24);
-        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        setToolTip(tr("Played (dim), playing (bright), upcoming (base)"));
-    }
-
-    void setBaseColor(const QColor& color) {
-        if (m_baseColor != color) {
-            m_baseColor = color;
-            update();
-        }
-    }
-
-  protected:
-    void paintEvent(QPaintEvent*) override {
-        QPainter painter(this);
-        constexpr int kGap = 3;
-        const int swatchWidth = (width() - 2 * kGap) / 3;
-        const std::array<TandaColorState, 3> states = {
-                TandaColorState::Played,
-                TandaColorState::Playing,
-                TandaColorState::Upcoming,
-        };
-        for (int index = 0; index < static_cast<int>(states.size()); ++index) {
-            QRect rect(index * (swatchWidth + kGap), 0, swatchWidth, height());
-            rect.adjust(0, 0, -1, -1);
-            painter.fillRect(rect,
-                    TandaColorPalette::resolvedColor(
-                            m_baseColor, states.at(index)));
-            painter.setPen(QColor(0x70, 0x70, 0x70));
-            painter.drawRect(rect);
-        }
-    }
-
-  private:
-    QColor m_baseColor;
-};
 
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
         UserSettingsPointer pConfig)
@@ -237,9 +192,9 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
     pColorGroup->setObjectName(QStringLiteral("TandaColorsGroup"));
     auto* pColorGroupLayout = new QVBoxLayout(pColorGroup);
     auto* pHelpLabel = new QLabel(
-            tr("Choose the category hues used in the TangoQ queue. Played rows "
-               "are dimmed, the current row is brightened, and upcoming rows "
-               "use the base color."),
+            tr("Choose the fixed colors used for tanda headers and special "
+               "tracks. Ordinary track rows retain the normal queue styling; "
+               "progress pips show playback position."),
             pColorGroup);
     pHelpLabel->setWordWrap(true);
     pColorGroupLayout->addWidget(pHelpLabel);
@@ -254,8 +209,6 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
         auto* pGroup = new QGroupBox(title, this);
         auto* pGrid = new QGridLayout(pGroup);
         pGrid->addWidget(new QLabel(tr("Color"), pGroup), 0, 1);
-        pGrid->addWidget(
-                new QLabel(tr("Played / Playing / Upcoming"), pGroup), 0, 2);
 
         auto labelIt = labels.begin();
         int row = 1;
@@ -276,26 +229,18 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
                     });
             m_pTandaColorButtons.at(index) = pButton;
             pGrid->addWidget(pButton, row, 1);
-
-            auto* pPreview = new TandaColorPreview(pGroup);
-            pPreview->setObjectName(
-                    QStringLiteral("TandaColor%1Preview")
-                            .arg(QString::fromLatin1(
-                                    kTandaColorObjectNames.at(index))));
-            m_pTandaColorPreviews.at(index) = pPreview;
-            pGrid->addWidget(pPreview, row, 2);
             ++labelIt;
             ++row;
         }
-        pGrid->setColumnStretch(2, 1);
+        pGrid->setColumnStretch(1, 1);
         pTypeGroupsLayout->addWidget(pGroup);
     };
 
-    addEditorGroup(tr("Track types"),
-            {0, 1, 2},
-            {tr("Regular"), tr("Cortina"), tr("Performance")});
+    addEditorGroup(tr("Special tracks"),
+            {0, 1},
+            {tr("Cortina"), tr("Performance")});
     addEditorGroup(tr("Tanda types"),
-            {3, 4, 5, 6},
+            {2, 3, 4, 5},
             {tr("Tango"), tr("Vals"), tr("Milonga"), tr("Alt / Nuevo")});
 
     auto* pButtonRow = new QHBoxLayout();
@@ -332,7 +277,6 @@ void DlgPrefAutoDJ::updateTandaColorEditor(int index) {
                     .arg(color.name(QColor::HexRgb),
                             TandaColorPalette::autoTextColor(color)
                                     .name(QColor::HexRgb)));
-    m_pTandaColorPreviews.at(index)->setBaseColor(color);
 }
 
 void DlgPrefAutoDJ::chooseTandaColor(int index) {

@@ -11,7 +11,6 @@ class QWidget;
 class ControlProxy;
 class QPushButton;
 class TandaColorPalette;
-class TandaColorPreview;
 
 class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     Q_OBJECT
@@ -57,7 +56,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void updateTandaColorEditor(int index);
     void chooseTandaColor(int index);
 
-    static constexpr int kTandaColorCount = 7;
+    static constexpr int kTandaColorCount = 6;
 
     UserSettingsPointer m_pConfig;
     // Observes the live [AutoDJ],cortina_length so the (stop-only) length field
@@ -67,5 +66,4 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     TandaColorPalette* const m_pTandaColorPalette;
     std::array<QColor, kTandaColorCount> m_tandaColors;
     std::array<QPushButton*, kTandaColorCount> m_pTandaColorButtons{};
-    std::array<TandaColorPreview*, kTandaColorCount> m_pTandaColorPreviews{};
 };

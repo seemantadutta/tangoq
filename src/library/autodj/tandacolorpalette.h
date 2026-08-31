@@ -22,16 +22,6 @@ enum class TandaColorCategory {
     Regular,
 };
 
-enum class TandaColorState {
-    Played,
-    Playing,
-    Upcoming,
-};
-
-TandaColorState tandaTrackColorState(int oneBasedPosition, int cursor);
-TandaColorState tandaHeaderColorState(
-        int oneBasedStart, int memberCount, int cursor);
-
 /// Config-backed colors used by the TangoQ queue.
 ///
 /// Production UI components use shared() so preferences and every queue view
@@ -49,8 +39,6 @@ class TandaColorPalette final : public QObject {
     void setBase(TandaColorCategory category, const QColor& color);
 
     static QColor defaultBase(TandaColorCategory category);
-    static QColor resolvedColor(const QColor& base, TandaColorState state);
-    QColor resolved(TandaColorCategory category, TandaColorState state) const;
     static QColor autoTextColor(const QColor& background);
 
   signals:

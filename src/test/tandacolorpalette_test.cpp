@@ -65,24 +65,6 @@ TEST_F(TandaColorPaletteTest, InvalidConfigFallsBackToDefault) {
             palette.base(TandaColorCategory::Milonga));
 }
 
-TEST_F(TandaColorPaletteTest, BrightnessStatesPreserveHueAndOrderLightness) {
-    const QColor base(QStringLiteral("#3d6fb0"));
-    const QColor played = TandaColorPalette::resolvedColor(
-            base, TandaColorState::Played);
-    const QColor playing = TandaColorPalette::resolvedColor(
-            base, TandaColorState::Playing);
-    const QColor upcoming = TandaColorPalette::resolvedColor(
-            base, TandaColorState::Upcoming);
-
-    EXPECT_EQ(base, upcoming);
-    EXPECT_LT(played.lightnessF(), upcoming.lightnessF());
-    EXPECT_GT(playing.lightnessF(), upcoming.lightnessF());
-    EXPECT_NEAR(base.hslHueF(), played.hslHueF(), 0.01);
-    EXPECT_NEAR(base.hslHueF(), playing.hslHueF(), 0.01);
-    EXPECT_GE(played.lightnessF(), 0.16 - 0.001);
-    EXPECT_LE(playing.lightnessF(), 0.72 + 0.001);
-}
-
 TEST_F(TandaColorPaletteTest, AutoTextSelectsTheHigherContrastPolarity) {
     EXPECT_EQ(QColor(0xf0, 0xf0, 0xf0),
             TandaColorPalette::autoTextColor(QColor(Qt::black)));
@@ -90,19 +72,6 @@ TEST_F(TandaColorPaletteTest, AutoTextSelectsTheHigherContrastPolarity) {
             TandaColorPalette::autoTextColor(QColor(Qt::white)));
     EXPECT_EQ(QColor(0x10, 0x10, 0x10),
             TandaColorPalette::autoTextColor(QColor(QStringLiteral("#c08a2e"))));
-}
-
-TEST_F(TandaColorPaletteTest, CursorStateMatchesTrackAndHeaderProgress) {
-    EXPECT_EQ(TandaColorState::Upcoming, tandaTrackColorState(2, 0));
-    EXPECT_EQ(TandaColorState::Played, tandaTrackColorState(2, 3));
-    EXPECT_EQ(TandaColorState::Playing, tandaTrackColorState(3, 3));
-    EXPECT_EQ(TandaColorState::Upcoming, tandaTrackColorState(4, 3));
-
-    EXPECT_EQ(TandaColorState::Upcoming, tandaHeaderColorState(3, 4, 0));
-    EXPECT_EQ(TandaColorState::Upcoming, tandaHeaderColorState(3, 4, 2));
-    EXPECT_EQ(TandaColorState::Playing, tandaHeaderColorState(3, 4, 3));
-    EXPECT_EQ(TandaColorState::Playing, tandaHeaderColorState(3, 4, 6));
-    EXPECT_EQ(TandaColorState::Played, tandaHeaderColorState(3, 4, 7));
 }
 
 } // namespace

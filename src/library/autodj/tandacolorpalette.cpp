@@ -7,7 +7,6 @@
 
 #include "library/autodj/tandacolorpalette.h"
 
-#include <algorithm>
 #include <cmath>
 
 #include "moc_tandacolorpalette.cpp"
@@ -15,12 +14,6 @@
 namespace {
 
 const QString kConfigGroup = QStringLiteral("[TangoColors]");
-constexpr float kPlayingLightnessScale = 1.35F;
-constexpr float kPlayingLightnessCeiling = 0.72F;
-constexpr float kPlayingSaturationScale = 1.05F;
-constexpr float kPlayedLightnessScale = 0.5F;
-constexpr float kPlayedLightnessFloor = 0.16F;
-constexpr float kPlayedSaturationScale = 0.85F;
 
 qreal linearSrgb(qreal channel) {
     return channel <= 0.04045
@@ -29,26 +22,6 @@ qreal linearSrgb(qreal channel) {
 }
 
 } // namespace
-
-TandaColorState tandaTrackColorState(int oneBasedPosition, int cursor) {
-    if (cursor <= 0 || oneBasedPosition > cursor) {
-        return TandaColorState::Upcoming;
-    }
-    return oneBasedPosition == cursor
-            ? TandaColorState::Playing
-            : TandaColorState::Played;
-}
-
-TandaColorState tandaHeaderColorState(
-        int oneBasedStart, int memberCount, int cursor) {
-    if (cursor <= 0 || cursor < oneBasedStart) {
-        return TandaColorState::Upcoming;
-    }
-    const int end = oneBasedStart + memberCount - 1;
-    return cursor <= end
-            ? TandaColorState::Playing
-            : TandaColorState::Played;
-}
 
 TandaColorPalette::TandaColorPalette(
         UserSettingsPointer pConfig, QObject* pParent)
@@ -106,45 +79,6 @@ QColor TandaColorPalette::defaultBase(TandaColorCategory category) {
         return QColor(QStringLiteral("#4a5058"));
     }
     return QColor(QStringLiteral("#4a5058"));
-}
-
-// static
-QColor TandaColorPalette::resolvedColor(
-        const QColor& base, TandaColorState state) {
-    if (!base.isValid() || state == TandaColorState::Upcoming) {
-        return base;
-    }
-
-    float hue = 0.0F;
-    float saturation = 0.0F;
-    float lightness = 0.0F;
-    float alpha = 1.0F;
-    base.getHslF(&hue, &saturation, &lightness, &alpha);
-    // QColor reports an undefined hue (-1) for greys. A zero-saturation HSL
-    // color is hue-independent, but fromHslF still requires a valid range.
-    hue = std::max(0.0F, hue);
-
-    switch (state) {
-    case TandaColorState::Upcoming:
-        break;
-    case TandaColorState::Playing:
-        lightness = std::min(lightness * kPlayingLightnessScale,
-                kPlayingLightnessCeiling);
-        saturation = std::min(saturation * kPlayingSaturationScale, 1.0F);
-        break;
-    case TandaColorState::Played:
-        lightness = std::clamp(lightness * kPlayedLightnessScale,
-                kPlayedLightnessFloor,
-                1.0F);
-        saturation *= kPlayedSaturationScale;
-        break;
-    }
-    return QColor::fromHslF(hue, saturation, lightness, alpha);
-}
-
-QColor TandaColorPalette::resolved(
-        TandaColorCategory category, TandaColorState state) const {
-    return resolvedColor(base(category), state);
 }
 
 // static

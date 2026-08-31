@@ -504,7 +504,7 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksPerformanceTracks) {
     EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
 }
 
-TEST_F(TandaQueueDaoTest, RowColorsFollowCategoryWithCortinaPrecedence) {
+TEST_F(TandaQueueDaoTest, HeadersAndSpecialTracksUseCategoryColors) {
     PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
     const int playlistId =
             dao.createPlaylist(QStringLiteral("Tanda row color test"),
@@ -544,10 +544,13 @@ TEST_F(TandaQueueDaoTest, RowColorsFollowCategoryWithCortinaPrecedence) {
                 .color();
     };
 
-    EXPECT_EQ(palette.base(TandaColorCategory::Regular), backgroundForRow(0));
+    EXPECT_EQ(source.data(source.index(0, 0), Qt::BackgroundRole),
+            model.data(model.index(0, 0), Qt::BackgroundRole));
     EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(1));
-    EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(2));
-    EXPECT_EQ(palette.base(TandaColorCategory::Vals), backgroundForRow(3));
+    EXPECT_EQ(source.data(source.index(1, 0), Qt::BackgroundRole),
+            model.data(model.index(2, 0), Qt::BackgroundRole));
+    EXPECT_EQ(source.data(source.index(2, 0), Qt::BackgroundRole),
+            model.data(model.index(3, 0), Qt::BackgroundRole));
     EXPECT_EQ(TandaColorPalette::autoTextColor(backgroundForRow(1)),
             foregroundForRow(1));
 
