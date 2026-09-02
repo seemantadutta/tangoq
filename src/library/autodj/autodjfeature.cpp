@@ -7,6 +7,7 @@
 #include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/dlgautodj.h"
+#include "library/autodj/tandacolorpalette.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/autodj/wtandaqueueview.h"
@@ -338,7 +339,8 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
             m_pAutoDJProcessor->getTableModel(),
             m_pTandaQueueState.get(),
             m_pAutoDJProcessor,
-            pTrackTableView);
+            pTrackTableView,
+            TandaColorPalette::shared(m_pConfig));
     pTrackTableView->loadTrackModel(pTandaQueueModel);
     connect(pTrackTableView,
             &WTrackTableView::loadTrack,

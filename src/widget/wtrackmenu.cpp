@@ -3257,6 +3257,8 @@ void WTrackMenu::slotAddToAutoDJCortina() {
     addToAutoDJ(PlaylistDAO::AutoDJSendLoc::BOTTOM);
     const TrackIdList trackIds = getTrackIds();
     for (const auto& trackId : trackIds) {
+        // A track is a cortina or a performance track, never both.
+        PerformanceRegistry::instance().unmark(trackId);
         CortinaRegistry::instance().mark(trackId);
     }
 }

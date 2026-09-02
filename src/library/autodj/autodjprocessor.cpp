@@ -1770,6 +1770,10 @@ void AutoDJProcessor::publishHudTiming() {
     // activePosition.
     bool hasNext = false;
     const int activePosition = activeKeepQueuePosition();
+    const int activeRow = activePosition - 1;
+    const bool pauseAfterCurrent = activeRow >= 0 && m_pAutoDJTableModel &&
+            (m_pAutoDJTableModel->isPauseAfterRow(activeRow) ||
+                    m_pAutoDJTableModel->isActivePauseAfterRow(activeRow));
     if (activePosition > 0 && m_pAutoDJTableModel) {
         TrackPointer pNext = m_pAutoDJTableModel->getTrack(
                 m_pAutoDJTableModel->index(activePosition, 0));
@@ -1779,6 +1783,11 @@ void AutoDJProcessor::publishHudTiming() {
         } else {
             m_hudNextKind.set(2.0); // no next item: the set ends here
         }
+    }
+    if (pauseAfterCurrent) {
+        // The marked current row preempts every normal hand-off label. A mark on
+        // a future row deliberately does not reach this branch.
+        m_hudNextKind.set(4.0);
     }
     // When the active position can't be resolved (e.g. paused at the end) leave
     // the last kind in place, so the label does not flip away from "Set ends in".
@@ -1809,7 +1818,7 @@ void AutoDJProcessor::publishHudTiming() {
                 countdown = math_max(
                         manualFadeOutSeconds - manualFadeOutElapsed,
                         0.0);
-                if (hasNext) {
+                if (hasNext && !pauseAfterCurrent) {
                     countdown += m_cortinaGapSeconds;
                 }
             } else if (m_cortinaFadeEnabled) {
@@ -1830,7 +1839,7 @@ void AutoDJProcessor::publishHudTiming() {
                         pCortinaDeck->playPosition() * duration - envelopeStart;
                 countdown = math_max(cl - elapsed, 0.0);
                 // Plus the silent after-gap before the next tanda track starts.
-                if (hasNext) {
+                if (hasNext && !pauseAfterCurrent) {
                     countdown += m_cortinaGapSeconds;
                 }
             }
@@ -1859,9 +1868,10 @@ void AutoDJProcessor::publishHudTiming() {
             TrackPointer pTrack = pDeck->getLoadedTrack();
             const double pos = pDeck->playPosition();
             if (pTrack && pos >= 0.0) {
-                double remaining =
-                        keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
-                if (hasNext) {
+                double remaining = pauseAfterCurrent
+                        ? pTrack->getDuration() * (1.0 - pos)
+                        : keepQueueCurrentTrackRemainingSeconds(pTrack, pos);
+                if (hasNext && !pauseAfterCurrent) {
                     if (m_transitionMode == TransitionMode::TandaTransition) {
                         // Hard cut, then a silent gap before the next item.
                         remaining += m_tandaGapSeconds;

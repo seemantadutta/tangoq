@@ -18,6 +18,7 @@
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/autodj/autodjfeature.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/tandacolorpalette.h"
 #include "library/autodj/tandaqueuemodel.h"
 #include "library/autodj/wtandaqueueview.h"
 #include "library/library.h"
@@ -138,7 +139,8 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pTandaQueueModel = new TandaQueueModel(m_pAutoDJTableModel,
             pAutoDJFeature->tandaQueueState(),
             m_pAutoDJProcessor,
-            this);
+            this,
+            TandaColorPalette::shared(m_pConfig));
     // The Tango cortina styling (blue + "[--CORTINA--]" prefix) belongs to the
     // Auto DJ list only, and only while Tango mode is on - refreshTangoModeUi()
     // keeps it in step from here on, so outside Tango the list is stock Mixxx.

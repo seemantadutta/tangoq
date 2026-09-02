@@ -1,18 +1,50 @@
 #include "preferences/dialog/dlgprefautodj.h"
 
+#include <QCheckBox>
+#include <QColorDialog>
+#include <QGridLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPalette>
+#include <QPushButton>
+#include <QVBoxLayout>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 #include <QTimeZone>
 #endif
 
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
+#include "library/autodj/tandacolorpalette.h"
 #include "moc_dlgprefautodj.cpp"
+
+namespace {
+
+constexpr std::array<TandaColorCategory, 6> kTandaColorCategories = {
+        TandaColorCategory::Cortina,
+        TandaColorCategory::Performance,
+        TandaColorCategory::Tango,
+        TandaColorCategory::Vals,
+        TandaColorCategory::Milonga,
+        TandaColorCategory::NuevoAlternative,
+};
+constexpr std::array<const char*, 6> kTandaColorObjectNames = {
+        "Cortina",
+        "Performance",
+        "Tango",
+        "Vals",
+        "Milonga",
+        "NuevoAlternative",
+};
+
+} // namespace
 
 DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
         UserSettingsPointer pConfig)
         : DlgPreferencePage(pParent),
           m_pConfig(pConfig),
-          m_pCortinaLengthControl(nullptr) {
+          m_pCortinaLengthControl(nullptr),
+          m_pTandaColorPalette(TandaColorPalette::shared(pConfig)) {
     setupUi(this);
 
     // The minimum available for randomly-selected tracks
@@ -151,7 +183,157 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
 
+    setupTandaColorEditors();
+    loadTandaColors();
+
     setScrollSafeGuardForAllInputWidgets(this);
+}
+
+void DlgPrefAutoDJ::setupTandaColorEditors() {
+    auto* pColorGroup = new QGroupBox(tr("Tanda Colors"), this);
+    pColorGroup->setObjectName(QStringLiteral("TandaColorsGroup"));
+    auto* pColorGroupLayout = new QVBoxLayout(pColorGroup);
+    auto* pHelpLabel = new QLabel(
+            tr("Choose the fixed colors used for tanda headers and special "
+               "tracks. Ordinary track rows retain the normal queue styling; "
+               "progress pips show playback position."),
+            pColorGroup);
+    pHelpLabel->setWordWrap(true);
+    pColorGroupLayout->addWidget(pHelpLabel);
+
+    m_pUseTandaColorCodingCheckBox = new QCheckBox(
+            tr("Use color coding in the Tango queue"), pColorGroup);
+    m_pUseTandaColorCodingCheckBox->setObjectName(
+            QStringLiteral("UseTandaColorCodingCheckBox"));
+    pColorGroupLayout->addWidget(m_pUseTandaColorCodingCheckBox);
+
+    m_pTandaColorEditors = new QWidget(pColorGroup);
+    auto* pEditorsLayout = new QVBoxLayout(m_pTandaColorEditors);
+    pEditorsLayout->setContentsMargins(0, 0, 0, 0);
+    auto* pTypeGroupsLayout = new QHBoxLayout();
+    pEditorsLayout->addLayout(pTypeGroupsLayout);
+
+    const auto addEditorGroup = [this, pTypeGroupsLayout](
+                                        const QString& title,
+                                        const std::initializer_list<int>& indices,
+                                        const std::initializer_list<QString>& labels) {
+        auto* pGroup = new QGroupBox(title, this);
+        auto* pGrid = new QGridLayout(pGroup);
+        pGrid->addWidget(new QLabel(tr("Color"), pGroup), 0, 1);
+
+        auto labelIt = labels.begin();
+        int row = 1;
+        for (int index : indices) {
+            pGrid->addWidget(new QLabel(*labelIt, pGroup), row, 0);
+            auto* pButton = new QPushButton(pGroup);
+            pButton->setObjectName(
+                    QStringLiteral("TandaColor%1Button")
+                            .arg(QString::fromLatin1(
+                                    kTandaColorObjectNames.at(index))));
+            pButton->setMinimumWidth(86);
+            pButton->setToolTip(tr("Choose the base color"));
+            connect(pButton,
+                    &QPushButton::clicked,
+                    this,
+                    [this, index]() {
+                        chooseTandaColor(index);
+                    });
+            m_pTandaColorButtons.at(index) = pButton;
+            pGrid->addWidget(pButton, row, 1);
+            ++labelIt;
+            ++row;
+        }
+        pGrid->setColumnStretch(1, 1);
+        pTypeGroupsLayout->addWidget(pGroup);
+    };
+
+    addEditorGroup(tr("Special tracks"),
+            {0, 1},
+            {tr("Cortina"), tr("Performance")});
+    addEditorGroup(tr("Tanda types"),
+            {2, 3, 4, 5},
+            {tr("Tango"), tr("Vals"), tr("Milonga"), tr("Alt / Nuevo")});
+
+    auto* pButtonRow = new QHBoxLayout();
+    pButtonRow->addStretch();
+    auto* pRestoreButton = new QPushButton(tr("Restore Color Defaults"), pColorGroup);
+    pRestoreButton->setObjectName(QStringLiteral("TandaColorsRestoreDefaultsButton"));
+    connect(pRestoreButton,
+            &QPushButton::clicked,
+            this,
+            &DlgPrefAutoDJ::resetTandaColorsToDefaults);
+    pButtonRow->addWidget(pRestoreButton);
+    pEditorsLayout->addLayout(pButtonRow);
+    pColorGroupLayout->addWidget(m_pTandaColorEditors);
+
+    connect(m_pUseTandaColorCodingCheckBox,
+            &QCheckBox::toggled,
+            this,
+            [this](bool enabled) {
+                m_tandaColorCodingEnabled = enabled;
+                updateTandaColorEditorsEnabled();
+            });
+
+    // Keep the existing cortina controls first, then the color section. The two
+    // hidden stock Auto DJ groups remain below it in the generated form.
+    AutoDJGridLayout->insertWidget(1, pColorGroup);
+}
+
+void DlgPrefAutoDJ::loadTandaColors() {
+    m_tandaColorCodingEnabled = m_pTandaColorPalette->colorCodingEnabled();
+    m_pUseTandaColorCodingCheckBox->setChecked(m_tandaColorCodingEnabled);
+    for (int index = 0; index < kTandaColorCount; ++index) {
+        m_tandaColors.at(index) =
+                m_pTandaColorPalette->base(kTandaColorCategories.at(index));
+        updateTandaColorEditor(index);
+    }
+    updateTandaColorEditorsEnabled();
+}
+
+void DlgPrefAutoDJ::updateTandaColorEditorsEnabled() {
+    m_pTandaColorEditors->setEnabled(m_tandaColorCodingEnabled);
+}
+
+void DlgPrefAutoDJ::updateTandaColorEditor(int index) {
+    const QColor color = m_tandaColors.at(index);
+    QPushButton* pButton = m_pTandaColorButtons.at(index);
+    pButton->setText(color.name(QColor::HexRgb));
+    const QPalette palette = m_pTandaColorEditors->palette();
+    // Keep border and padding in the base rule for both states. Swapping the
+    // whole stylesheet on toggle changes sizeHint() and makes the groups jump.
+    pButton->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: %1; color: %2; "
+            "border: 1px solid #707070; padding: 3px; } "
+            "QPushButton:disabled { background-color: %3; color: %4; "
+            "border-color: %5; }")
+                    .arg(color.name(QColor::HexRgb),
+                            TandaColorPalette::autoTextColor(color)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::Button)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::ButtonText)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::Mid)
+                                    .name(QColor::HexRgb)));
+}
+
+void DlgPrefAutoDJ::chooseTandaColor(int index) {
+    const QColor selected = QColorDialog::getColor(m_tandaColors.at(index),
+            this,
+            tr("Choose TangoQ queue color"));
+    if (!selected.isValid()) {
+        return;
+    }
+    m_tandaColors.at(index) = selected;
+    updateTandaColorEditor(index);
+}
+
+void DlgPrefAutoDJ::resetTandaColorsToDefaults() {
+    for (int index = 0; index < kTandaColorCount; ++index) {
+        m_tandaColors.at(index) = TandaColorPalette::defaultBase(
+                kTandaColorCategories.at(index));
+        updateTandaColorEditor(index);
+    }
 }
 
 void DlgPrefAutoDJ::slotSetCortinaLength(int seconds) {
@@ -206,6 +388,7 @@ void DlgPrefAutoDJ::updateCortinaFadeEnabled() {
 }
 
 void DlgPrefAutoDJ::slotUpdate() {
+    loadTandaColors();
     const bool autoDJRunning =
             ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
     // The cortina length feeds the set-length estimate, which is only recomputed
@@ -251,6 +434,12 @@ void DlgPrefAutoDJ::slotApply() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "EnableRandomQueue"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "EnableRandomQueueBuff"), false));
+
+    for (int index = 0; index < kTandaColorCount; ++index) {
+        m_pTandaColorPalette->setBase(
+                kTandaColorCategories.at(index), m_tandaColors.at(index));
+    }
+    m_pTandaColorPalette->setColorCodingEnabled(m_tandaColorCodingEnabled);
 }
 
 void DlgPrefAutoDJ::slotCancel() {
@@ -315,6 +504,7 @@ void DlgPrefAutoDJ::slotCancel() {
                     ConfigKey("[Auto DJ]", "Requeue"), false)
                     ? Qt::Checked
                     : Qt::Unchecked);
+    loadTandaColors();
 }
 
 void DlgPrefAutoDJ::slotResetToDefaults() {
@@ -348,6 +538,9 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "EnableRandomQueueBuff"), false);
     RandomQueueMinimumSpinBox->setEnabled(false);
     RandomQueueCheckBox->setEnabled(true);
+
+    m_pUseTandaColorCodingCheckBox->setChecked(true);
+    resetTandaColorsToDefaults();
 }
 
 void DlgPrefAutoDJ::slotSetMinimumAvailable(int a_iValue) {

@@ -1,11 +1,17 @@
 #pragma once
 
+#include <QColor>
+#include <array>
+
 #include "preferences/dialog/dlgpreferencepage.h"
 #include "preferences/dialog/ui_dlgprefautodjdlg.h"
 #include "preferences/usersettings.h"
 
 class QWidget;
+class QCheckBox;
 class ControlProxy;
+class QPushButton;
+class TandaColorPalette;
 
 class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     Q_OBJECT
@@ -32,6 +38,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void slotSetRequeueIgnoreTime(const QTime& a_rTime);
     void slotSetRandomQueueMin(int);
     void slotConsiderRepeatPlaylistState(bool);
+    void resetTandaColorsToDefaults();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRandomQueue(Qt::CheckState state);
 #else
@@ -45,10 +52,23 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     // Enables/disables the cortina fade-in/out inputs depending on whether
     // the Cortina Fade transition mode is selected.
     void updateCortinaFadeEnabled();
+    void setupTandaColorEditors();
+    void loadTandaColors();
+    void updateTandaColorEditorsEnabled();
+    void updateTandaColorEditor(int index);
+    void chooseTandaColor(int index);
+
+    static constexpr int kTandaColorCount = 6;
 
     UserSettingsPointer m_pConfig;
     // Observes the live [AutoDJ],cortina_length so the (stop-only) length field
     // reflects cockpit nudges made while Auto DJ is running, even though it stays
     // greyed out then.
     ControlProxy* m_pCortinaLengthControl;
+    TandaColorPalette* const m_pTandaColorPalette;
+    bool m_tandaColorCodingEnabled{true};
+    QCheckBox* m_pUseTandaColorCodingCheckBox{nullptr};
+    QWidget* m_pTandaColorEditors{nullptr};
+    std::array<QColor, kTandaColorCount> m_tandaColors;
+    std::array<QPushButton*, kTandaColorCount> m_pTandaColorButtons{};
 };
