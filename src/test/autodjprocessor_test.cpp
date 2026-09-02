@@ -716,11 +716,28 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     deck2.introStartPos.set(10 * kSamplesPerSecond);
     deck2.introEndPos.set(40 * kSamplesPerSecond);
     deck2.fakeTrackLoadedEvent(pTrack);
+    deck1.playposition.set(0.2);
 
     // Mark the row the playing track sits on. The cursor points at the next
     // track, so the playing one is just behind it.
+    // A future-row mark must not change what the HUD says about this track.
+    pAutoDJTableModel->togglePauseAfterRow(1);
+    pProcessor->publishHudTimingForTest();
+    EXPECT_DOUBLE_EQ(0.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_next_kind")));
+    EXPECT_DOUBLE_EQ(
+            70.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_countdown_seconds")));
+    pAutoDJTableModel->togglePauseAfterRow(1);
+
     pAutoDJTableModel->togglePauseAfterRow(0);
     ASSERT_TRUE(pAutoDJTableModel->isPauseAfterRow(0));
+
+    // Pause After counts to the actual stop at the end of this file. It must not
+    // subtract the normal ten-second crossfade or imply that the next track will
+    // start there.
+    pProcessor->publishHudTimingForTest();
+    EXPECT_DOUBLE_EQ(4.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_next_kind")));
+    EXPECT_DOUBLE_EQ(
+            80.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_countdown_seconds")));
 
     // Reaching the transition point must not start deck 2 or enter a fade.
     deck1.playposition.set(0.6);
@@ -732,6 +749,10 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     // One-shot: consumed as soon as it is claimed.
     EXPECT_FALSE(pAutoDJTableModel->isPauseAfterRow(0));
     EXPECT_TRUE(pAutoDJTableModel->isActivePauseAfterRow(0));
+    pProcessor->publishHudTimingForTest();
+    EXPECT_DOUBLE_EQ(4.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_next_kind")));
+    EXPECT_DOUBLE_EQ(
+            40.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_countdown_seconds")));
 
     // The marked track plays out, and only then does Auto DJ stop.
     EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
@@ -740,6 +761,8 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
     EXPECT_TRUE(pAutoDJTableModel->isActivePauseAfterRow(0));
     EXPECT_DOUBLE_EQ(3.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_next_kind")));
+    EXPECT_DOUBLE_EQ(
+            -1.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_countdown_seconds")));
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }

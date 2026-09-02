@@ -266,6 +266,11 @@ class AutoDJProcessor : public QObject {
         return shouldStopAfterRow(row);
     }
 
+    /// Test seam for the timer-driven HUD publisher.
+    void publishHudTimingForTest() {
+        publishHudTiming();
+    }
+
     /// True while Tango (Keep Queue) mode owns the Auto DJ queue: the list is a
     /// pre-arranged set and the cursor tracks the DJ's position in it. Callers
     /// that would reorder or clear the queue must refuse while this holds.
@@ -671,8 +676,8 @@ class AutoDJProcessor : public QObject {
     // pair; TandaQueueModel sets the tanda pip state via setHudTandaState().
     ControlObject m_hudCountdownSeconds;
     // What the countdown is counting down to: 0 = a normal track, 1 = a cortina,
-    // 2 = the end of the set. Drives the HUD label (Next track / Cortina / Set
-    // ends in).
+    // 2 = the end of the set, 3 = paused after a marked row, 4 = the stop after
+    // the currently playing marked row. Drives the HUD label.
     ControlObject m_hudNextKind;
     ControlObject m_hudTandaTrackCount;
     ControlObject m_hudTandaPlayingIndex;

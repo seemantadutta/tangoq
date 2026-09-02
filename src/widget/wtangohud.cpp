@@ -56,7 +56,9 @@ QString countdownLabel(int nextKind) {
     case 2:
         return QStringLiteral("Set ends in");
     case 3:
-        return QStringLiteral("Paused after");
+        return QStringLiteral("Paused");
+    case 4:
+        return QStringLiteral("Pause in");
     default:
         return QStringLiteral("Next track in");
     }
@@ -66,7 +68,8 @@ int countdownLabelWidth(const QFontMetrics& fm) {
     return qMax(fm.horizontalAdvance(QStringLiteral("Next track in")),
             qMax(fm.horizontalAdvance(QStringLiteral("Cortina in")),
                     qMax(fm.horizontalAdvance(QStringLiteral("Set ends in")),
-                            fm.horizontalAdvance(QStringLiteral("Paused after")))));
+                            qMax(fm.horizontalAdvance(QStringLiteral("Paused")),
+                                    fm.horizontalAdvance(QStringLiteral("Pause in"))))));
 }
 
 int countdownTimeCellWidth(const QFontMetrics& fm) {
@@ -202,10 +205,11 @@ QSize WTangoHud::sizeHint() const {
 
 void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     Q_UNUSED(pEvent);
-    // While Auto DJ is stopped there is no countdown to show. Keep the reserved
-    // size (so the toolbar never reflows) but paint nothing rather than sitting at
-    // "--:--".
-    if (m_pAutoDJEnabled->get() <= 0.0) {
+    const int nextKind = static_cast<int>(m_pNextKind->get());
+    // A manual stop has no countdown to show. An automatic Pause After stop is
+    // different: keep its final "Paused / --:--" acknowledgement visible until
+    // the DJ resumes or deliberately resets the state.
+    if (m_pAutoDJEnabled->get() <= 0.0 && nextKind != 3) {
         return;
     }
     QPainter p(this);
@@ -217,7 +221,6 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
 
     // Live state.
     const double seconds = m_pCountdownSeconds->get();
-    const int nextKind = static_cast<int>(m_pNextKind->get());
     const int trackCount = static_cast<int>(m_pTandaTrackCount->get());
     const int playingIndex = static_cast<int>(m_pTandaPlayingIndex->get());
     // playingIndex < 0 with a track count means "previewing the upcoming tanda"
