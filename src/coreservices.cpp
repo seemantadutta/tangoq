@@ -541,17 +541,6 @@ CoreServices::~CoreServices() {
 }
 
 void CoreServices::initializeSettings() {
-#ifdef Q_OS_MACOS
-    // TODO: At this point it is too late to provide the same settings path to all components
-    // and too early to log errors and give users advises in their system language.
-    // Calling this from main.cpp before the QApplication is initialized may cause a crash
-    // due to potential QMessageBox invocations within migrateOldSettings().
-    // Solution: Start Mixxx with default settings, migrate the preferences, and then restart
-    // immediately.
-    if (!m_cmdlineArgs.getSettingsPathSet()) {
-        CmdlineArgs::Instance().setSettingsPath(Sandbox::migrateOldSettings());
-    }
-#endif
     QString settingsPath = m_cmdlineArgs.getSettingsPath();
     m_pSettingsManager = std::make_unique<SettingsManager>(settingsPath);
 }
@@ -732,8 +721,8 @@ void CoreServices::initialize(QApplication* pApp) {
         // user take some course of action -- bkgood
         // macOS draws the native directory chooser without a title bar and
         // ignores the caption below, so on a first run the user is faced with a
-        // bare file browser and no indication of what it wants. Explain first,
-        // the same way Sandbox::migrateOldSettings() does before its picker.
+        // bare file browser and no indication of what it wants. Explain what the
+        // otherwise context-free native directory picker wants first.
         const QString appName = VersionStore::applicationName();
         QMessageBox::information(nullptr,
                 tr("Choose your music folder"),

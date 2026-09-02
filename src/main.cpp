@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QDir>
+#include <QMessageBox>
 #include <QPixmapCache>
 #include <QString>
 #include <QStringList>
@@ -16,6 +17,7 @@
 #include "coreservices.h"
 #include "errordialoghandler.h"
 #include "mixxxapplication.h"
+#include "preferences/upgrade.h"
 #ifdef MIXXX_USE_QML
 #include "qml/qmlapplication.h"
 #endif
@@ -55,6 +57,39 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
     CmdlineArgs::Instance().parseForUserFeedback();
 
     const auto pCoreServices = std::make_shared<mixxx::CoreServices>(args, pApp);
+    if (!pCoreServices->isConfigCompatible()) {
+        const QString configPath = QDir(pCoreServices->getSettings()->getSettingsPath())
+                                           .filePath(MIXXX_SETTINGS_FILE);
+        QString message;
+        if (pCoreServices->configCompatibility() ==
+                Upgrade::ConfigCompatibility::NewerThanSupported) {
+            message = QObject::tr(
+                    "These settings were created by a newer version of TangoQ "
+                    "(configuration schema %1). This version supports schemas up "
+                    "to %2.\n\n"
+                    "TangoQ has not changed the settings file:\n\n%3\n\n"
+                    "Install the newer TangoQ version or restore a compatible "
+                    "settings backup, then try again.")
+                              .arg(pCoreServices->detectedConfigVersion())
+                              .arg(Upgrade::kCurrentTangoQConfigVersion)
+                              .arg(QDir::toNativeSeparators(configPath));
+        } else {
+            message = QObject::tr(
+                    "TangoQ cannot migrate these settings from configuration "
+                    "schema %1 to schema %2.\n\n"
+                    "TangoQ has not changed the settings file:\n\n%3\n\n"
+                    "Restore a compatible settings backup or install a version "
+                    "of TangoQ that supports this migration, then try again.")
+                              .arg(pCoreServices->detectedConfigVersion())
+                              .arg(Upgrade::kCurrentTangoQConfigVersion)
+                              .arg(QDir::toNativeSeparators(configPath));
+        }
+        QMessageBox::critical(nullptr,
+                QObject::tr("Cannot open TangoQ settings"),
+                message,
+                QMessageBox::Ok);
+        return kFatalErrorOnStartupExitCode;
+    }
 
     int exitCode;
 #ifdef MIXXX_USE_QML
@@ -212,7 +247,7 @@ int main(int argc, char * argv[]) {
     //QCoreApplication::setOrganizationName("Mixxx");
 
     QCoreApplication::setApplicationName(VersionStore::applicationName());
-    QCoreApplication::setApplicationVersion(VersionStore::version());
+    QCoreApplication::setApplicationVersion(VersionStore::forkVersion());
 
     // Construct a list of strings based on the command line arguments
     CmdlineArgs& args = CmdlineArgs::Instance();
@@ -231,6 +266,15 @@ int main(int argc, char * argv[]) {
 
 #ifdef __APPLE__
     Sandbox::checkSandboxed();
+#endif
+
+#ifdef Q_OS_MACOS
+    if (!args.getSettingsPathSet()) {
+        const QString tangoQSettingsPath = Sandbox::settingsPath();
+        if (!tangoQSettingsPath.isEmpty()) {
+            args.setSettingsPath(tangoQSettingsPath);
+        }
+    }
 #endif
 
     adjustScaleFactor(&args);
@@ -259,18 +303,6 @@ int main(int argc, char * argv[]) {
     int notifywarningThreshold = config.getValue<int>(
             ConfigKey(kConfigGroup, kNotifyMaxDbgTimeKey), 10);
     app.setNotifyWarningThreshold(notifywarningThreshold);
-
-#ifdef Q_OS_MACOS
-    // TODO: At this point it is too late to provide the same settings path to all components
-    // and too early to log errors and give users advises in their system language.
-    // Calling this from main.cpp before the QApplication is initialized may cause a crash
-    // due to potential QMessageBox invocations within migrateOldSettings().
-    // Solution: Start Mixxx with default settings, migrate the preferences, and then restart
-    // immediately.
-    if (!args.getSettingsPathSet()) {
-        CmdlineArgs::Instance().setSettingsPath(Sandbox::migrateOldSettings());
-    }
-#endif
 
 #ifdef __APPLE__
     QDir dir(QApplication::applicationDirPath());

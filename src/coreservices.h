@@ -97,6 +97,18 @@ class CoreServices : public QObject {
         return m_pSettingsManager->settings();
     }
 
+    bool isConfigCompatible() const {
+        return m_pSettingsManager->isConfigCompatible();
+    }
+
+    Upgrade::ConfigCompatibility configCompatibility() const {
+        return m_pSettingsManager->configCompatibility();
+    }
+
+    int detectedConfigVersion() const {
+        return m_pSettingsManager->detectedConfigVersion();
+    }
+
     std::shared_ptr<ScreensaverManager> getScreensaverManager() const {
         return m_pScreensaverManager;
     }

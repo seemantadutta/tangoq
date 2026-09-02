@@ -2,14 +2,13 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <utility>
 
 #include "config.h"
 #include "util/versionstore.h"
 #include "waveform/vsyncthread.h"
 
 namespace {
-
-constexpr int kCurrentTangoQConfigVersion = 1;
 
 const ConfigKey kProductVersionKey("[Config]", "Version");
 const ConfigKey kTangoQConfigVersionKey("[Config]", "TangoQConfigVersion");
@@ -108,13 +107,20 @@ VSyncThread::VSyncMode upgradeDeprecatedVSyncModes(int configVSyncMode) {
 
 Upgrade::Upgrade()
         : m_bFirstRun(false),
-          m_bRescanLibrary(false) {
+          m_bRescanLibrary(false),
+          m_configCompatibility(ConfigCompatibility::Supported),
+          m_detectedConfigVersion(0) {
 }
 
 Upgrade::~Upgrade() {
 }
 
 UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
+    m_bFirstRun = false;
+    m_bRescanLibrary = false;
+    m_configCompatibility = ConfigCompatibility::Supported;
+    m_detectedConfigVersion = 0;
+
     // TangoQ owns tangoq.cfg. In particular, do not inspect or move legacy
     // Mixxx files from the user's home directory into TangoQ's settings path.
     const QString configFilePath =
@@ -131,19 +137,17 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
         config->setValue(kProductVersionKey, VersionStore::forkVersion());
         config->setValue(
                 kTangoQConfigVersionKey, kCurrentTangoQConfigVersion);
+        m_detectedConfigVersion = kCurrentTangoQConfigVersion;
         m_bFirstRun = true;
         return config;
     }
 
-    int configSchemaVersion = kCurrentTangoQConfigVersion;
+    int configSchemaVersion = 0;
     if (!config->exists(kTangoQConfigVersionKey)) {
         // All existing pre-schema tangoq.cfg files are adopted without
         // transforming their settings, regardless of the product version they
         // carry. The product version is provenance, not a migration selector.
-        qDebug() << "Adopting existing TangoQ configuration as schema"
-                 << kCurrentTangoQConfigVersion;
-        config->setValue(
-                kTangoQConfigVersionKey, kCurrentTangoQConfigVersion);
+        qDebug() << "Adopting existing pre-schema TangoQ configuration";
     } else {
         const QString rawSchemaVersion =
                 config->getValueString(kTangoQConfigVersionKey);
@@ -151,14 +155,12 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
         configSchemaVersion = rawSchemaVersion.toInt(&parsed);
 
         if (!parsed || configSchemaVersion < 0) {
-            // Schema 1 has no transformations, so adopting a malformed value
-            // is safe. Keep this explicit when future migrations are added.
+            // Treat malformed values as pre-schema rather than stamping them
+            // directly with the current schema. This guarantees that they pass
+            // through every sequential migration when future schemas are added.
             qWarning() << "Invalid TangoQ configuration schema"
-                       << rawSchemaVersion << "-- safely adopting schema"
-                       << kCurrentTangoQConfigVersion;
-            configSchemaVersion = kCurrentTangoQConfigVersion;
-            config->setValue(
-                    kTangoQConfigVersionKey, configSchemaVersion);
+                       << rawSchemaVersion << "-- treating it as pre-schema";
+            configSchemaVersion = 0;
         } else if (configSchemaVersion > kCurrentTangoQConfigVersion) {
             // An older binary cannot know whether any setting written by a
             // future schema is safe to rewrite. Leave the configuration
@@ -167,6 +169,8 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
                        << "is newer than supported schema"
                        << kCurrentTangoQConfigVersion
                        << "-- leaving configuration unchanged";
+            m_configCompatibility = ConfigCompatibility::NewerThanSupported;
+            m_detectedConfigVersion = configSchemaVersion;
             return config;
         }
     }
@@ -178,13 +182,15 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
         switch (configSchemaVersion) {
         case 0:
             qDebug() << "Adopting TangoQ configuration schema 0 as schema 1";
-            configSchemaVersion = 1;
+            configSchemaVersion = kInitialTangoQConfigVersion;
             break;
         default:
             qWarning() << "No TangoQ configuration migration from schema"
                        << configSchemaVersion << "to supported schema"
                        << kCurrentTangoQConfigVersion
                        << "-- leaving remaining settings unchanged";
+            m_configCompatibility = ConfigCompatibility::MigrationUnavailable;
+            m_detectedConfigVersion = configSchemaVersion;
             return config;
         }
         config->setValue(kTangoQConfigVersionKey, configSchemaVersion);
@@ -197,6 +203,7 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
                     ConfigKey("[Waveform]", "VSync"), 0)));
 
     config->setValue(kProductVersionKey, VersionStore::forkVersion());
+    m_detectedConfigVersion = configSchemaVersion;
     qDebug() << "TangoQ configuration is at schema" << configSchemaVersion
              << "for product" << VersionStore::forkVersion();
     return config;
