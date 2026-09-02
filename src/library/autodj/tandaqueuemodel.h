@@ -33,6 +33,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
         RowKindRole = Qt::UserRole + 100,
         TandaIdRole,
         DisclosureActionRole,
+        CurrentItemRole,
     };
     enum class RowKind {
         Track,
@@ -151,8 +152,7 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     };
 
     const VisibleRow* visibleRow(int proxyRow) const;
-    // Indexes of the appended, source-less current-marker and Item Type columns.
-    int playMarkerColumn() const;
+    // Index of the appended, source-less Item Type column.
     int tandaTypeColumn() const;
     QModelIndex sourceIndexForInsertion(const QModelIndex& proxyIndex) const;
     QString tandaTypeLabel(const QUuid& id) const;
