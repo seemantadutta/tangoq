@@ -2300,6 +2300,7 @@ if(BUILD_TESTING)
     src/test/tracknumberstest.cpp
     src/test/trackreftest.cpp
     src/test/trackupdate_test.cpp
+    src/test/upgrade_test.cpp
     src/test/uuid_test.cpp
     src/test/wbatterytest.cpp
     src/test/wpushbutton_test.cpp

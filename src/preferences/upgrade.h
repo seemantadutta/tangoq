@@ -12,8 +12,6 @@ class Upgrade {
     bool rescanLibrary() {return m_bRescanLibrary; };
 
   private:
-    bool askReanalyzeBeats();
-    bool askReScanLibrary();
     bool m_bFirstRun;
     bool m_bRescanLibrary;
 };
