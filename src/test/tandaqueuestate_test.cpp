@@ -407,9 +407,12 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnShowsLetterOnHeaderOnly) {
     TandaQueueModel model(&source, &state);
     ASSERT_EQ(5, model.rowCount());
 
-    // The appended column sits one past the source columns.
+    // The two appended columns keep the play marker and item type independent.
+    const int markerCol = model.columnCount() - 2;
     const int typeCol = model.columnCount() - 1;
-    EXPECT_EQ(source.columnCount() + 1, model.columnCount());
+    EXPECT_EQ(source.columnCount() + 2, model.columnCount());
+    EXPECT_EQ(QStringLiteral("▶"),
+            model.headerData(markerCol, Qt::Horizontal).toString());
     EXPECT_EQ(QStringLiteral("Item Type"),
             model.headerData(typeCol, Qt::Horizontal).toString());
 
@@ -420,13 +423,17 @@ TEST_F(TandaQueueDaoTest, TandaTypeColumnShowsLetterOnHeaderOnly) {
             model.data(model.index(1, typeCol)).toString());
     EXPECT_TRUE(model.data(model.index(0, typeCol)).toString().isEmpty());
     EXPECT_TRUE(model.data(model.index(2, typeCol)).toString().isEmpty());
+    EXPECT_TRUE(model.data(model.index(1, markerCol)).toString().isEmpty());
 
     // A real, user-selectable, non-sortable column that never maps to a source
     // cell.
     EXPECT_FALSE(model.isColumnInternal(typeCol));
+    EXPECT_FALSE(model.isColumnInternal(markerCol));
     EXPECT_FALSE(model.isColumnSortable(typeCol));
+    EXPECT_FALSE(model.isColumnSortable(markerCol));
     EXPECT_FALSE(model.mapToSource(model.index(1, typeCol)).isValid());
     EXPECT_FALSE(model.mapToSource(model.index(2, typeCol)).isValid());
+    EXPECT_FALSE(model.mapToSource(model.index(1, markerCol)).isValid());
 }
 
 TEST_F(TandaQueueDaoTest, TandaTypeColumnMarksCortinaTracks) {

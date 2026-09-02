@@ -169,13 +169,16 @@ int TandaQueueModel::rowCount(const QModelIndex& parent) const {
 }
 
 int TandaQueueModel::columnCount(const QModelIndex& parent) const {
-    // One extra virtual column appended after the source columns: "Tanda Type".
-    return parent.isValid() ? 0 : m_pPlaylistModel->columnCount() + 1;
+    // Two virtual columns follow the source columns: current marker, Item Type.
+    return parent.isValid() ? 0 : m_pPlaylistModel->columnCount() + 2;
+}
+
+int TandaQueueModel::playMarkerColumn() const {
+    return m_pPlaylistModel->columnCount();
 }
 
 int TandaQueueModel::tandaTypeColumn() const {
-    // The appended column sits just past the source columns.
-    return m_pPlaylistModel->columnCount();
+    return m_pPlaylistModel->columnCount() + 1;
 }
 
 QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
@@ -201,10 +204,9 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         if (role == Qt::BackgroundRole && background.isValid()) {
             return QBrush(background);
         }
-        // A current constituent or ordinary track shows only the play marker.
-        // Cortina and performance tracks retain their lowercase c/p designation
-        // beside it as quiet punctuation in the TTVTTM flow.
-        if (proxyIndex.column() == tandaTypeColumn()) {
+        // Keep the play marker and item type in separate fixed-width cells so
+        // T/V/M/N/c/p never shifts when the current row changes.
+        if (proxyIndex.column() == playMarkerColumn()) {
             const bool isCurrent = m_pProcessor &&
                     m_pProcessor->activeKeepQueuePosition() ==
                             pRow->sourceRow + 1;
@@ -212,20 +214,7 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                 return QVariant::fromValue(Qt::AlignCenter);
             }
             if (role == Qt::DisplayRole) {
-                QString typeMark;
-                if (m_pPlaylistModel->showCortinaMarks()) {
-                    if (CortinaRegistry::instance().contains(trackId)) {
-                        typeMark = QStringLiteral("c");
-                    } else if (PerformanceRegistry::instance().contains(trackId)) {
-                        typeMark = QStringLiteral("p");
-                    }
-                }
-                if (!isCurrent) {
-                    return typeMark;
-                }
-                return typeMark.isEmpty()
-                        ? QVariant(QStringLiteral("▶"))
-                        : QVariant(QStringLiteral("▶%1").arg(typeMark));
+                return isCurrent ? QVariant(QStringLiteral("▶")) : QVariant();
             }
             if (role == Qt::ForegroundRole) {
                 if (background.isValid()) {
@@ -235,6 +224,24 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
                     return m_pPlaylistModel->data(
                             m_pPlaylistModel->index(pRow->sourceRow, 0), role);
                 }
+            }
+            return {};
+        }
+        if (proxyIndex.column() == tandaTypeColumn()) {
+            if (role == Qt::TextAlignmentRole) {
+                return QVariant::fromValue(Qt::AlignCenter);
+            }
+            if (role == Qt::DisplayRole &&
+                    m_pPlaylistModel->showCortinaMarks()) {
+                if (CortinaRegistry::instance().contains(trackId)) {
+                    return QStringLiteral("c");
+                }
+                if (PerformanceRegistry::instance().contains(trackId)) {
+                    return QStringLiteral("p");
+                }
+            }
+            if (role == Qt::ForegroundRole && background.isValid()) {
+                return QBrush(TandaColorPalette::autoTextColor(background));
             }
             return {};
         }
@@ -290,6 +297,7 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
     }
     if (role == Qt::TextAlignmentRole) {
         return (proxyIndex.column() == disclosureColumn() ||
+                       proxyIndex.column() == playMarkerColumn() ||
                        proxyIndex.column() == tandaTypeColumn())
                 ? QVariant::fromValue(Qt::AlignCenter)
                 : QVariant::fromValue(Qt::AlignVCenter | Qt::AlignLeft);
@@ -298,16 +306,16 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         return {};
     }
 
-    if (proxyIndex.column() == tandaTypeColumn()) {
-        const QString typeLetter = tandaTypeLetter(pSpan->type);
+    if (proxyIndex.column() == playMarkerColumn()) {
         const int cursor = m_pProcessor
                 ? m_pProcessor->activeKeepQueuePosition()
                 : 0;
         const bool isCurrent = cursor >= pSpan->anchorPosition &&
                 cursor < pSpan->anchorPosition + pSpan->members.size();
-        return isCurrent
-                ? QVariant(QStringLiteral("▶%1").arg(typeLetter))
-                : QVariant(typeLetter);
+        return isCurrent ? QVariant(QStringLiteral("▶")) : QVariant();
+    }
+    if (proxyIndex.column() == tandaTypeColumn()) {
+        return tandaTypeLetter(pSpan->type);
     }
     if (proxyIndex.column() == summaryColumn()) {
         return QStringLiteral("      %1").arg(tandaSummary(pRow->tandaId));
@@ -326,8 +334,29 @@ bool TandaQueueModel::setData(
 
 QVariant TandaQueueModel::headerData(
         int section, Qt::Orientation orientation, int role) const {
+    if (orientation == Qt::Horizontal && section == playMarkerColumn()) {
+        switch (role) {
+        case Qt::DisplayRole:
+            return QStringLiteral("▶");
+        case TrackModel::kHeaderWidthRole:
+            return 28;
+        case TrackModel::kHeaderNameRole:
+            return QStringLiteral("tango_current_marker");
+        case Qt::ToolTipRole:
+            return tr("Current item");
+        default:
+            return {};
+        }
+    }
     if (orientation == Qt::Horizontal && section == tandaTypeColumn()) {
-        return role == Qt::DisplayRole ? QVariant(tr("Item Type")) : QVariant();
+        switch (role) {
+        case Qt::DisplayRole:
+            return tr("Item Type");
+        case TrackModel::kHeaderNameRole:
+            return QStringLiteral("tango_item_type");
+        default:
+            return {};
+        }
     }
     return m_pPlaylistModel->headerData(section, orientation, role);
 }
@@ -498,19 +527,19 @@ const QString TandaQueueModel::currentSearch() const {
 }
 
 bool TandaQueueModel::isColumnInternal(int column) {
-    if (column == tandaTypeColumn()) {
+    if (column == playMarkerColumn() || column == tandaTypeColumn()) {
         return false; // a real, user-selectable column
     }
     return m_pPlaylistModel->isColumnInternal(column);
 }
 
 bool TandaQueueModel::isColumnHiddenByDefault(int column) {
-    if (column == tandaTypeColumn()) {
-        return false; // Item Type: shown by default in Tango mode
+    if (column == playMarkerColumn() || column == tandaTypeColumn()) {
+        return false; // Current marker and Item Type are shown in Tango mode.
     }
     // TangoQ: a fresh install (no persisted header state) shows only #, Preview,
-    // Item Type, Title, Artist and Album. Every other column is hidden by
-    // default and can be re-enabled from the header's right-click menu.
+    // the current marker, Item Type, Title, Artist and Album. Every other column
+    // is hidden by default and can be re-enabled from the header's context menu.
     return !(column == m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION) ||
             column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW) ||
             column == m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE) ||
@@ -520,10 +549,11 @@ bool TandaQueueModel::isColumnHiddenByDefault(int column) {
 
 QList<int> TandaQueueModel::defaultColumnOrder() const {
     // Left-to-right order for a fresh install. Matches isColumnHiddenByDefault(),
-    // with the appended Item Type column sitting just after Preview.
+    // with the appended marker and Item Type columns sitting after Preview.
     return {
             m_pPlaylistModel->fieldIndex(PLAYLISTTRACKSTABLE_POSITION),
             m_pPlaylistModel->fieldIndex(LIBRARYTABLE_PREVIEW),
+            playMarkerColumn(),
             tandaTypeColumn(),
             m_pPlaylistModel->fieldIndex(LIBRARYTABLE_TITLE),
             m_pPlaylistModel->fieldIndex(LIBRARYTABLE_ARTIST),
@@ -590,7 +620,7 @@ bool TandaQueueModel::isLocked() {
 
 QAbstractItemDelegate* TandaQueueModel::delegateForColumn(
         int column, QObject* pParent) {
-    if (column == tandaTypeColumn()) {
+    if (column == playMarkerColumn() || column == tandaTypeColumn()) {
         return nullptr; // plain text rendering
     }
     return m_pPlaylistModel->delegateForColumn(column, pParent);
@@ -617,7 +647,7 @@ QString TandaQueueModel::mapModelSettingName(const QString& name) {
     // "header_state_pb" key, and without a distinct key the proxy would restore
     // that stock layout instead of applying the tango column defaults.
     if (name == QStringLiteral("header_state_pb")) {
-        return QStringLiteral("tanda_header_state_pb");
+        return QStringLiteral("tanda_header_state_v2_pb");
     }
     return name;
 }
@@ -636,7 +666,7 @@ void TandaQueueModel::setDefaultSort(
 }
 
 bool TandaQueueModel::isColumnSortable(int column) const {
-    if (column == tandaTypeColumn()) {
+    if (column == playMarkerColumn() || column == tandaTypeColumn()) {
         return false;
     }
     return m_pPlaylistModel->isColumnSortable(column);
@@ -644,7 +674,7 @@ bool TandaQueueModel::isColumnSortable(int column) const {
 
 TrackModel::SortColumnId TandaQueueModel::sortColumnIdFromColumnIndex(
         int index) const {
-    if (index == tandaTypeColumn()) {
+    if (index == playMarkerColumn() || index == tandaTypeColumn()) {
         return SortColumnId::Invalid;
     }
     return m_pPlaylistModel->sortColumnIdFromColumnIndex(index);
@@ -797,10 +827,9 @@ void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
                     roles);
             if (roles.isEmpty() || roles.contains(Qt::ForegroundRole)) {
                 // The source model announces now-playing changes as foreground
-                // updates. The source-less Item Type column also carries the
-                // current-track arrow, so repaint it in the same pass.
-                emit dataChanged(index(proxyRow, tandaTypeColumn()),
-                        index(proxyRow, tandaTypeColumn()),
+                // updates. Repaint the source-less marker cell in the same pass.
+                emit dataChanged(index(proxyRow, playMarkerColumn()),
+                        index(proxyRow, playMarkerColumn()),
                         {Qt::DisplayRole, Qt::ForegroundRole});
             }
         }
