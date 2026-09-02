@@ -6,6 +6,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPalette>
 #include <QPushButton>
 #include <QVBoxLayout>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
@@ -291,27 +292,28 @@ void DlgPrefAutoDJ::loadTandaColors() {
 
 void DlgPrefAutoDJ::updateTandaColorEditorsEnabled() {
     m_pTandaColorEditors->setEnabled(m_tandaColorCodingEnabled);
-    // The color buttons use an explicit stylesheet while active. Remove it
-    // while disabled so the platform draws a genuinely greyed-out control;
-    // the hex text and buffered QColor remain intact.
-    for (int index = 0; index < kTandaColorCount; ++index) {
-        updateTandaColorEditor(index);
-    }
 }
 
 void DlgPrefAutoDJ::updateTandaColorEditor(int index) {
     const QColor color = m_tandaColors.at(index);
     QPushButton* pButton = m_pTandaColorButtons.at(index);
     pButton->setText(color.name(QColor::HexRgb));
-    if (!m_tandaColorCodingEnabled) {
-        pButton->setStyleSheet({});
-        return;
-    }
+    const QPalette palette = m_pTandaColorEditors->palette();
+    // Keep border and padding in the base rule for both states. Swapping the
+    // whole stylesheet on toggle changes sizeHint() and makes the groups jump.
     pButton->setStyleSheet(QStringLiteral(
             "QPushButton { background-color: %1; color: %2; "
-            "border: 1px solid #707070; padding: 3px; }")
+            "border: 1px solid #707070; padding: 3px; } "
+            "QPushButton:disabled { background-color: %3; color: %4; "
+            "border-color: %5; }")
                     .arg(color.name(QColor::HexRgb),
                             TandaColorPalette::autoTextColor(color)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::Button)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::ButtonText)
+                                    .name(QColor::HexRgb),
+                            palette.color(QPalette::Disabled, QPalette::Mid)
                                     .name(QColor::HexRgb)));
 }
 
