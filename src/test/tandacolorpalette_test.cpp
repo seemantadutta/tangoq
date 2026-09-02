@@ -21,6 +21,7 @@ class TandaColorPaletteTest : public MixxxTest {
 TEST_F(TandaColorPaletteTest, ShippedDefaultsCoverAllCategories) {
     const TandaColorPalette palette(config());
 
+    EXPECT_TRUE(palette.colorCodingEnabled());
     EXPECT_EQ(QColor(QStringLiteral("#3d6fb0")),
             palette.base(TandaColorCategory::Tango));
     EXPECT_EQ(QColor(QStringLiteral("#3f9d55")),
@@ -35,6 +36,27 @@ TEST_F(TandaColorPaletteTest, ShippedDefaultsCoverAllCategories) {
             palette.base(TandaColorCategory::Performance));
     EXPECT_EQ(QColor(QStringLiteral("#4a5058")),
             palette.base(TandaColorCategory::Regular));
+}
+
+TEST_F(TandaColorPaletteTest, ColorCodingTogglePersistsWithoutChangingColors) {
+    TandaColorPalette palette(config());
+    QSignalSpy changedSpy(&palette, &TandaColorPalette::changed);
+    const QColor custom(QStringLiteral("#123456"));
+    palette.setBase(TandaColorCategory::Vals, custom);
+
+    palette.setColorCodingEnabled(false);
+    EXPECT_FALSE(palette.colorCodingEnabled());
+    EXPECT_EQ(custom, palette.base(TandaColorCategory::Vals));
+    EXPECT_EQ(2, changedSpy.count());
+
+    // Writing the same state is a no-op.
+    palette.setColorCodingEnabled(false);
+    EXPECT_EQ(2, changedSpy.count());
+
+    saveAndReloadConfig();
+    const TandaColorPalette restored(config());
+    EXPECT_FALSE(restored.colorCodingEnabled());
+    EXPECT_EQ(custom, restored.base(TandaColorCategory::Vals));
 }
 
 TEST_F(TandaColorPaletteTest, ConfigRoundTripPersistsAndSignals) {

@@ -524,6 +524,7 @@ TEST_F(TandaQueueDaoTest, HeadersAndSpecialTracksUseCategoryColors) {
             nullptr, trackCollectionManager(), "tanda_row_color_test");
     source.selectPlaylist(playlistId);
     source.select();
+    source.setShowCortinaMarks(true);
     ASSERT_EQ(4, source.rowCount());
 
     TandaQueueState state{UserSettingsPointer()};
@@ -563,6 +564,19 @@ TEST_F(TandaQueueDaoTest, HeadersAndSpecialTracksUseCategoryColors) {
     // though the menu normally makes them mutually exclusive.
     CortinaRegistry::instance().mark(special);
     EXPECT_EQ(palette.base(TandaColorCategory::Cortina), backgroundForRow(4));
+
+    // Disabling category colors restores the source/skin styling without
+    // removing the type marks that identify the set structure.
+    palette.setColorCodingEnabled(false);
+    EXPECT_FALSE(model.data(model.index(1, 0), Qt::BackgroundRole).isValid());
+    EXPECT_FALSE(model.data(model.index(1, 0), Qt::ForegroundRole).isValid());
+    EXPECT_EQ(source.data(source.index(3, 0), Qt::BackgroundRole),
+            model.data(model.index(4, 0), Qt::BackgroundRole));
+    const int typeColumn = model.columnCount() - 1;
+    EXPECT_EQ(QStringLiteral("V"),
+            model.data(model.index(1, typeColumn), Qt::DisplayRole).toString());
+    EXPECT_EQ(QStringLiteral("c"),
+            model.data(model.index(4, typeColumn), Qt::DisplayRole).toString());
 
     CortinaRegistry::instance().unmark(special);
     PerformanceRegistry::instance().unmark(special);

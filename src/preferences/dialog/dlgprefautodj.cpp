@@ -1,5 +1,6 @@
 #include "preferences/dialog/dlgprefautodj.h"
 
+#include <QCheckBox>
 #include <QColorDialog>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -199,8 +200,17 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
     pHelpLabel->setWordWrap(true);
     pColorGroupLayout->addWidget(pHelpLabel);
 
+    m_pUseTandaColorCodingCheckBox = new QCheckBox(
+            tr("Use color coding in the Tango queue"), pColorGroup);
+    m_pUseTandaColorCodingCheckBox->setObjectName(
+            QStringLiteral("UseTandaColorCodingCheckBox"));
+    pColorGroupLayout->addWidget(m_pUseTandaColorCodingCheckBox);
+
+    m_pTandaColorEditors = new QWidget(pColorGroup);
+    auto* pEditorsLayout = new QVBoxLayout(m_pTandaColorEditors);
+    pEditorsLayout->setContentsMargins(0, 0, 0, 0);
     auto* pTypeGroupsLayout = new QHBoxLayout();
-    pColorGroupLayout->addLayout(pTypeGroupsLayout);
+    pEditorsLayout->addLayout(pTypeGroupsLayout);
 
     const auto addEditorGroup = [this, pTypeGroupsLayout](
                                         const QString& title,
@@ -252,7 +262,16 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
             this,
             &DlgPrefAutoDJ::resetTandaColorsToDefaults);
     pButtonRow->addWidget(pRestoreButton);
-    pColorGroupLayout->addLayout(pButtonRow);
+    pEditorsLayout->addLayout(pButtonRow);
+    pColorGroupLayout->addWidget(m_pTandaColorEditors);
+
+    connect(m_pUseTandaColorCodingCheckBox,
+            &QCheckBox::toggled,
+            this,
+            [this](bool enabled) {
+                m_tandaColorCodingEnabled = enabled;
+                updateTandaColorEditorsEnabled();
+            });
 
     // Keep the existing cortina controls first, then the color section. The two
     // hidden stock Auto DJ groups remain below it in the generated form.
@@ -260,9 +279,22 @@ void DlgPrefAutoDJ::setupTandaColorEditors() {
 }
 
 void DlgPrefAutoDJ::loadTandaColors() {
+    m_tandaColorCodingEnabled = m_pTandaColorPalette->colorCodingEnabled();
+    m_pUseTandaColorCodingCheckBox->setChecked(m_tandaColorCodingEnabled);
     for (int index = 0; index < kTandaColorCount; ++index) {
         m_tandaColors.at(index) =
                 m_pTandaColorPalette->base(kTandaColorCategories.at(index));
+        updateTandaColorEditor(index);
+    }
+    updateTandaColorEditorsEnabled();
+}
+
+void DlgPrefAutoDJ::updateTandaColorEditorsEnabled() {
+    m_pTandaColorEditors->setEnabled(m_tandaColorCodingEnabled);
+    // The color buttons use an explicit stylesheet while active. Remove it
+    // while disabled so the platform draws a genuinely greyed-out control;
+    // the hex text and buffered QColor remain intact.
+    for (int index = 0; index < kTandaColorCount; ++index) {
         updateTandaColorEditor(index);
     }
 }
@@ -271,6 +303,10 @@ void DlgPrefAutoDJ::updateTandaColorEditor(int index) {
     const QColor color = m_tandaColors.at(index);
     QPushButton* pButton = m_pTandaColorButtons.at(index);
     pButton->setText(color.name(QColor::HexRgb));
+    if (!m_tandaColorCodingEnabled) {
+        pButton->setStyleSheet({});
+        return;
+    }
     pButton->setStyleSheet(QStringLiteral(
             "QPushButton { background-color: %1; color: %2; "
             "border: 1px solid #707070; padding: 3px; }")
@@ -401,6 +437,7 @@ void DlgPrefAutoDJ::slotApply() {
         m_pTandaColorPalette->setBase(
                 kTandaColorCategories.at(index), m_tandaColors.at(index));
     }
+    m_pTandaColorPalette->setColorCodingEnabled(m_tandaColorCodingEnabled);
 }
 
 void DlgPrefAutoDJ::slotCancel() {
@@ -500,6 +537,7 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     RandomQueueMinimumSpinBox->setEnabled(false);
     RandomQueueCheckBox->setEnabled(true);
 
+    m_pUseTandaColorCodingCheckBox->setChecked(true);
     resetTandaColorsToDefaults();
 }
 

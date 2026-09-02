@@ -35,6 +35,9 @@ class TandaColorPalette final : public QObject {
 
     static TandaColorPalette* shared(const UserSettingsPointer& pConfig);
 
+    bool colorCodingEnabled() const;
+    void setColorCodingEnabled(bool enabled);
+
     QColor base(TandaColorCategory category) const;
     void setBase(TandaColorCategory category, const QColor& color);
 

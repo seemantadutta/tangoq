@@ -41,6 +41,21 @@ TandaColorPalette* TandaColorPalette::shared(
     return s_pPalette;
 }
 
+bool TandaColorPalette::colorCodingEnabled() const {
+    return !m_pConfig ||
+            m_pConfig->getValue(
+                    ConfigKey(kConfigGroup, QStringLiteral("Enabled")), true);
+}
+
+void TandaColorPalette::setColorCodingEnabled(bool enabled) {
+    if (!m_pConfig || colorCodingEnabled() == enabled) {
+        return;
+    }
+    m_pConfig->set(
+            ConfigKey(kConfigGroup, QStringLiteral("Enabled")), ConfigValue(enabled));
+    emit changed();
+}
+
 QColor TandaColorPalette::base(TandaColorCategory category) const {
     if (!m_pConfig) {
         return defaultBase(category);

@@ -8,6 +8,7 @@
 #include "preferences/usersettings.h"
 
 class QWidget;
+class QCheckBox;
 class ControlProxy;
 class QPushButton;
 class TandaColorPalette;
@@ -53,6 +54,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void updateCortinaFadeEnabled();
     void setupTandaColorEditors();
     void loadTandaColors();
+    void updateTandaColorEditorsEnabled();
     void updateTandaColorEditor(int index);
     void chooseTandaColor(int index);
 
@@ -64,6 +66,9 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     // greyed out then.
     ControlProxy* m_pCortinaLengthControl;
     TandaColorPalette* const m_pTandaColorPalette;
+    bool m_tandaColorCodingEnabled{true};
+    QCheckBox* m_pUseTandaColorCodingCheckBox{nullptr};
+    QWidget* m_pTandaColorEditors{nullptr};
     std::array<QColor, kTandaColorCount> m_tandaColors;
     std::array<QPushButton*, kTandaColorCount> m_pTandaColorButtons{};
 };

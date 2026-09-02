@@ -263,10 +263,12 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         const TrackId trackId = m_pPlaylistModel->getTrackId(
                 m_pPlaylistModel->index(pRow->sourceRow, 0));
         QColor background;
-        if (CortinaRegistry::instance().contains(trackId)) {
-            background = m_pColorPalette->base(TandaColorCategory::Cortina);
-        } else if (PerformanceRegistry::instance().contains(trackId)) {
-            background = m_pColorPalette->base(TandaColorCategory::Performance);
+        if (m_pColorPalette->colorCodingEnabled()) {
+            if (CortinaRegistry::instance().contains(trackId)) {
+                background = m_pColorPalette->base(TandaColorCategory::Cortina);
+            } else if (PerformanceRegistry::instance().contains(trackId)) {
+                background = m_pColorPalette->base(TandaColorCategory::Performance);
+            }
         }
         if (role == Qt::BackgroundRole && background.isValid()) {
             return QBrush(background);
@@ -345,13 +347,17 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
         font.setBold(true);
         return font;
     }
-    const QColor background =
-            m_pColorPalette->base(colorCategory(pSpan->type));
+    const QColor background = m_pColorPalette->colorCodingEnabled()
+            ? m_pColorPalette->base(colorCategory(pSpan->type))
+            : QColor();
     if (role == Qt::BackgroundRole) {
-        return QBrush(background);
+        return background.isValid() ? QVariant::fromValue(QBrush(background)) : QVariant();
     }
     if (role == Qt::ForegroundRole) {
-        return QBrush(TandaColorPalette::autoTextColor(background));
+        return background.isValid()
+                ? QVariant::fromValue(
+                          QBrush(TandaColorPalette::autoTextColor(background)))
+                : QVariant();
     }
     const int cursor = m_pProcessor
             ? m_pProcessor->activeKeepQueuePosition()
