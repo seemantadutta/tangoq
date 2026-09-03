@@ -1,7 +1,12 @@
 # Pre-release tasks
 
-Things to close before cutting the first TangoMode release. Each entry records
-what has already been established, so nothing has to be re-derived.
+> Historical planning record for the earlier optional Tango Mode work. It is not
+> the active release checklist, and some proposed work below has since shipped.
+> Use [`docs/release-1.0.2-checklist.md`](docs/release-1.0.2-checklist.md) for the
+> current TangoQ release gate.
+
+Each entry below records what was established during the earlier design work so
+that the reasoning does not have to be re-derived.
 
 ---
 

@@ -1,6 +1,6 @@
 # TangoQ configuration migration plan
 
-Status: implemented on `fix/tangoq-config-versioning`, pending review
+Status: implemented for TangoQ 1.0.2
 
 Target: the first TangoQ release that ships this work, currently planned as
 1.0.2
@@ -133,8 +133,8 @@ Deleting code that becomes unused, including obsolete prompts and helper
 methods, is acceptable within this focused cleanup.
 
 The product version bump to 1.0.2 is release preparation rather than migration
-selection. Tests and migration logic must use `VersionStore::forkVersion()` for the
-current product value and must not encode 1.0.2 as a migration threshold.
+selection. Tests and migration logic use `VersionStore::forkVersion()` for the
+current product value and do not encode 1.0.2 as a migration threshold.
 
 ## Test-first matrix
 
@@ -277,6 +277,6 @@ changing database behavior in this configuration fix.
 
 ## Delivery
 
-The implementation is on the dedicated `fix/tangoq-config-versioning` branch,
-rebased on the latest `main`. Keep it as a separate PR. The user will review,
-push, open, and merge according to the repository workflow.
+The implementation shipped through the dedicated
+`fix/tangoq-config-versioning` pull request and is part of the TangoQ 1.0.2
+release baseline.

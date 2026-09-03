@@ -1,17 +1,18 @@
 # TangoQ Roadmap & Known Issues
 
-TangoQ is a [Mixxx](https://github.com/mixxxdj/mixxx) fork that adds a **Tango DJ
-mode** for DJs who play pre-arranged *tanda* sets at milongas. A milonga set is an
-ordered list of tandas (groups of 3–4 tracks by one orchestra) separated by
-*cortinas* (short non-tango breaks): nothing is random, nothing is deleted by
-playback, and the set stops at the end.
+TangoQ is a dedicated tango DJ application based on
+[Mixxx](https://github.com/mixxxdj/mixxx). It supports DJs who play pre-arranged
+*tanda* sets at milongas. A milonga set is an ordered list of tandas (groups of
+3–4 tracks by one orchestra) separated by *cortinas* (short non-tango breaks):
+nothing is random, nothing is deleted by playback, and the set stops at the end.
 
 This document tracks fork-specific work — what has shipped, what is planned, and
 the known rough edges. It complements `RELEASE_NOTES.md` (user-facing release
-summaries) and `prerelease-tasks.md` (the active pre-release checklist).
+summaries) and `docs/release-1.0.2-checklist.md` (the active release checklist).
 
-The guiding invariant of the fork: **with Tango mode off, TangoQ behaves like
-stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
+TangoQ keeps the familiar deck-based Mixxx interface, while its tango workflow
+is permanently enabled. The retained internal gating keeps upstream and TangoQ
+behavior separated even though users no longer switch between those modes.
 
 ---
 
@@ -81,6 +82,9 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
 - **Cortina tagging in the deck area**, not just in the Auto DJ list.
 - **Dancer icon** shows a red couple only in Tango mode and disappears entirely in
   stock mode, so plain Mixxx never shows the Tango marker.
+- **High Contrast daylight scheme.** TangoQ's simplified skin includes a
+  Sunrise-derived khaki/sand palette for bright rooms, with attribution to
+  Dj.Anth0n1's LateNight Sunrise Color Scheme.
 
 ### Branding & packaging
 
@@ -108,10 +112,10 @@ stock Mixxx.** Every Tango behaviour is gated so the stock path stays intact.
   `qDebug` message to the log file regardless of log level, so a single session
   ballooned the log to tens of MB (track-cache reindex and KeyMap/Beats
   deserialization alone log hundreds of thousands of lines); 11 rotated files
-  reached ~500 MB on disk. Debug now respects the `--logLevel` setting for the
+  reached ~500 MB on disk. Debug now respects the `--log-level` setting for the
   file as well as stderr, and the `[CORTINA_ENVELOPE]` / `[CORTINA_FADE_NOW]`
   instrumentation was downgraded from `qInfo` to `qDebug`. Run with
-  `--logLevel debug` to get the old verbosity back.
+  `--log-level debug` to get the old verbosity back.
   - *Still open (optional):* the retention ceiling is inherited stock — 100 MB
     per file × 11 files. Now that debug is gated the files stay small, but the
     default cap could be lowered if we want a firmer bound.
@@ -195,20 +199,6 @@ structural compatibility. Before TangoQ needs its first database-specific change
 design a second TangoQ-owned migration lane (for example
 `tangoq.schema.version`) while retaining `mixxx.schema.version` for selectively
 ported upstream revisions. Do not bundle database changes with the config fix.
-
-### Sunrise (daylight) color scheme
-
-A warm khaki/sand "daylight" palette for the TangoQ skin, requested by a DJ. The
-source is Dj.Anth0n1's `LateNight_Sunrise-Color-Scheme` (github.com/DjAnth0n1) — a
-full LateNight clone whose only real change is ~47 recolored QSS values (dark
-backgrounds → `#cccc99`/`#999973`, text → `#12120d`, amber accents → `#d09300`). It
-is a GPL derivative of LateNight.
-
-Do **not** adopt his files: they carry the full controllerist LateNight surface that
-TangoQ deliberately strips. Port the palette instead — add a `style_sunrise.qss`
-(TangoQ's `style_classic.qss` recolored with those values) plus a
-`<Scheme>Sunrise</Scheme>` block in `res/skins/TangoQ/skin.xml`, and credit
-Dj.Anth0n1 in the scheme/README. Skin XML/QSS only, restart-only.
 
 ---
 
