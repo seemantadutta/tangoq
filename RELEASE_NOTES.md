@@ -1,86 +1,87 @@
-# Tango DJ Mode for Mixxx
+# TangoQ 1.0.2
 
-A set of Auto DJ enhancements for DJing at a typical tango milonga, built on top of
-**Mixxx 2.5.6**.
+TangoQ 1.0.2 is the first official TangoQ release. It is purpose-built for
+Argentine tango DJing and is based on Mixxx 2.5.6. The earlier 1.0.1 builds were
+limited early-access builds.
 
-Standard Mixxx is unchanged until you turn the mode on: everything below is gated
-behind a single preference, **Preferences → Auto DJ → "Enable Tango DJ mode"**.
+> **Upgrading from early-access TangoQ 1.0.1:** On Windows, uninstall TangoQ
+> 1.0.1 before installing 1.0.2. On macOS, quit TangoQ and replace the existing
+> TangoQ application when installing 1.0.2. Do not delete your TangoQ settings
+> folder; your library, cues, playlists, and preferences will carry forward.
+> Do not reinstall TangoQ 1.0.1 after upgrading.
 
----
+## Tango workflow
 
-## Highlights
+- The TangoQ queue plays a prepared set from top to bottom, keeps played tracks
+  visible, and stops at the end.
+- Tracks can be grouped into Tango, Vals, Milonga, and Alt/Nuevo tandas. Tanda
+  headers support custom names and retain progress pips when collapsed.
+- Tanda Transition uses a real silent gap between tracks and respects a DJ-set
+  start marker. Cortinas use their dedicated fade envelope.
+- Cortinas, performance tracks, and pause-after-track markers support
+  announcements and other changes in the flow of a milonga.
+- The cockpit shows set timing, target-end comparison, the next transition, and
+  tanda progress. When a pause follows the current track, the HUD describes the
+  pause instead of promising that the next track will start automatically.
+- LIVE mode and queue lockdown protect a running set from accidental stops,
+  reordering, replacement, or randomization.
 
-### Cursor queue (Keep Queue)
-- Played tracks **stay in the list** and play **in order**; Auto DJ **stops at the
-  end** instead of removing tracks or looping.
-- A cursor follows the next track and re-anchors to the playing/last-played track
-  **by identity** across the model rebuilds that every queue edit triggers — so
-  adding, removing or reordering tracks (running or stopped) never resets your
-  place.
-- The idle deck is reloaded automatically when an edit changes which track is
-  cued next.
+## Queue orientation and appearance
 
-### Control lockdown for live sets
-While Tango mode is on, controls that could derail a live set are disabled:
-**Shuffle, Add Random, Repeat, Skip, Fade Now** and **column sorting**. The
-"Add to Auto DJ Queue (top)/(replace)" context-menu items are greyed out.
+- Tanda headers use configurable fixed colors for Tango, Vals, Milonga, and
+  Alt/Nuevo. Cortinas and performance tracks have their own colors.
+- Color coding can be disabled without losing the selected colors. The layout
+  remains stable when the color controls are disabled.
+- A dedicated `▶` marker identifies the currently playing tanda header and
+  track. The type markers (`T`, `V`, `M`, `N`, `c`, and `p`) remain visible.
+- A Sunrise-derived **High Contrast** scheme provides a light work surface for
+  daylight and other high-ambient-light environments.
+- Fresh installs use a tango-focused column layout, a landscape window, and a
+  centered initial position. Library text size can be adjusted from the UI or
+  with Ctrl+mouse-wheel.
 
-### Set timing & end-time readout
-- The Auto DJ toolbar shows **"Milonga Ends: HH:MM:SS — HH:MM:SS left"** (end time
-  in red), or **"Milonga length"** when stopped.
-- Set a **target end time** and see at a glance whether you are running over or
-  under.
-- Timing accounts for the configured gap/crossfade, and in **Skip Silence** mode
-  uses each track's analyzed audible range so trimmed silence is not
-  over-counted. The upcoming-tracks total is cached and recomputed only when the
-  queue, cursor or mode changes.
-- A duration readout shows the **total time of the currently selected tracks**.
+## Product and installer improvements
 
-### Cortinas
-- **"Add to Auto DJ Queue as Cortina"** tags a track (session-only) with a blue
-  **"[--CORTINA--]"** title prefix in the Auto DJ list.
-- A **preferred cortina length** feeds the set-length and end-time projection.
-- Manually crossfading out of a cortina updates the end time and time-left (it
-  does not change the projected set length).
+- The application, sidebar, preferences, menus, installer artwork, and package
+  metadata use the TangoQ name and icon.
+- TangoQ uses its own settings directory, database name, macOS bundle identity,
+  and Windows installer UpgradeCode. It can be installed alongside stock Mixxx
+  without taking over Mixxx's settings or Windows installer identity.
+- The TangoQ queue ignores track double-clicks and removes the disruptive
+  add-to-top and replace-queue actions from its menus.
+- A startup-window close crash has been fixed.
 
-### LIVE mode (performance lock)
-- **Enter/Exit LIVE mode** from the LIVE indicator in the Auto DJ view.
-- While LIVE, accidental-stop guards are armed: the first stop request only arms
-  a **short confirmation window** (a red countdown that drains over the Auto DJ
-  button); a second request **within that window** actually stops.
-- Stray keystrokes that could disrupt playback are suppressed.
+## Configuration upgrades
 
-### Now-playing highlight
-- The **currently playing** track is shown in **red** in the Auto DJ list.
+- TangoQ configuration migration is independent of the Mixxx product version.
+  `[Config] TangoQConfigVersion` starts at schema 1, while `[Config] Version`
+  records the TangoQ product release.
+- An existing 1.0.1 or other pre-schema TangoQ configuration is adopted without
+  resetting customized waveform, frame-rate, or other settings.
+- A configuration written by a newer unsupported TangoQ schema is rejected
+  before normal startup and is not overwritten.
+- Every launch records a compact migration result in `tangoq.log`. Debug logging
+  can be enabled when a field problem needs more detail.
+- The library database schema and the explicit Mixxx database-import behavior
+  are unchanged by this configuration fix.
 
-### Auto DJ Side Panel
-- An always-visible, **dockable** view of the Auto DJ queue
-  (**View → Auto DJ Side Panel**) so the queue stays visible while you browse the
-  library for the next track to add.
-- **Dock** it to the side or **float** it; it keeps the skin theme in both states.
-  Re-dock via the title-bar button, a double-click, or the right-click menu.
-- It is a second, live view onto the same Auto DJ queue, and its
-  size/position/visibility persist across restarts.
-- Available **only in Tango mode** (hidden entirely otherwise).
+## Installation notes
 
----
+- Windows and macOS installers are currently unsigned, so the operating system
+  will display a first-launch warning. See [INSTALL.md](INSTALL.md) for the exact
+  installation steps.
+- **Windows users upgrading from early-access TangoQ 1.0.1 must uninstall
+  1.0.1 before installing 1.0.2.** The installer identity changed so TangoQ can
+  coexist with Mixxx, and Windows cannot upgrade that early build in place.
+  Uninstalling the application preserves the TangoQ settings and library.
+- On macOS, quit TangoQ and drag TangoQ 1.0.2 into **Applications**, choosing
+  **Replace** when prompted. A separate uninstall is not required.
+- After upgrading, do not reinstall or downgrade to the unsupported TangoQ
+  1.0.1 build.
+- Cortina tags, performance labels, pause markers, and LIVE mode are session
+  annotations and are cleared when TangoQ restarts. The underlying queue and
+  library database persist normally.
+- External-display and OBS export is not included in this release.
 
-## Notes & limitations
-- Tango mode is a **single persistent preference**; turning it off restores
-  standard Auto DJ behavior.
-- **Cortina tags** and **LIVE mode** are **session-only** and reset at each
-  launch.
-- Tango fade defaults (Skip Silence + a short gap) are applied only while the fade
-  settings are still at Mixxx's factory defaults, so your custom fade settings are
-  never overwritten.
-- Skin theming targets the **LateNight** skin (classic and palemoon variants).
-- Based on **Mixxx 2.5.6**.
-
----
-
-## Enabling
-1. Open **Preferences → Auto DJ**.
-2. Tick **"Enable Tango DJ mode"** and apply.
-3. Load your set into the Auto DJ queue and start Auto DJ.
-4. Optionally open **View → Auto DJ Side Panel** to keep the queue in view while
-   browsing, and **Enter LIVE mode** once the set is running.
+Before publishing, complete the packaged-build checks in
+[docs/release-1.0.2-checklist.md](docs/release-1.0.2-checklist.md).

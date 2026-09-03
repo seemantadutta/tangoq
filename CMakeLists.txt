@@ -236,7 +236,7 @@ set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
 # TangoQ product version. Keep this independent of CMAKE_PROJECT_VERSION, which
 # tracks the Mixxx base for config/schema lineage. This single value feeds the
 # application, platform bundle metadata, and installer filenames.
-set(TANGOQ_VERSION "1.0.1")
+set(TANGOQ_VERSION "1.0.2")
 string(REPLACE "." ";" TANGOQ_VERSION_COMPONENTS "${TANGOQ_VERSION}")
 list(GET TANGOQ_VERSION_COMPONENTS 0 TANGOQ_VERSION_MAJOR)
 list(GET TANGOQ_VERSION_COMPONENTS 1 TANGOQ_VERSION_MINOR)

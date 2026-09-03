@@ -31,9 +31,10 @@ page. Windows packages are named `tangoq-*.msi`; macOS packages are named
 - FAS, S, LAS, and absolute-start waveform markers make start-position decisions
   visible.
 
-For the current manual checklist, see
-[tangomode_manual_test_cases.md](tangomode_manual_test_cases.md). The file name
-will be cleaned up in a later pass with the rest of the behavior terminology.
+For the current release checks, see
+[docs/release-1.0.2-checklist.md](docs/release-1.0.2-checklist.md). The older
+[Tango Mode test catalog](tangomode_manual_test_cases.md) remains as a historical
+reference for deeper subsystem testing.
 
 ## Troubleshooting and diagnostic logs
 
