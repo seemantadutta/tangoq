@@ -1,0 +1,188 @@
+// Render with:
+//   dot -Tsvg docs/tangoq-versioning-migration-flow.dot \
+//       -o docs/tangoq-versioning-migration-flow.svg
+//
+// This describes the schema-based migration policy implemented for 1.0.2.
+digraph TangoQVersioningMigration {
+    graph [
+        label="TangoQ configuration and library database migration",
+        labelloc=t,
+        fontsize=20,
+        fontname="Helvetica",
+        rankdir=TB,
+        nodesep=0.45,
+        ranksep=0.55,
+        pad=0.25,
+        bgcolor="transparent",
+    ];
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Helvetica",
+        fontsize=12,
+        margin="0.16,0.10",
+        color="#62748b",
+        fillcolor="#f8fafc",
+    ];
+    edge [fontname="Helvetica", fontsize=10, color="#52667d"];
+
+    launch [
+        label="Launch TangoQ",
+        fillcolor="#dbeafe",
+        color="#2563eb",
+    ];
+
+    subgraph cluster_config {
+        label="TangoQ configuration path";
+        fontname="Helvetica";
+        fontsize=14;
+        color="#93c5fd";
+        style="rounded";
+
+        config_exists [
+            shape=diamond,
+            label="Does a non-empty\ntangoq.cfg exist?",
+            fillcolor="#f1f5f9",
+        ];
+        fresh_config [
+            label="Fresh TangoQ configuration\nApply TangoQ defaults",
+            fillcolor="#dcfce7",
+            color="#16a34a",
+        ];
+        existing_config [
+            label="Existing TangoQ configuration\nfor example: 1.0.1 or 2.5.6",
+            fillcolor="#dbeafe",
+            color="#2563eb",
+        ];
+        schema_supported [
+            shape=diamond,
+            label="Is TangoQConfigVersion missing,\nmalformed, 0, or supported?",
+            fillcolor="#f1f5f9",
+        ];
+        future_schema [
+            label="Future schema\nDo not modify or save tangoq.cfg\nExplain incompatibility and exit",
+            fillcolor="#fee2e2",
+            color="#dc2626",
+        ];
+        baseline [
+            label="Adopt / create TangoQ schema 1\n\n[Config] Version = current TangoQ release\n[Config] TangoQConfigVersion = 1",
+            fillcolor="#dcfce7",
+            color="#16a34a",
+        ];
+        legacy_ladder [
+            label="Inherited Mixxx version ladder\nincluding the 2.4 waveform migration\n\nNOT USED for TangoQ configurations",
+            fillcolor="#fee2e2",
+            color="#dc2626",
+            style="rounded,dashed,filled",
+        ];
+
+        config_exists -> fresh_config [label="No"];
+        config_exists -> existing_config [label="Yes"];
+        fresh_config -> baseline;
+        existing_config -> schema_supported;
+        schema_supported -> baseline [label="Yes: preserve settings"];
+        schema_supported -> future_schema [label="No: newer schema"];
+        existing_config -> legacy_ladder [
+            label="bypass",
+            style=dashed,
+            color="#dc2626",
+            fontcolor="#dc2626",
+            arrowhead=tee,
+        ];
+    }
+
+    subgraph cluster_database {
+        label="Independent library database path";
+        fontname="Helvetica";
+        fontsize=14;
+        color="#a7f3d0";
+        style="rounded";
+
+        tango_db_exists [
+            shape=diamond,
+            label="Does TangoQ's\nmixxxdb.sqlite exist?",
+            fillcolor="#f1f5f9",
+        ];
+        existing_tango_db [
+            label="Open TangoQ's database\nRun required integer database-schema migrations",
+            fillcolor="#ecfdf5",
+            color="#059669",
+        ];
+        mixxx_db_found [
+            shape=diamond,
+            label="Is mixxxdb.sqlite\nfound?",
+            fillcolor="#f1f5f9",
+        ];
+        import_choice [
+            shape=diamond,
+            label="DJ chooses\nImport Library or Start Fresh",
+            fillcolor="#f1f5f9",
+        ];
+        import_db [
+            label="Copy Mixxx database into TangoQ\nUpgrade the copy's database schema\nOriginal Mixxx database remains untouched",
+            fillcolor="#ecfdf5",
+            color="#059669",
+        ];
+        fresh_db [
+            label="Create a fresh TangoQ database\nat the required database schema",
+            fillcolor="#ecfdf5",
+            color="#059669",
+        ];
+
+        tango_db_exists -> existing_tango_db [label="Yes"];
+        tango_db_exists -> mixxx_db_found [label="No"];
+        mixxx_db_found -> import_choice [label="Yes"];
+        mixxx_db_found -> fresh_db [label="No"];
+        import_choice -> import_db [label="Import Library"];
+        import_choice -> fresh_db [label="Start Fresh"];
+    }
+
+    start [
+        label="TangoQ starts",
+        fillcolor="#dbeafe",
+        color="#2563eb",
+    ];
+
+    subgraph cluster_future {
+        label="Later TangoQ releases";
+        fontname="Helvetica";
+        fontsize=14;
+        color="#c4b5fd";
+        style="rounded";
+
+        config_migration_needed [
+            shape=diamond,
+            label="Does this release change\nTangoQ configuration structure?",
+            fillcolor="#f1f5f9",
+        ];
+        no_config_migration [
+            label="Keep TangoQConfigVersion unchanged\nUpdate product Version only",
+            fillcolor="#f5f3ff",
+            color="#7c3aed",
+        ];
+        tangoq_migration [
+            label="Run explicit TangoQ-only migration\nIncrement TangoQConfigVersion",
+            fillcolor="#f5f3ff",
+            color="#7c3aed",
+        ];
+
+        config_migration_needed -> no_config_migration [label="No"];
+        config_migration_needed -> tangoq_migration [label="Yes"];
+    }
+
+    launch -> config_exists;
+    baseline -> tango_db_exists;
+    existing_tango_db -> start;
+    import_db -> start;
+    fresh_db -> start;
+    start -> config_migration_needed [label="a later release"];
+
+    version_notes [
+        shape=note,
+        label="Three independent values:\n\n• Product version: 1.0.2, 1.0.3, …\n• TangoQ config schema: starts at 1\n• Database schema: monotonic integer\n\nNever compare the product version to Mixxx migration thresholds.",
+        fillcolor="#fffbeb",
+        color="#d97706",
+    ];
+    baseline -> version_notes [style=dotted, arrowhead=none, color="#d97706"];
+}

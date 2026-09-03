@@ -1794,7 +1794,7 @@ if (APPLE AND MACOS_BUNDLE)
   # library database. Still CACHE, so -DMACOS_BUNDLE_NAME=... can override.
   set(MACOS_BUNDLE_NAME TangoQ CACHE STRING "The macOS app bundle and executable name")
   set(MACOS_BUNDLE_IDENTIFIER io.github.seemantadutta.tangoq CACHE STRING "The macOS app bundle identifier")
-  # Sandbox::migrateOldSettings() builds the settings path from these. Deriving them
+  # Sandbox::settingsPath() builds the settings path from these. Deriving them
   # from the bundle identity keeps a fork's library separate from an upstream install
   # on the same machine; leaving the bundle vars at their defaults reproduces the
   # historical ~/Library/Containers/org.mixxx.mixxx/.../Mixxx location exactly.
@@ -2275,6 +2275,7 @@ if(BUILD_TESTING)
     src/test/rescalertest.cpp
     src/test/rgbcolor_test.cpp
     src/test/samplebuffertest.cpp
+    src/test/sandbox_test.cpp
     src/test/schemamanager_test.cpp
     src/test/searchqueryparsertest.cpp
     src/test/seratobeatgridtest.cpp
@@ -2300,6 +2301,7 @@ if(BUILD_TESTING)
     src/test/tracknumberstest.cpp
     src/test/trackreftest.cpp
     src/test/trackupdate_test.cpp
+    src/test/upgrade_test.cpp
     src/test/uuid_test.cpp
     src/test/wbatterytest.cpp
     src/test/wpushbutton_test.cpp

@@ -35,7 +35,13 @@ class Sandbox {
     static void shutdown();
 
 #ifdef Q_OS_MACOS
-    static QString migrateOldSettings();
+    /// Return the fixed settings path shared by signed and unsigned TangoQ
+    /// builds. This only computes a path and never migrates existing files.
+    static QString settingsPath();
+
+    /// Pure path helper exposed so path isolation can be regression-tested
+    /// without reading or modifying a real user's home directory.
+    static QString settingsPathForHome(const QString& homePath);
 #endif
 
     // Returns true if we are in a sandbox.

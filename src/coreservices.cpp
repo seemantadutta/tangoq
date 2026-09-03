@@ -477,8 +477,10 @@ CoreServices::CoreServices(const CmdlineArgs& args, QApplication* pApp)
     // All this here is running without without start up screen
     // Defer long initializations to CoreServices::initialize() which is
     // called after the GUI is initialized
-    initializeSettings();
+    // Logging must start before SettingsManager so config migration decisions
+    // are preserved in tangoq.log for field diagnostics.
     initializeLogging();
+    initializeSettings();
     // Only record stats in developer mode.
     if (m_cmdlineArgs.getDeveloper()) {
         StatsManager::createInstance();
@@ -541,28 +543,23 @@ CoreServices::~CoreServices() {
 }
 
 void CoreServices::initializeSettings() {
-#ifdef Q_OS_MACOS
-    // TODO: At this point it is too late to provide the same settings path to all components
-    // and too early to log errors and give users advises in their system language.
-    // Calling this from main.cpp before the QApplication is initialized may cause a crash
-    // due to potential QMessageBox invocations within migrateOldSettings().
-    // Solution: Start Mixxx with default settings, migrate the preferences, and then restart
-    // immediately.
-    if (!m_cmdlineArgs.getSettingsPathSet()) {
-        CmdlineArgs::Instance().setSettingsPath(Sandbox::migrateOldSettings());
-    }
-#endif
     QString settingsPath = m_cmdlineArgs.getSettingsPath();
     m_pSettingsManager = std::make_unique<SettingsManager>(settingsPath);
 }
 
 void CoreServices::initializeLogging() {
+    const QString settingsPath = m_cmdlineArgs.getSettingsPath();
+    if (!QDir(settingsPath).exists() && !QDir().mkpath(settingsPath)) {
+        qWarning() << "Could not create TangoQ settings directory for logging:"
+                   << settingsPath;
+    }
+
     mixxx::LogFlags logFlags = mixxx::LogFlag::LogToFile;
     if (m_cmdlineArgs.getDebugAssertBreak()) {
         logFlags.setFlag(mixxx::LogFlag::DebugAssertBreak);
     }
     mixxx::Logging::initialize(
-            m_pSettingsManager->settings()->getSettingsPath(),
+            settingsPath,
             m_cmdlineArgs.getLogLevel(),
             m_cmdlineArgs.getLogFlushLevel(),
             logFlags);
@@ -732,8 +729,8 @@ void CoreServices::initialize(QApplication* pApp) {
         // user take some course of action -- bkgood
         // macOS draws the native directory chooser without a title bar and
         // ignores the caption below, so on a first run the user is faced with a
-        // bare file browser and no indication of what it wants. Explain first,
-        // the same way Sandbox::migrateOldSettings() does before its picker.
+        // bare file browser and no indication of what it wants. Explain what the
+        // otherwise context-free native directory picker wants first.
         const QString appName = VersionStore::applicationName();
         QMessageBox::information(nullptr,
                 tr("Choose your music folder"),

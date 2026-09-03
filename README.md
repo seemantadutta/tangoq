@@ -35,6 +35,38 @@ For the current manual checklist, see
 [tangomode_manual_test_cases.md](tangomode_manual_test_cases.md). The file name
 will be cleaned up in a later pass with the rest of the behavior terminology.
 
+## Troubleshooting and diagnostic logs
+
+TangoQ writes `tangoq.log` in its settings directory. Every launch records a
+short configuration-migration summary, including the TangoQ product version,
+the configuration schema found, the schema supported, and the result. It does
+not include individual setting values.
+
+On macOS, reproduce the problem, quit TangoQ, and reveal the current log in
+Finder with:
+
+```sh
+open -R "$HOME/Library/Containers/io.github.seemantadutta.tangoq/Data/Library/Application Support/TangoQ/tangoq.log"
+```
+
+If more detail is needed, first quit TangoQ and then launch it from Terminal:
+
+```sh
+"/Applications/TangoQ.app/Contents/MacOS/TangoQ" \
+    --log-level debug \
+    --log-flush-level debug
+```
+
+If TangoQ is installed somewhere else, replace `/Applications/TangoQ.app` with
+its location. Reproduce the problem, quit TangoQ normally (or dismiss a startup
+error), and attach `tangoq.log` to the
+[TangoQ issue](https://github.com/seemantadutta/tangoq/issues). The current
+session is `tangoq.log`; earlier sessions are rotated to `tangoq.log.1`,
+`tangoq.log.2`, and so on.
+
+A complete debug log may contain usernames, music-file paths, audio-device
+names, and controller information. Review it before posting it publicly.
+
 ## Building From Source
 
 Same as Mixxx, from this fork:

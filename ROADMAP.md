@@ -161,34 +161,40 @@ than a built-in second window.
   verify the Dock/Finder icon, the microphone-permission prompt, the About dialog,
   and the resulting `.dmg`.
 
-### Version & upgrade-path decoupling from Mixxx
+### Version & upgrade-path decoupling from Mixxx — completed
 
-TangoQ's product version (`TANGOQ_VERSION`, 1.0.x) is what `VersionStore::version()`
-returns, but `upgrade.cpp` still reasons about the config file in Mixxx's number
-line. A live bug follows: TangoQ's `1.0.1` sorts **below** every Mixxx threshold, so
-`upgrade.cpp:572` (`configVersion < QVersionNumber(2,4,0)`) re-fires the Mixxx 2.4
-migration on every TangoQ-to-TangoQ upgrade, silently resetting the user's
-`[Waveform] WaveformType` and `FrameRate`.
+TangoQ now keeps three independent version concepts:
 
-Its own cycle, test-first (the migration runs against real users' configs):
+- `VersionStore::forkVersion()` is the displayed TangoQ product version
+  (`TANGOQ_VERSION`, currently 1.0.x).
+- `VersionStore::version()` records the Mixxx base version for diagnostics; it no
+  longer controls TangoQ config migration.
+- `[Config] TangoQConfigVersion` is TangoQ's config-schema counter, starting at 1.
 
-- Introduce a TangoQ-owned config-schema counter (e.g. `[Config] TangoQConfigVersion`),
-  separate from the displayed product version, and stop routing TangoQ through the
-  Mixxx version-threshold ladder.
-- Baseline: every TangoQ config is already past the pre-2.5.6 Mixxx migrations, so
-  short-circuit the legacy ladder for any TangoQ config and run only TangoQ
-  migrations off the new counter.
-- Handle existing early-access configs already carrying `Version = 1.0.1` (or, from
-  the old shared-settings bug, `2.5.6`).
-- Write the failing test first: reproduce the spurious 2.4 re-migration in the
-  `upgrade`/processor tests before changing the logic.
+Existing early-access configs without the schema key are adopted as schema 1
+without running the old Mixxx threshold ladder or changing user settings such as
+`[Waveform] WaveformType` and `FrameRate`. The product version is then stamped
+independently. A config from a newer TangoQ schema, or one for which a required
+migration is unavailable, is rejected before database and main-window startup;
+automatic config saves are also suppressed so the unsupported file remains
+untouched.
 
-**DB schema numbering (bundle with the above).** The DB schema version is already
-independent of the "2.5.6" string — it is a monotonic integer
-(`MixxxDb::kRequiredSchemaVersion`, currently 39, in `mixxxdb.cpp`). Only open item:
-adopt a TangoQ offset (start fork-specific `res/schema.xml` revisions at e.g. 1000)
-so future TangoQ schema changes cannot collide with upstream's increments when
-merging.
+On macOS, TangoQ computes its own settings path directly and no longer moves a
+legacy Mixxx settings directory. Importing a Mixxx database remains an explicit,
+user-selected operation.
+
+The implemented design, user-path matrix, and migration diagram are in
+`docs/tangoq-config-migration-plan.md` and
+`docs/tangoq-versioning-migration-flow.svg`.
+
+**Database schema numbering (separate future design).** The database schema is
+independent of both the product version and config schema. Do not assign an
+arbitrarily high value to the shared Mixxx counter: the current migration engine
+requires every intervening integer revision, and a higher number does not prove
+structural compatibility. Before TangoQ needs its first database-specific change,
+design a second TangoQ-owned migration lane (for example
+`tangoq.schema.version`) while retaining `mixxx.schema.version` for selectively
+ported upstream revisions. Do not bundle database changes with the config fix.
 
 ### Sunrise (daylight) color scheme
 
