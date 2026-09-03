@@ -40,7 +40,7 @@ SettingsManager::~SettingsManager() {
 
 void SettingsManager::save() {
     if (!isConfigCompatible()) {
-        qWarning() << "Not saving an unsupported TangoQ configuration at schema"
+        qWarning() << "TangoQ config migration: not saving unsupported schema"
                    << m_detectedConfigVersion;
         return;
     }

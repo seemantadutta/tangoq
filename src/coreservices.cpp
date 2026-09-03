@@ -477,8 +477,10 @@ CoreServices::CoreServices(const CmdlineArgs& args, QApplication* pApp)
     // All this here is running without without start up screen
     // Defer long initializations to CoreServices::initialize() which is
     // called after the GUI is initialized
-    initializeSettings();
+    // Logging must start before SettingsManager so config migration decisions
+    // are preserved in tangoq.log for field diagnostics.
     initializeLogging();
+    initializeSettings();
     // Only record stats in developer mode.
     if (m_cmdlineArgs.getDeveloper()) {
         StatsManager::createInstance();
@@ -546,12 +548,18 @@ void CoreServices::initializeSettings() {
 }
 
 void CoreServices::initializeLogging() {
+    const QString settingsPath = m_cmdlineArgs.getSettingsPath();
+    if (!QDir(settingsPath).exists() && !QDir().mkpath(settingsPath)) {
+        qWarning() << "Could not create TangoQ settings directory for logging:"
+                   << settingsPath;
+    }
+
     mixxx::LogFlags logFlags = mixxx::LogFlag::LogToFile;
     if (m_cmdlineArgs.getDebugAssertBreak()) {
         logFlags.setFlag(mixxx::LogFlag::DebugAssertBreak);
     }
     mixxx::Logging::initialize(
-            m_pSettingsManager->settings()->getSettingsPath(),
+            settingsPath,
             m_cmdlineArgs.getLogLevel(),
             m_cmdlineArgs.getLogFlushLevel(),
             logFlags);

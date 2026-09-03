@@ -13,6 +13,30 @@ namespace {
 const ConfigKey kProductVersionKey("[Config]", "Version");
 const ConfigKey kTangoQConfigVersionKey("[Config]", "TangoQConfigVersion");
 
+QString logValueOr(const QString& value, const QString& fallback) {
+    return value.isEmpty() ? fallback : value;
+}
+
+void logMigrationSummary(const QString& configFilePath,
+        const QString& sourceProductVersion,
+        const QString& foundSchema,
+        const QString& outcome) {
+    qInfo().noquote()
+            << QStringLiteral(
+                       "TangoQ config migration: appProduct=%1 sourceProduct=%2 "
+                       "foundSchema=%3 supportedSchema=%4 outcome=%5")
+                       .arg(VersionStore::forkVersion(),
+                               logValueOr(sourceProductVersion,
+                                       QStringLiteral("<missing>")),
+                               foundSchema,
+                               QString::number(
+                                       Upgrade::kCurrentTangoQConfigVersion),
+                               outcome);
+    qDebug().noquote()
+            << QStringLiteral("TangoQ config migration: configPath=%1")
+                       .arg(QDir::toNativeSeparators(configFilePath));
+}
+
 // Defaults for a brand new install. TangoQ targets tango DJs, for whom the
 // stock club layout -- four decks, samplers, effect racks, spinnies -- is mostly
 // noise. Writing these values only for a genuinely empty configuration lets a
@@ -131,7 +155,7 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     UserSettingsPointer config(new UserSettings(configFilePath));
 
     if (isEmptyConfig) {
-        qDebug() << "Initializing a new TangoQ configuration at schema"
+        qDebug() << "TangoQ config migration: initializing new configuration at schema"
                  << kCurrentTangoQConfigVersion;
         applyFirstRunDefaults(config);
         config->setValue(kProductVersionKey, VersionStore::forkVersion());
@@ -139,18 +163,27 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
                 kTangoQConfigVersionKey, kCurrentTangoQConfigVersion);
         m_detectedConfigVersion = kCurrentTangoQConfigVersion;
         m_bFirstRun = true;
+        logMigrationSummary(configFilePath,
+                QString(),
+                QStringLiteral("<new>"),
+                QStringLiteral("fresh"));
         return config;
     }
 
+    const QString sourceProductVersion =
+            config->getValueString(kProductVersionKey);
     int configSchemaVersion = 0;
+    QString foundSchema;
     if (!config->exists(kTangoQConfigVersionKey)) {
         // All existing pre-schema tangoq.cfg files are adopted without
         // transforming their settings, regardless of the product version they
         // carry. The product version is provenance, not a migration selector.
-        qDebug() << "Adopting existing pre-schema TangoQ configuration";
+        foundSchema = QStringLiteral("<missing>");
+        qDebug() << "TangoQ config migration: adopting existing pre-schema configuration";
     } else {
         const QString rawSchemaVersion =
                 config->getValueString(kTangoQConfigVersionKey);
+        foundSchema = logValueOr(rawSchemaVersion, QStringLiteral("<empty>"));
         bool parsed = false;
         configSchemaVersion = rawSchemaVersion.toInt(&parsed);
 
@@ -158,22 +191,28 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
             // Treat malformed values as pre-schema rather than stamping them
             // directly with the current schema. This guarantees that they pass
             // through every sequential migration when future schemas are added.
-            qWarning() << "Invalid TangoQ configuration schema"
+            qWarning() << "TangoQ config migration: invalid schema"
                        << rawSchemaVersion << "-- treating it as pre-schema";
             configSchemaVersion = 0;
         } else if (configSchemaVersion > kCurrentTangoQConfigVersion) {
             // An older binary cannot know whether any setting written by a
             // future schema is safe to rewrite. Leave the configuration
             // entirely untouched, including product provenance and VSync.
-            qWarning() << "TangoQ configuration schema" << configSchemaVersion
+            qWarning() << "TangoQ config migration: schema" << configSchemaVersion
                        << "is newer than supported schema"
                        << kCurrentTangoQConfigVersion
                        << "-- leaving configuration unchanged";
             m_configCompatibility = ConfigCompatibility::NewerThanSupported;
             m_detectedConfigVersion = configSchemaVersion;
+            logMigrationSummary(configFilePath,
+                    sourceProductVersion,
+                    foundSchema,
+                    QStringLiteral("rejected-newer"));
             return config;
         }
     }
+
+    const int startingConfigSchemaVersion = configSchemaVersion;
 
     // Apply each supported TangoQ migration in sequence. Schema 0 represents
     // an existing configuration from before the counter was introduced;
@@ -181,16 +220,20 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     while (configSchemaVersion < kCurrentTangoQConfigVersion) {
         switch (configSchemaVersion) {
         case 0:
-            qDebug() << "Adopting TangoQ configuration schema 0 as schema 1";
+            qDebug() << "TangoQ config migration: adopting schema 0 as schema 1";
             configSchemaVersion = kInitialTangoQConfigVersion;
             break;
         default:
-            qWarning() << "No TangoQ configuration migration from schema"
+            qWarning() << "TangoQ config migration: no migration from schema"
                        << configSchemaVersion << "to supported schema"
                        << kCurrentTangoQConfigVersion
                        << "-- leaving remaining settings unchanged";
             m_configCompatibility = ConfigCompatibility::MigrationUnavailable;
             m_detectedConfigVersion = configSchemaVersion;
+            logMigrationSummary(configFilePath,
+                    sourceProductVersion,
+                    foundSchema,
+                    QStringLiteral("migration-unavailable"));
             return config;
         }
         config->setValue(kTangoQConfigVersionKey, configSchemaVersion);
@@ -204,7 +247,20 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
 
     config->setValue(kProductVersionKey, VersionStore::forkVersion());
     m_detectedConfigVersion = configSchemaVersion;
-    qDebug() << "TangoQ configuration is at schema" << configSchemaVersion
+    qDebug() << "TangoQ config migration: configuration is at schema"
+             << configSchemaVersion
              << "for product" << VersionStore::forkVersion();
+    QString outcome;
+    if (startingConfigSchemaVersion == 0) {
+        outcome = QStringLiteral("adopted");
+    } else if (startingConfigSchemaVersion < configSchemaVersion) {
+        outcome = QStringLiteral("migrated");
+    } else {
+        outcome = QStringLiteral("unchanged");
+    }
+    logMigrationSummary(configFilePath,
+            sourceProductVersion,
+            foundSchema,
+            outcome);
     return config;
 }
