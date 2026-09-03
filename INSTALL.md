@@ -17,13 +17,32 @@ and download the file for your system:
 | **Mac - Apple Silicon** (M1/M2/M3/M4) | `tangoq-*-arm64.dmg` |
 | **Mac - Intel** | `tangoq-*-x86_64.dmg` |
 
-## 2. Install On Windows
+## 2. Upgrading From Early-Access TangoQ 1.0.1
+
+First quit TangoQ. Your library, cues, playlists, and preferences are stored
+separately from the application and are preserved by the steps below.
+
+**Windows:** uninstall TangoQ 1.0.1 before installing 1.0.2. Open **Settings ->
+Apps -> Installed apps**, find TangoQ, and choose **Uninstall**. Then install the
+1.0.2 `.msi` normally. Do not delete `%LOCALAPPDATA%\TangoQ`; TangoQ 1.0.2 will
+adopt the existing settings and database there.
+
+**macOS:** no separate uninstall is required. Drag TangoQ 1.0.2 into
+**Applications** and choose **Replace** when Finder asks. Alternatively, move
+the old `TangoQ.app` to the Trash before copying the new one. Do not delete the
+TangoQ folder under `~/Library/Containers`; it contains your settings and
+database.
+
+After opening 1.0.2, do not reinstall or downgrade to the unsupported 1.0.1
+build.
+
+## 3. Install On Windows
 
 1. Double-click the downloaded **`.msi`** file.
 2. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
 3. Follow the installer prompts. TangoQ then appears in your Start menu.
 
-## 3. Install On Mac
+## 4. Install On Mac
 
 1. Double-click the downloaded **`.dmg`**.
 2. Drag the **TangoQ** icon onto the **Applications** folder.
@@ -52,7 +71,7 @@ xattr -dr com.apple.quarantine /Applications/TangoQ.app
 
 Then open TangoQ normally.
 
-## 4. First Launch
+## 5. First Launch
 
 TangoQ asks you to choose your music folder the first time it opens. Pick the
 folder your music lives in and click **Open**. You can add more folders later in
@@ -67,7 +86,7 @@ TangoQ keeps its own settings and library separate from standard Mixxx:
 The new database is `tangoq.db`, the config file is `tangoq.cfg`, and the log is
 `tangoq.log`.
 
-## 5. Optional Checksum Verification
+## 6. Optional Checksum Verification
 
 **Windows**:
 
@@ -83,12 +102,12 @@ shasum -a 256 ~/Downloads/tangoq-*.dmg
 
 Compare the printed value to the checksum published on the release page.
 
-## 6. What This Is
+## 7. What This Is
 
 TangoQ is a community-maintained fork based on
 [Mixxx](https://mixxx.org). It is not produced, supported, or endorsed by the
 Mixxx project. Please report TangoQ problems at
-https://github.com/seemantadutta/tangoq/issues.
+<https://github.com/seemantadutta/tangoq/issues>.
 
 Mixxx is free software under the GPL. TangoQ keeps the license and copyright
 notices intact, uses its own name and branding, and links back to the original
