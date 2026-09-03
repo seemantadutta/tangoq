@@ -27,7 +27,8 @@ using SettingsSnapshot = QMap<ConfigKey, QString>;
 
 SettingsSnapshot snapshotSettings(const UserSettingsPointer& config) {
     SettingsSnapshot snapshot;
-    for (const QString& group : config->getGroups()) {
+    const QSet<QString> groups = config->getGroups();
+    for (const QString& group : groups) {
         for (const ConfigKey& key : config->getKeysWithGroup(group)) {
             snapshot.insert(key, config->getValueString(key));
         }
