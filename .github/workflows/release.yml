@@ -49,7 +49,9 @@ jobs:
       - build
     uses: ./.github/workflows/flatpak.yml
     # Flatpak repo only support stable (non-beta tag release), beta and alpha release publication
-    if: ${{ (github.ref_type == 'tag' && !contains('-', github.ref_name)) || github.ref_name == '2.6' || github.ref_name == 'main' }}
+    # Flatpak publication uses Mixxx's external download-server credentials.
+    # TangoQ builds are distributed through GitHub artifacts/releases instead.
+    if: ${{ github.repository == 'mixxxdj/mixxx' && ((github.ref_type == 'tag' && !contains('-', github.ref_name)) || github.ref_name == '2.6' || github.ref_name == 'main') }}
     with:
       ref: ${{ github.ref }}
       update_repo: ${{ github.ref_name == 'main' }}
