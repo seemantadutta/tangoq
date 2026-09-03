@@ -180,8 +180,11 @@ BEFORE changing logic:
   `[Config] Version` is the field in question. It is held in memory and flushed
   to disk only on a clean quit. There is a backup from an earlier session at
   `tangoq.cfg.bak.hcdebug` if you need a real-world sample.
-- **Log** (same directory, `tangoq.log`) is buffered and flushed on clean quit;
-  it reads 0 bytes while running. `qWarning`/`qDebug` land there.
+- **Log** (same directory, `tangoq.log`) is initialized before config migration.
+  Every launch records a concise migration summary. Detailed `qDebug` messages
+  require `--log-level debug`; use `--log-flush-level debug` as well when
+  reproducing a startup failure so messages are persisted promptly. Full debug
+  logs can contain usernames, music-file paths, and device information.
 - There is a companion doc `highcontrast-waveform-handoff.md` in this repo with
   more environment detail (same machine, same rules). Note: that doc mentions the
   user's `WaveformType` is 17. Be aware this very bug can reset that value on

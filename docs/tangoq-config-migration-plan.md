@@ -196,6 +196,52 @@ install and launch TangoQ, then verify a backed-up copy of a customized config:
   rewritten;
 - a stock Mixxx settings directory remains in place and unchanged.
 
+## Field diagnostics
+
+File logging must be initialized from the resolved TangoQ settings path before
+`SettingsManager` reads or migrates `tangoq.cfg`. Otherwise the most useful
+startup migration messages reach only the terminal and are absent from a field
+report's `tangoq.log`.
+
+Every migration attempt writes one concise informational summary in this form:
+
+```text
+TangoQ config migration: appProduct=1.0.2 sourceProduct=1.0.1 foundSchema=<missing> supportedSchema=1 outcome=adopted
+```
+
+The supported outcomes are `fresh`, `adopted`, `unchanged`, `migrated`,
+`rejected-newer`, and `migration-unavailable`. Rejections, invalid schemas, and
+suppressed saves are warnings. Individual migration steps and the configuration
+path are debug messages and are written only when debug logging is enabled. Do
+not log individual settings or their values.
+
+For a normal field report on macOS, ask the user to reproduce the problem, quit
+TangoQ, and attach:
+
+```text
+~/Library/Containers/io.github.seemantadutta.tangoq/Data/Library/Application Support/TangoQ/tangoq.log
+```
+
+For an on-demand detailed report, first quit TangoQ and launch it from Terminal:
+
+```sh
+"/Applications/TangoQ.app/Contents/MacOS/TangoQ" \
+    --log-level debug \
+    --log-flush-level debug
+```
+
+The debug flush level is important for startup failures because it persists each
+message promptly. `tangoq.log` is the current session and numbered files are
+rotated earlier sessions. Warn users that a complete debug log may contain
+usernames, music-file paths, audio-device names, and controller information even
+though the migration summary itself contains no setting values.
+
+The focused unit tests verify migration outcomes and file preservation without
+depending on exact log wording. An application-level smoke test should use a
+temporary settings path, enable debug logging and flushing, confirm the expected
+summary appears in `tangoq.log`, and confirm a rejected future-schema config has
+the same checksum before and after startup.
+
 ## Database policy and deferred work
 
 TangoQ currently shares Mixxx's database-schema counter. A copied database from
@@ -224,6 +270,8 @@ changing database behavior in this configuration fix.
 - Repeated launches are idempotent.
 - TangoQ does not execute or import inherited Mixxx configuration migrations.
 - Product-version comparisons no longer select configuration migrations.
+- Migration decisions are captured in `tangoq.log` from the start of settings
+  initialization.
 - No database file, database schema constant, or schema XML revision changes.
 - Focused tests and branch formatting checks pass.
 
