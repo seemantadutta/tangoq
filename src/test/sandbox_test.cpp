@@ -23,14 +23,15 @@ TEST(SandboxTest, TangoQSettingsPathHasNoLegacyMixxxSideEffects) {
     marker.close();
 
     const QString tangoQPath = Sandbox::settingsPathForHome(testHome.path());
-    const QString expectedPath = QDir(testHome.path())
-                                         .filePath(QStringLiteral(
-                                                 "Library/Containers/%1/Data/Library/"
-                                                 "Application Support/%2")
-                                                           .arg(QStringLiteral(
-                                                                        MACOS_SETTINGS_CONTAINER_ID),
-                                                                   QStringLiteral(
-                                                                           MACOS_SETTINGS_DIR_NAME)));
+    const QString expectedPath =
+            QDir(testHome.path())
+                    .filePath(
+                            QStringLiteral("Library/Containers/%1/Data/Library/"
+                                           "Application Support/%2")
+                                    .arg(QStringLiteral(
+                                                 MACOS_SETTINGS_CONTAINER_ID),
+                                            QStringLiteral(
+                                                    MACOS_SETTINGS_DIR_NAME)));
 
     EXPECT_QSTRING_EQ(expectedPath, tangoQPath);
     EXPECT_TRUE(QFileInfo::exists(markerPath));
