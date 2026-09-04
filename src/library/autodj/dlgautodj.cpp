@@ -194,54 +194,24 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     QString labelTransitionTooltip = tr(
             // "sec" as in seconds
             "Seconds");
-    QString fadeModeTooltip = tr(
-            "TangoQ Fade Modes\n"
-            "\n"
-            "Full Intro + Outro:\n"
-            "Play the full intro and outro. Use the intro or outro length as the\n"
-            "crossfade time, whichever is shorter. If no intro or outro are marked,\n"
-            "use the selected crossfade time.\n"
-            "\n"
-            "Fade At Outro Start:\n"
-            "Start crossfading at the outro start. If the outro is longer than the\n"
-            "intro, cut off the end of the outro. Use the intro or outro length as\n"
-            "the crossfade time, whichever is shorter. If no intro or outro are\n"
-            "marked, use the selected crossfade time.\n"
-            "\n"
-            "Full Track:\n"
-            "Play the whole track. Begin crossfading from the selected number of\n"
-            "seconds before the end of the track. A negative crossfade time adds\n"
-            "silence between tracks.\n"
-            "\n"
-            "Skip Silence:\n"
-            "Play the whole track except for silence at the beginning and end.\n"
-            "Begin crossfading from the selected number of seconds before the\n"
-            "last sound.\n"
-            "\n"
-            "Tanda Transition:\n"
-            "Play each track in full, then insert a fixed silent gap before the\n"
-            "next track instead of crossfading. Set the gap length with the\n"
-            "adjacent field. Only available while Tango DJ mode is on.");
-
     pushButtonFadeNow->setToolTip(fadeBtnTooltip);
     pushButtonSkipNext->setToolTip(skipBtnTooltip);
     pushButtonShuffle->setToolTip(shuffleBtnTooltip);
     pushButtonAddRandomTrack->setToolTip(addRandomTrackBtnTooltip);
     pushButtonRepeatPlaylist->setToolTip(repeatBtnTooltip);
     pushButtonKeepQueue->setToolTip(keepQueueBtnTooltip);
+    labelTransitionMode->setToolTip(
+            tr("Each track plays in full, followed by the configured silent gap. "
+               "Tracks do not crossfade."));
     spinBoxTransition->setToolTip(spinBoxTransitionTooltip);
     spinBoxTandaGap->setToolTip(
             tr("Silent gap inserted by Tanda Transition, in seconds. Positive "
                "values mean silence between tracks."));
     labelTransitionAppendix->setToolTip(labelTransitionTooltip);
     labelTandaGapAppendix->setToolTip(spinBoxTandaGap->toolTip());
-    fadeModeCombobox->setToolTip(fadeModeTooltip);
-
     // Prevent the interactive widgets from being focused with Tab or Shift+Tab
-    fadeModeCombobox->setFocusPolicy(Qt::ClickFocus);
     spinBoxTransition->setFocusPolicy(Qt::ClickFocus);
     spinBoxTandaGap->setFocusPolicy(Qt::ClickFocus);
-    fadeModeCombobox->installEventFilter(pKeyboard);
     spinBoxTransition->installEventFilter(pKeyboard);
     spinBoxTandaGap->installEventFilter(pKeyboard);
     // work around QLineEdit being protected
@@ -284,27 +254,6 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             QOverload<int>::of(&QSpinBox::valueChanged),
             this,
             &DlgAutoDJ::tandaGapChanged);
-
-    fadeModeCombobox->addItem(tr("Full Intro + Outro"),
-            static_cast<int>(AutoDJProcessor::TransitionMode::FullIntroOutro));
-    fadeModeCombobox->addItem(tr("Fade At Outro Start"),
-            static_cast<int>(AutoDJProcessor::TransitionMode::FadeAtOutroStart));
-    fadeModeCombobox->addItem(tr("Full Track"),
-            static_cast<int>(AutoDJProcessor::TransitionMode::FixedFullTrack));
-    fadeModeCombobox->addItem(tr("Skip Silence"),
-            static_cast<int>(AutoDJProcessor::TransitionMode::FixedSkipSilence));
-    int transitionModeIndex = fadeModeCombobox->findData(
-            static_cast<int>(m_pAutoDJProcessor->getTransitionMode()));
-    if (transitionModeIndex < 0) {
-        transitionModeIndex = fadeModeCombobox->findData(
-                static_cast<int>(AutoDJProcessor::TransitionMode::FixedSkipSilence));
-    }
-    fadeModeCombobox->setCurrentIndex(transitionModeIndex);
-    connect(fadeModeCombobox,
-            QOverload<int>::of(&QComboBox::activated),
-            this,
-            &DlgAutoDJ::slotTransitionModeChanged);
-    refreshTransitionControls();
 
     connect(pushButtonRepeatPlaylist,
             &QPushButton::clicked,
@@ -613,16 +562,6 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     setUpdatesEnabled(true);
 }
 
-void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
-    m_pAutoDJProcessor->setTransitionMode(
-            static_cast<AutoDJProcessor::TransitionMode>(
-                    fadeModeCombobox->itemData(newIndex).toInt()));
-    refreshTransitionControls();
-    // Clicking on a transition mode item moves keyboard focus to the list widget.
-    // Move focus back to the previously focused library widget.
-    ControlObject::set(ConfigKey("[Library]", "refocus_prev_widget"), 1);
-}
-
 void DlgAutoDJ::slotRepeatPlaylistChanged(bool checked) {
     m_pConfig->setValue(ConfigKey(kPreferenceGroupName, kRepeatPlaylistPreference),
             checked);
@@ -708,8 +647,6 @@ void DlgAutoDJ::refreshTangoModeUi() {
     QHeaderView* pHeader = m_pTrackTableView->horizontalHeader();
     pHeader->setSectionsClickable(!tango);
     pHeader->setSortIndicatorShown(!tango);
-    refreshTransitionModeOptions();
-    syncTransitionModeFromProcessor();
     // Only run the per-second set-time tick while Tango mode is on.
     if (tango) {
         if (!m_pSetTimeTimer->isActive()) {
@@ -946,40 +883,6 @@ void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
         // (autoDJStateChanged resets the checked state and tooltip).
         autoDJStateChanged(m_pAutoDJProcessor->getState());
     }
-}
-
-void DlgAutoDJ::syncTransitionModeFromProcessor() {
-    refreshTransitionModeOptions();
-    const int index = fadeModeCombobox->findData(
-            static_cast<int>(m_pAutoDJProcessor->getTransitionMode()));
-    if (index >= 0 && fadeModeCombobox->currentIndex() != index) {
-        fadeModeCombobox->setCurrentIndex(index);
-    }
-    refreshTransitionControls();
-}
-
-void DlgAutoDJ::refreshTransitionModeOptions() {
-    const int tandaMode = static_cast<int>(
-            AutoDJProcessor::TransitionMode::TandaTransition);
-    const int tandaIndex = fadeModeCombobox->findData(tandaMode);
-    const bool tango = m_pKeepQueueControl && m_pKeepQueueControl->toBool();
-    if (tango && tandaIndex < 0) {
-        fadeModeCombobox->addItem(tr("Tanda Transition"), tandaMode);
-    } else if (!tango && tandaIndex >= 0) {
-        fadeModeCombobox->removeItem(tandaIndex);
-    }
-}
-
-void DlgAutoDJ::refreshTransitionControls() {
-    const bool tandaTransition = static_cast<AutoDJProcessor::TransitionMode>(
-                                         fadeModeCombobox->currentData().toInt()) ==
-            AutoDJProcessor::TransitionMode::TandaTransition;
-    spinBoxTransition->setVisible(!tandaTransition);
-    labelTransitionAppendix->setVisible(!tandaTransition);
-    spinBoxTandaGap->setVisible(tandaTransition);
-    spinBoxTandaGap->setEnabled(tandaTransition);
-    labelTandaGapAppendix->setVisible(tandaTransition);
-    labelTandaGapAppendix->setEnabled(tandaTransition);
 }
 
 void DlgAutoDJ::updateSelectionInfo() {

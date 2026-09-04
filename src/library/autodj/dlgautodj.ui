@@ -120,11 +120,17 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="fadeModeCombobox">
+       <widget class="QLabel" name="labelTransitionMode">
+        <property name="text">
+         <string>Tanda Transition</string>
+        </property>
        </widget>
       </item>
       <item>
        <widget class="QSpinBox" name="spinBoxTransition">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -144,6 +150,9 @@
       </item>
       <item>
        <widget class="QLabel" name="labelTransitionAppendix">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>sec.</string>
         </property>
