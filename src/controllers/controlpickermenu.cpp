@@ -1371,31 +1371,31 @@ ControlPickerMenu::ControlPickerMenu(QWidget* pParent)
             true);
 
     // AutoDJ Controls
-    QMenu* pAutodjMenu = addSubmenu(tr("Auto DJ"));
+    QMenu* pAutodjMenu = addSubmenu(tr("TangoQ"));
     addControl("[AutoDJ]",
             "shuffle_playlist",
-            tr("Auto DJ Shuffle"),
-            tr("Shuffle the content of the Auto DJ queue"),
+            tr("TangoQ Shuffle"),
+            tr("Shuffle the content of the TangoQ queue"),
             pAutodjMenu);
     addControl("[AutoDJ]",
             "skip_next",
-            tr("Auto DJ Skip Next"),
-            tr("Skip the next track in the Auto DJ queue"),
+            tr("TangoQ Skip Next"),
+            tr("Skip the next track in the TangoQ queue"),
             pAutodjMenu);
     addControl("[AutoDJ]",
             "add_random_track",
-            tr("Auto DJ Add Random Track"),
-            tr("Add a random track to the Auto DJ queue"),
+            tr("TangoQ Add Random Track"),
+            tr("Add a random track to the TangoQ queue"),
             pAutodjMenu);
     addControl("[AutoDJ]",
             "fade_now",
-            tr("Auto DJ Fade To Next"),
+            tr("TangoQ Fade To Next"),
             tr("Trigger the transition to the next track"),
             pAutodjMenu);
     addControl("[AutoDJ]",
             "enabled",
-            tr("Auto DJ Toggle"),
-            tr("Toggle Auto DJ On/Off"),
+            tr("TangoQ Toggle"),
+            tr("Toggle TangoQ On/Off"),
             pAutodjMenu);
 
     // Skin Controls

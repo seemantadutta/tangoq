@@ -666,5 +666,5 @@ void WTandaQueueView::showTandaHeaderMenu(
 }
 
 void WTandaQueueView::showError(const QString& message) {
-    QMessageBox::information(this, tr("Auto DJ Queue"), message);
+    QMessageBox::information(this, tr("TangoQ Queue"), message);
 }

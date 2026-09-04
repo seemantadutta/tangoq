@@ -723,7 +723,7 @@ void Tooltips::addStandardTooltips() {
 
     // AutoDJ status indicator
     add("autodj_status")
-            << tr("Auto DJ is active");
+            << tr("TangoQ is active");
 
     add("passthrough_enabled")
             << tr("Enable Passthrough")

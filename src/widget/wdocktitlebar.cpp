@@ -36,7 +36,7 @@ WDockTitleBar::WDockTitleBar(QDockWidget* pDock)
     m_pCloseButton->setFocusPolicy(Qt::NoFocus);
     m_pFloatButton->setCursor(Qt::ArrowCursor);
     m_pCloseButton->setCursor(Qt::ArrowCursor);
-    m_pFloatButton->setToolTip(tr("Float or dock the Auto DJ queue"));
+    m_pFloatButton->setToolTip(tr("Float or dock the TangoQ queue"));
     m_pCloseButton->setToolTip(tr("Close"));
 
     auto* pLayout = new QHBoxLayout(this);

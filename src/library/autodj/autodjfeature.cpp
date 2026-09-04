@@ -151,7 +151,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             this,
             &AutoDJFeature::slotCrateChanged);
 
-    m_pClearQueueAction = make_parented<QAction>(tr("Clear Auto DJ Queue"), this);
+    m_pClearQueueAction = make_parented<QAction>(tr("Clear TangoQ Queue"), this);
     const auto removeKeySequence =
             // TODO(XXX): Qt6 replace enum | with QKeyCombination
             QKeySequence(static_cast<int>(kHideRemoveShortcutModifier) |
@@ -319,7 +319,7 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
         // leaking a second view.
         return m_pAutoDJDock;
     }
-    auto* pDock = new QDockWidget(tr("Auto DJ Queue"), parent);
+    auto* pDock = new QDockWidget(tr("TangoQ Queue"), parent);
     // A stable object name is required for QMainWindow::saveState()/
     // restoreState()/restoreDockWidget() to persist size/position/visibility.
     pDock->setObjectName(QStringLiteral("AutoDJDock"));
@@ -507,7 +507,7 @@ void AutoDJFeature::activate() {
 void AutoDJFeature::clear() {
     QMessageBox::StandardButton btn = QMessageBox::question(nullptr,
             tr("Confirmation Clear"),
-            tr("Do you really want to remove all tracks from the Auto DJ queue?") +
+            tr("Do you really want to remove all tracks from the TangoQ queue?") +
                     tr("This can not be undone."),
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);

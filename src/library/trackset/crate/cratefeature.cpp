@@ -95,7 +95,7 @@ void CrateFeature::initActions() {
             this,
             &CrateFeature::slotToggleCrateLock);
 
-    m_pAutoDjTrackSourceAction = make_parented<QAction>(tr("Auto DJ Track Source"), this);
+    m_pAutoDjTrackSourceAction = make_parented<QAction>(tr("TangoQ Track Source"), this);
     m_pAutoDjTrackSourceAction->setCheckable(true);
     connect(m_pAutoDjTrackSourceAction.get(),
             &QAction::changed,

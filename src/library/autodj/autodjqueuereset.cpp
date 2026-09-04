@@ -49,7 +49,7 @@ void resetAutoDJQueueState(QWidget* pParent) {
     const auto answer = QMessageBox::question(pParent,
             QObject::tr("Eject decks and reset TangoQ state"),
             QObject::tr("Eject the tracks loaded on the decks, mark all tracks in "
-                        "the Auto DJ queue as unplayed and restart the set from "
+                        "the TangoQ queue as unplayed and restart the set from "
                         "the top?\n\nThis does not change your play counts."),
             QMessageBox::Yes | QMessageBox::Cancel,
             QMessageBox::Cancel);
