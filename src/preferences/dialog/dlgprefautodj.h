@@ -29,6 +29,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     void slotSetCortinaFadeMode(int);
     void slotSetCortinaFadeIn(int);
     void slotSetCortinaFadeOut(int);
+    void slotSetShowFadeEnvelope(bool);
     void slotSetMinimumAvailable(int);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     void slotToggleRequeueIgnore(Qt::CheckState state);

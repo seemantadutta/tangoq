@@ -180,6 +180,18 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             this,
             &DlgPrefAutoDJ::slotSetCortinaFadeOut);
 
+    // Cortina fade-envelope overlay visibility (default on). Purely visual, so
+    // unlike the other cortina fade settings it can be changed while running.
+    bool showFadeEnvelope =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "ShowFadeEnvelope"), 1) == 1;
+    ShowFadeEnvelopeCheckBox->setChecked(showFadeEnvelope);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "ShowFadeEnvelopeBuff"),
+            showFadeEnvelope ? 1 : 0);
+    connect(ShowFadeEnvelopeCheckBox,
+            &QCheckBox::toggled,
+            this,
+            &DlgPrefAutoDJ::slotSetShowFadeEnvelope);
+
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
 
@@ -352,6 +364,11 @@ void DlgPrefAutoDJ::slotSetCortinaFadeIn(int seconds) {
     updateCortinaHoldLabel();
 }
 
+void DlgPrefAutoDJ::slotSetShowFadeEnvelope(bool checked) {
+    m_pConfig->setValue(
+            ConfigKey("[Auto DJ]", "ShowFadeEnvelopeBuff"), checked ? 1 : 0);
+}
+
 void DlgPrefAutoDJ::slotSetCortinaFadeOut(int seconds) {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), seconds);
     updateCortinaHoldLabel();
@@ -417,6 +434,14 @@ void DlgPrefAutoDJ::slotApply() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), 5));
+    // Fade-envelope overlay toggle: persist and push to the live gate control so
+    // the running waveform updates immediately.
+    int showFadeEnvelope = m_pConfig->getValue(
+            ConfigKey("[Auto DJ]", "ShowFadeEnvelopeBuff"), 1);
+    m_pConfig->setValue(
+            ConfigKey("[Auto DJ]", "ShowFadeEnvelope"), showFadeEnvelope);
+    ControlObject::set(ConfigKey("[TangoQ]", "show_fade_envelope"),
+            showFadeEnvelope == 1 ? 1.0 : 0.0);
     m_pConfig->setValue(ConfigKey("[Auto DJ]","MinimumAvailable"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "MinimumAvailableBuff"), 20));
@@ -463,6 +488,12 @@ void DlgPrefAutoDJ::slotCancel() {
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeOut"), 5);
     CortinaFadeOutSpinBox->setValue(cortinaFadeOut);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), cortinaFadeOut);
+
+    bool showFadeEnvelope =
+            m_pConfig->getValue(ConfigKey("[Auto DJ]", "ShowFadeEnvelope"), 1) == 1;
+    ShowFadeEnvelopeCheckBox->setChecked(showFadeEnvelope);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "ShowFadeEnvelopeBuff"),
+            showFadeEnvelope ? 1 : 0);
 
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();
@@ -520,6 +551,9 @@ void DlgPrefAutoDJ::slotResetToDefaults() {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeInBuff"), 5);
     CortinaFadeOutSpinBox->setValue(5);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeOutBuff"), 5);
+
+    ShowFadeEnvelopeCheckBox->setChecked(true);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "ShowFadeEnvelopeBuff"), 1);
 
     updateCortinaHoldLabel();
     updateCortinaFadeEnabled();

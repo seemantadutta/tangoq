@@ -262,6 +262,16 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QCheckBox" name="ShowFadeEnvelopeCheckBox">
+         <property name="toolTip">
+          <string>Draw the cortina fade envelope (ramp in, hold, ramp out) on the deck waveform while a cortina is loaded or fading. Purely visual; can be changed at any time.</string>
+         </property>
+         <property name="text">
+          <string>Show fade envelope on cortina waveform</string>
+         </property>
+        </widget>
+       </item>
       </layout>
     </widget>
    </item>

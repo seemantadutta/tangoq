@@ -3,6 +3,7 @@
 #include "waveform/renderers/allshader/waveformrenderbackground.h"
 #include "waveform/renderers/allshader/waveformrenderbeat.h"
 #include "waveform/renderers/allshader/waveformrendererendoftrack.h"
+#include "waveform/renderers/allshader/waveformrendererfadeenvelope.h"
 #include "waveform/renderers/allshader/waveformrendererlrrgb.h"
 #include "waveform/renderers/allshader/waveformrendererpreroll.h"
 #include "waveform/renderers/allshader/waveformrendermark.h"
@@ -18,6 +19,7 @@ LRRGBWaveformWidget::LRRGBWaveformWidget(const QString& group, QWidget* parent)
     addRenderer<WaveformRendererPreroll>();
     addRenderer<WaveformRenderMarkRange>();
     addRenderer<WaveformRendererLRRGB>();
+    addRenderer<WaveformRendererFadeEnvelope>();
     addRenderer<WaveformRenderBeat>();
     addRenderer<WaveformRenderMark>();
 
