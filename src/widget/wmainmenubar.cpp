@@ -298,8 +298,7 @@ void WMainMenuBar::initialize() {
     QString autoDJQueueTitle = tr("TangoQ Side Panel");
     QString autoDJQueueText =
             tr("Show the TangoQ queue in a dockable side panel that stays "
-               "visible while browsing the library. Available in Tango mode "
-               "only.");
+               "visible while browsing the library.");
     auto* pViewAutoDJQueue = new QAction(autoDJQueueTitle, this);
     pViewAutoDJQueue->setCheckable(true);
     pViewAutoDJQueue->setShortcut(
