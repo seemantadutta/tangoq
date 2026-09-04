@@ -30,8 +30,8 @@
         <file>images/library/ic_library_rekordbox.svg</file>
         <file>images/library/ic_library_serato.svg</file>
       <!-- logo and icons for 'About' dialog -->
-        <file>images/mixxx_logo.svg</file>
-        <file>images/mixxx_logo_dark.svg</file>
+        <file alias="images/tangoq_logo_small.svg">skins/TangoQ/palemoon/style/tangoq_logo_small.svg</file>
+        <file alias="images/tangoq_logo_small_macos.svg">skins/TangoQ/palemoon/style/tangoq_logo_small_macos.svg</file>
         <file>images/icons/scalable/apps/mixxx.svg</file>
         <file>images/icons/scalable/apps/tangoq.svg</file>
         <file>images/heart_icon_light.svg</file>

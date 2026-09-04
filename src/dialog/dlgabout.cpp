@@ -19,12 +19,11 @@ DlgAbout::DlgAbout()
     setupUi(this);
     setWindowIcon(QIcon(MIXXX_ICON_PATH));
 
-    mixxx_icon->load(QString(MIXXX_ICON_PATH));
-    // The default wordmark's "Tango" is near-white for the dark toolbar and
-    // vanishes on a light-themed dialog, so pick the dark-wordmark variant when
-    // the dialog background is light. Mirrors the heart-icon choice below.
-    const bool darkBackground = Color::isDimColor(palette().window().color());
-    mixxx_logo->load(QString(darkBackground ? MIXXX_LOGO_PATH : MIXXX_LOGO_DARK_PATH));
+#ifdef Q_OS_MACOS
+    mixxx_logo->load(QString(TANGOQ_TOOLBAR_LOGO_MACOS_PATH));
+#else
+    mixxx_logo->load(QString(TANGOQ_TOOLBAR_LOGO_PATH));
+#endif
 
     // Let the wordmark act as a link to the project's own site, the way an About
     // box logo usually does.
