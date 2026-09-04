@@ -435,7 +435,7 @@ void WTrackMenu::createActions() {
     // unconditionally, hidden, and reveal it only there (and only while Auto DJ is
     // stopped and not LIVE) in updateMenus().
     m_pResetAutoDJQueueStateAct = make_parented<QAction>(
-            tr("Eject decks and reset AutoDJ queue state"), this);
+            tr("Eject decks and reset TangoQ state"), this);
     m_pResetAutoDJQueueStateAct->setVisible(false);
     connect(m_pResetAutoDJQueueStateAct,
             &QAction::triggered,

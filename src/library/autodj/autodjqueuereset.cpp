@@ -47,7 +47,7 @@ void resetAutoDJQueueState(QWidget* pParent) {
     // the play cursor to the first track and clears the decks, so a fully-played
     // set can be replayed from a genuinely clean slate.
     const auto answer = QMessageBox::question(pParent,
-            QObject::tr("Eject decks and reset AutoDJ queue state"),
+            QObject::tr("Eject decks and reset TangoQ state"),
             QObject::tr("Eject the tracks loaded on the decks, mark all tracks in "
                         "the Auto DJ queue as unplayed and restart the set from "
                         "the top?\n\nThis does not change your play counts."),

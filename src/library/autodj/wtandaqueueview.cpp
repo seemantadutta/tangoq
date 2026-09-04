@@ -657,7 +657,7 @@ void WTandaQueueView::showTandaHeaderMenu(
     if (mixxx::canResetAutoDJQueueState()) {
         menu.addSeparator();
         QAction* pReset =
-                menu.addAction(tr("Eject decks and reset AutoDJ queue state"));
+                menu.addAction(tr("Eject decks and reset TangoQ state"));
         connect(pReset, &QAction::triggered, this, [this] {
             mixxx::resetAutoDJQueueState(this);
         });
