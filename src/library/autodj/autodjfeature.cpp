@@ -151,7 +151,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             this,
             &AutoDJFeature::slotCrateChanged);
 
-    m_pClearQueueAction = make_parented<QAction>(tr("Clear TangoQ Queue"), this);
+    m_pClearQueueAction = make_parented<QAction>(tr("Clear TangoQ"), this);
     const auto removeKeySequence =
             // TODO(XXX): Qt6 replace enum | with QKeyCombination
             QKeySequence(static_cast<int>(kHideRemoveShortcutModifier) |
