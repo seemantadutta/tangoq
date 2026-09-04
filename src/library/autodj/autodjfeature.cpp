@@ -319,7 +319,7 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
         // leaking a second view.
         return m_pAutoDJDock;
     }
-    auto* pDock = new QDockWidget(tr("TangoQ Queue"), parent);
+    auto* pDock = new QDockWidget(tr("TangoQ"), parent);
     // A stable object name is required for QMainWindow::saveState()/
     // restoreState()/restoreDockWidget() to persist size/position/visibility.
     pDock->setObjectName(QStringLiteral("AutoDJDock"));
