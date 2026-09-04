@@ -110,6 +110,26 @@ class DeckAttributes : public QObject {
         return m_rateRatio.get();
     }
 
+    // Publishes the full cortina fade envelope for this deck's waveform overlay
+    // to draw as one continuous shape: gain ramps 0 -> 1 over
+    // [start, plateauStart], holds at 1 over [plateauStart, plateauEnd], then
+    // ramps 1 -> 0 over [plateauEnd, end]. All are playpositions (0..1). A pure
+    // fade-out passes a zero-width ramp-up and plateau.
+    void publishTangoFade(double startPlayPos,
+            double plateauStartPlayPos,
+            double plateauEndPlayPos,
+            double endPlayPos) {
+        m_tangoFadeStartPos.set(startPlayPos);
+        m_tangoFadePlateauStartPos.set(plateauStartPlayPos);
+        m_tangoFadePlateauEndPos.set(plateauEndPlayPos);
+        m_tangoFadeEndPos.set(endPlayPos);
+        m_tangoFadeActive.set(1.0);
+    }
+
+    void clearTangoFade() {
+        m_tangoFadeActive.set(0.0);
+    }
+
     TrackPointer getLoadedTrack() const;
 
   signals:
@@ -158,6 +178,14 @@ class DeckAttributes : public QObject {
     ControlProxy m_sampleRate;
     ControlProxy m_rateRatio;
     ControlProxy m_autoDJFadeGain;
+    // Per-deck cortina fade overlay state, read by the waveform fade-envelope
+    // renderer. Only written from the cortina fade path, so stock transition
+    // modes leave these at their inactive defaults.
+    ControlObject m_tangoFadeActive;
+    ControlObject m_tangoFadeStartPos;
+    ControlObject m_tangoFadePlateauStartPos;
+    ControlObject m_tangoFadePlateauEndPos;
+    ControlObject m_tangoFadeEndPos;
     BaseTrackPlayer* m_pPlayer;
 };
 
@@ -495,6 +523,15 @@ class AutoDJProcessor : public QObject {
     // True if the track is tagged as a cortina (faded out manually, so the set
     // estimate budgets only the configured cortina length for it).
     bool isCortina(const TrackPointer& pTrack) const;
+    // Publishes the cortina fade envelope for a loaded deck so the waveform
+    // overlay previews the curve as soon as the cortina is loaded, even before
+    // it plays. Clears the overlay for non-cortina tracks or when Cortina Fade
+    // is off. Uses the track's first sound as the envelope entry point, matching
+    // the live envelope's default.
+    void publishCortinaFadePreview(DeckAttributes* pDeck);
+    // Re-previews the fade envelope on every loaded deck. Called when cortina
+    // marks change (a track toggled to/from cortina) or the fade settings change.
+    void refreshCortinaFadePreviews();
     DeckAttributes* playingCortinaDeck() const;
     // Cortina Fade transition driver (Tango mode only). When Cortina Fade mode
     // is on and a cortina plays solo in ADJ_IDLE, it runs a small phase machine:
@@ -662,6 +699,11 @@ class AutoDJProcessor : public QObject {
     // they exist with the right default before the toolbar HUD parses.
     ControlPushButton m_showCountdownTimer;
     ControlPushButton m_showProgressPips;
+    // Gates the cortina fade-envelope waveform overlay (persistent, default on).
+    // Set from the Preferences toggle and read by the waveform fade-envelope
+    // renderer. Owned here so it exists with the right default before any skin
+    // parses the deck waveforms that read it.
+    ControlObject m_showFadeEnvelope;
 
     // Momentary trigger from the Auto DJ queue "Eject decks and reset AutoDJ
     // queue state" menu action. Re-armed to 0 after each handled trigger.

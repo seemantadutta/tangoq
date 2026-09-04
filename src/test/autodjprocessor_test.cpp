@@ -586,6 +586,216 @@ TEST_F(AutoDJProcessorTest, TandaTransition_MarkedCortinaFadeStartsEnvelopeAtMar
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
+// The waveform fade-envelope overlay reads per-deck tango_fade_* controls. A
+// cortina loaded on the standby deck (not yet playing) must already publish a
+// well-formed envelope: gain ramps 0 -> 1, holds, then 1 -> 0, so the four knee
+// playpositions are strictly ordered inside the track and the two ramps are
+// symmetric for equal fade-in/out times. A regular (non-cortina) track on the
+// playing deck must publish nothing.
+TEST_F(AutoDJProcessorTest, CortinaFadeEnvelope_StandbyCortinaPublishesKnees) {
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(cortinaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(cortinaId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck2.slotLoadTrack(pCortina, false);
+    deck2.fakeTrackLoadedEvent(pCortina);
+
+    // The cortina is loaded on the standby deck and is not playing.
+    EXPECT_FALSE(deck2.play.toBool());
+    EXPECT_DOUBLE_EQ(1.0,
+            ControlObject::get(ConfigKey("[Channel2]", "tango_fade_active")));
+
+    const double start = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_start_position"));
+    const double plateauStart = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_plateau_start_position"));
+    const double plateauEnd = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_plateau_end_position"));
+    const double end = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_end_position"));
+
+    // Strictly ordered knees inside the track.
+    EXPECT_GE(start, 0.0);
+    EXPECT_LT(start, plateauStart);
+    EXPECT_LT(plateauStart, plateauEnd);
+    EXPECT_LT(plateauEnd, end);
+    EXPECT_LE(end, 1.0);
+    // Default fade-in equals fade-out, so the ramps are symmetric.
+    EXPECT_NEAR(plateauStart - start, end - plateauEnd, 1e-9);
+
+    // The playing tanda track is not a cortina, so it publishes no envelope.
+    EXPECT_DOUBLE_EQ(0.0,
+            ControlObject::get(ConfigKey("[Channel1]", "tango_fade_active")));
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+// The fade-in and fade-out durations must map to the two ramp widths. With an
+// asymmetric 8 s / 4 s pair, the ramp-up must be twice the ramp-down.
+TEST_F(AutoDJProcessorTest, CortinaFadeEnvelope_RampWidthsFollowFadeTimes) {
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeIn"), QString("8"));
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeOut"), QString("4"));
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(cortinaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(cortinaId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck2.slotLoadTrack(pCortina, false);
+    deck2.fakeTrackLoadedEvent(pCortina);
+
+    const double start = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_start_position"));
+    const double plateauStart = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_plateau_start_position"));
+    const double plateauEnd = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_plateau_end_position"));
+    const double end = ControlObject::get(
+            ConfigKey("[Channel2]", "tango_fade_end_position"));
+
+    const double rampUp = plateauStart - start;
+    const double rampDown = end - plateauEnd;
+    EXPECT_GT(rampUp, 0.0);
+    EXPECT_GT(rampDown, 0.0);
+    EXPECT_NEAR(rampUp, 2.0 * rampDown, 1e-9);
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+// With cortinas in hard-cut mode (Cortina Fade off) a loaded cortina must
+// publish no envelope, so stock cortina handling shows nothing on the waveform.
+TEST_F(AutoDJProcessorTest, CortinaFadeEnvelope_HardCutPublishesNothing) {
+    // CortinaFadeMode left at its default (0 = hard cut).
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId cortinaId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(cortinaId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(cortinaId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    TrackPointer pCortina = newTestTrack(cortinaId);
+    pCortina->setDuration(100);
+    deck2.slotLoadTrack(pCortina, false);
+    deck2.fakeTrackLoadedEvent(pCortina);
+
+    EXPECT_DOUBLE_EQ(0.0,
+            ControlObject::get(ConfigKey("[Channel2]", "tango_fade_active")));
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+// Toggling a loaded track's cortina type must refresh its envelope live:
+// marking it publishes the envelope, unmarking clears it.
+TEST_F(AutoDJProcessorTest, CortinaFadeEnvelope_MarkToggleRefreshesLoadedDeck) {
+    config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
+    pProcessor->setTandaGapSeconds(0);
+
+    TrackId tandaId = addTrackToCollection(kTrackLocationTest);
+    TrackId nextId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(tandaId.isValid());
+    ASSERT_TRUE(nextId.isValid());
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTanda = newTestTrack(tandaId);
+    pTanda->setDuration(100);
+    deck1.slotLoadTrack(pTanda, true);
+    deck1.fakeTrackLoadedEvent(pTanda);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(nextId);
+    pAutoDJTableModel->appendTrack(tandaId);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+
+    // Standby deck holds a track that is not (yet) a cortina.
+    TrackPointer pNext = newTestTrack(nextId);
+    pNext->setDuration(100);
+    deck2.slotLoadTrack(pNext, false);
+    deck2.fakeTrackLoadedEvent(pNext);
+    EXPECT_DOUBLE_EQ(0.0,
+            ControlObject::get(ConfigKey("[Channel2]", "tango_fade_active")));
+
+    // Marking it a cortina publishes the envelope on that deck.
+    CortinaRegistry::instance().mark(nextId);
+    EXPECT_DOUBLE_EQ(1.0,
+            ControlObject::get(ConfigKey("[Channel2]", "tango_fade_active")));
+
+    // Unmarking clears it again.
+    CortinaRegistry::instance().unmark(nextId);
+    EXPECT_DOUBLE_EQ(0.0,
+            ControlObject::get(ConfigKey("[Channel2]", "tango_fade_active")));
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, FadePlayingCortinaNowStartsFadeOutImmediately) {
     config()->set(ConfigKey("[Auto DJ]", "CortinaFadeMode"), QString("1"));
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);

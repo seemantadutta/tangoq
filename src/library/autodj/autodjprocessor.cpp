@@ -106,6 +106,13 @@ DeckAttributes::DeckAttributes(int index,
           m_sampleRate(group, "track_samplerate"),
           m_rateRatio(group, "rate_ratio"),
           m_autoDJFadeGain(group, "autodj_fade_gain"),
+          m_tangoFadeActive(ConfigKey(group, "tango_fade_active")),
+          m_tangoFadeStartPos(ConfigKey(group, "tango_fade_start_position")),
+          m_tangoFadePlateauStartPos(
+                  ConfigKey(group, "tango_fade_plateau_start_position")),
+          m_tangoFadePlateauEndPos(
+                  ConfigKey(group, "tango_fade_plateau_end_position")),
+          m_tangoFadeEndPos(ConfigKey(group, "tango_fade_end_position")),
           m_pPlayer(pPlayer) {
     connect(m_pPlayer, &BaseTrackPlayer::newTrackLoaded,
             this, &DeckAttributes::slotTrackLoaded);
@@ -251,6 +258,12 @@ AutoDJProcessor::AutoDJProcessor(
                                      QStringLiteral("show_progress_pips")),
                   true,
                   1.0),
+          m_showFadeEnvelope(ConfigKey(QStringLiteral("[TangoQ]"),
+                                     QStringLiteral("show_fade_envelope")),
+                  true,
+                  false,
+                  false,
+                  1.0),
           m_resetQueueState(ConfigKey(kControlGroup, QStringLiteral("reset_queue_state"))),
           m_liveMode(ConfigKey(kControlGroup, QStringLiteral("live_mode"))),
           m_hudCountdownSeconds(
@@ -341,6 +354,12 @@ AutoDJProcessor::AutoDJProcessor(
             &CortinaRegistry::cortinaMarksChanged,
             this,
             &AutoDJProcessor::invalidateRemainingSetDuration);
+    // A track toggled to/from cortina must re-preview (or clear) the fade
+    // envelope on whichever deck holds it.
+    connect(&CortinaRegistry::instance(),
+            &CortinaRegistry::cortinaMarksChanged,
+            this,
+            &AutoDJProcessor::refreshCortinaFadePreviews);
 
     connect(&m_shufflePlaylist,
             &ControlPushButton::valueChanged,
@@ -2009,11 +2028,66 @@ void AutoDJProcessor::loadCortinaFadeSettings() {
     // Tanda Transition exposes a single gap value. Keep the internal cortina-gap
     // member as the future split point, but drive it from that unified setting.
     m_cortinaGapSeconds = m_tandaGapSeconds;
+
+    // Fade-envelope overlay visibility (default on). Persisted in config; the
+    // gate control is read by the waveform renderer.
+    m_showFadeEnvelope.set(
+            m_pConfig->getValue(ConfigKey(kPreferenceGroup,
+                                        QStringLiteral("ShowFadeEnvelope")),
+                    1) == 1
+                    ? 1.0
+                    : 0.0);
+
+    // Refresh the fade-envelope preview on any loaded cortina, so toggling
+    // Cortina Fade or changing its lengths updates the waveform immediately.
+    refreshCortinaFadePreviews();
+}
+
+void AutoDJProcessor::refreshCortinaFadePreviews() {
+    for (const auto& pDeck : m_decks) {
+        publishCortinaFadePreview(pDeck.get());
+    }
 }
 
 bool AutoDJProcessor::isCortina(const TrackPointer& pTrack) const {
     return pTrack &&
             CortinaRegistry::instance().contains(TrackId(pTrack->getId()));
+}
+
+void AutoDJProcessor::publishCortinaFadePreview(DeckAttributes* pDeck) {
+    if (!pDeck) {
+        return;
+    }
+    // Only cortinas get a fade envelope, and only when Cortina Fade is on.
+    if (!m_cortinaFadeEnabled || !isCortina(pDeck->getLoadedTrack())) {
+        pDeck->clearTangoFade();
+        return;
+    }
+
+    // Mirror the live envelope math (maybeHandleCortinaFade), using the track's
+    // first sound as the envelope entry point.
+    const double duration = getEndSecond(pDeck);
+    const double envelopeStart = getFirstSoundSecond(pDeck);
+    const double audible = math_max(getLastSoundSecond(pDeck) - envelopeStart, 0.0);
+    const double cl = math_min(
+            static_cast<double>(m_keepQueueCortinaSeconds), audible);
+    if (duration <= 0.0 || cl <= 0.0) {
+        pDeck->clearTangoFade();
+        return;
+    }
+    double x = static_cast<double>(m_cortinaFadeInSeconds);
+    double z = static_cast<double>(m_cortinaFadeOutSeconds);
+    if (x + z > cl) {
+        const double scale = (x + z > 0.0) ? cl / (x + z) : 0.0;
+        x *= scale;
+        z *= scale;
+    }
+
+    pDeck->publishTangoFade(
+            envelopeStart / duration,
+            (envelopeStart + x) / duration,
+            (envelopeStart + (cl - z)) / duration,
+            (envelopeStart + cl) / duration);
 }
 
 DeckAttributes* AutoDJProcessor::playingCortinaDeck() const {
@@ -2222,6 +2296,17 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
             startCortinaAfterGap(thisDeck);
             return true;
         }
+        if (duration > 0.0 && manualFadeOutSeconds > 0.0) {
+            // Pure fade-out: zero-width ramp-up and plateau at the start.
+            const double startPlayPos = m_cortinaManualFadeOutStartSecond / duration;
+            const double endPlayPos =
+                    (m_cortinaManualFadeOutStartSecond + manualFadeOutSeconds) /
+                    duration;
+            thisDeck->publishTangoFade(
+                    startPlayPos, startPlayPos, startPlayPos, endPlayPos);
+        } else {
+            thisDeck->clearTangoFade();
+        }
         setAutoDJFadeGain(thisDeck, gain);
         qDebug().nospace() << "[CORTINA_ENVELOPE] gain deck=" << thisDeck->group
                            << " reason=manual"
@@ -2237,6 +2322,20 @@ bool AutoDJProcessor::maybeHandleCortinaFade(
                            << " phase=" << static_cast<int>(m_cortinaFadePhase)
                            << " crossfader=" << getCrossfader();
         return true;
+    }
+
+    // Publish the whole cortina envelope (ramp up, hold, ramp down) so the
+    // waveform overlay shows one continuous shape for the entire audible cortina,
+    // not a separate blip per fade edge. Kept up during the silent lead-in too so
+    // it stays continuous with the load-time preview; cleared once spent.
+    if (duration > 0.0 && elapsed < cl) {
+        thisDeck->publishTangoFade(
+                envelopeStart / duration,
+                (envelopeStart + x) / duration,
+                (envelopeStart + (cl - z)) / duration,
+                (envelopeStart + cl) / duration);
+    } else {
+        thisDeck->clearTangoFade();
     }
 
     double gain;
@@ -2295,6 +2394,7 @@ void AutoDJProcessor::startCortinaAfterGap(DeckAttributes* pCortinaDeck) {
     // silent, so the deck is safe if the DJ takes over or the track is reloaded.
     pCortinaDeck->stop();
     setAutoDJFadeGain(pCortinaDeck, 1.0);
+    pCortinaDeck->clearTangoFade();
     const int gapMs = gapSeconds * 1000;
     if (m_transitionMode == TransitionMode::TandaTransition) {
         startTandaCrossfaderAnimation(pCortinaDeck, getOtherDeck(pCortinaDeck), gapMs);
@@ -2310,6 +2410,7 @@ void AutoDJProcessor::cancelCortinaFade() {
     stopTandaCrossfaderAnimation();
     if (m_pCortinaDeck) {
         setAutoDJFadeGain(m_pCortinaDeck, 1.0);
+        m_pCortinaDeck->clearTangoFade();
     }
     m_cortinaFadePhase = CortinaFadePhase::None;
     m_cortinaEnvelopeStartSecond = kKeepPosition;
@@ -3737,6 +3838,10 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
     }
 
     pDeck->loading = false;
+
+    // Preview the cortina fade envelope on the waveform as soon as the track is
+    // loaded, even on an inactive deck that is not yet playing.
+    publishCortinaFadePreview(pDeck);
 
     // Since the end position is measured in seconds from 0:00 it is also
     // the track duration.
