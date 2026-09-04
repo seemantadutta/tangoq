@@ -295,11 +295,10 @@ void WMainMenuBar::initialize() {
     // (re)connects the proxy on skin load - by which point the control exists. A
     // direct ControlProxy created here would bind to a throwaway default control
     // and never see the real one.
-    QString autoDJQueueTitle = tr("Auto DJ Side Panel");
+    QString autoDJQueueTitle = tr("TangoQ Side Panel");
     QString autoDJQueueText =
-            tr("Show the Auto DJ queue in a dockable side panel that stays "
-               "visible while browsing the library. Available in Tango mode "
-               "only.");
+            tr("Show the TangoQ queue in a dockable side panel that stays "
+               "visible while browsing the library.");
     auto* pViewAutoDJQueue = new QAction(autoDJQueueTitle, this);
     pViewAutoDJQueue->setCheckable(true);
     pViewAutoDJQueue->setShortcut(

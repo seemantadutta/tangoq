@@ -185,7 +185,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     const QCommandLineOption startAutoDJ(QStringLiteral("start-autodj"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
-                                      "Starts Auto DJ when Mixxx is launched.")
+                                      "Starts TangoQ when the app is launched.")
                             : QString());
     parser.addOption(startAutoDJ);
 

@@ -331,7 +331,7 @@
       <item row="0" column="0" colspan="2">
        <widget class="QLabel" name="deckBusHint">
         <property name="text">
-         <string>Deck and Bus outputs are for external mixers. They are post-fader and include effects and crossfader (for Auto DJ). For external mixing, make sure all Mixxx faders and EQ knobs are set to their default position (right- or double-click). </string>
+         <string>Deck and Bus outputs are for external mixers. They are post-fader and include effects and crossfader (for TangoQ). For external mixing, make sure all Mixxx faders and EQ knobs are set to their default position (right- or double-click). </string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
