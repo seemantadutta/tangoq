@@ -51,7 +51,6 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void tandaGapChanged(int value);
     void autoDJStateChanged(AutoDJProcessor::AutoDJState state);
     void updateSelectionInfo();
-    void slotTransitionModeChanged(int comboboxIndex);
     void slotRepeatPlaylistChanged(bool checked);
     void slotEndTimeChanged(const QTime& time);
 
@@ -69,14 +68,6 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // that don't make sense in Tango mode (Shuffle, Add Random, Repeat, Skip,
     // column sorting), reading the mode from the config.
     void refreshTangoModeUi();
-    // Mirrors the processor's transition mode into the combo box without
-    // overwriting a DJ's manual stock-mode override while Tango remains on.
-    void syncTransitionModeFromProcessor();
-    // Adds/removes the Tango-only Tanda Transition option from the mode combo.
-    void refreshTransitionModeOptions();
-    // Shows the stock transition time control or the Tanda gap control based on
-    // the selected transition mode.
-    void refreshTransitionControls();
     // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
     void updateNowPlaying();
     // Refreshes the Tango DJ mode set end-time / time-left readout, including the

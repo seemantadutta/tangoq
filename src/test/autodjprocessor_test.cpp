@@ -463,6 +463,32 @@ TEST_F(AutoDJProcessorTest, TangoMode_LockPinsItOnAndRefusesDisable) {
     config()->setValue(ConfigKey("[Auto DJ]", "KeepQueue"), false);
 }
 
+TEST_F(AutoDJProcessorTest, TangoMode_LockRepairsPersistedStockTransitionMode) {
+    // Recreate the processor from a configuration written by an older TangoQ
+    // session that selected a stock transition while Tango mode was enabled.
+    pProcessor.reset();
+    config()->setValue(ConfigKey("[Auto DJ]", "TransitionMode"),
+            static_cast<int>(AutoDJProcessor::TransitionMode::FullIntroOutro));
+    config()->setValue(ConfigKey("[Auto DJ]", "KeepQueue"), true);
+
+    EXPECT_CALL(*pPlayerManager, getDeckBase(0)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(1)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(2)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(3)).Times(1);
+    pProcessor.reset(new MockAutoDJProcessor(nullptr,
+            config(),
+            pPlayerManager.data(),
+            trackCollectionManager(),
+            m_iAutoDJPlaylistId));
+
+    pProcessor->lockTangoModeOn();
+
+    EXPECT_EQ(AutoDJProcessor::TransitionMode::TandaTransition,
+            pProcessor->getTransitionMode());
+
+    config()->setValue(ConfigKey("[Auto DJ]", "KeepQueue"), false);
+}
+
 TEST_F(AutoDJProcessorTest, TandaMoveSafetyProtectsTheLoadedQueueRow) {
     EXPECT_EQ(1, pProcessor->firstUnloadedQueuePosition());
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
