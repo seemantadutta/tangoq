@@ -397,6 +397,10 @@ void BaseTrackTableModel::setNowPlayingTrack(TrackId trackId) {
 
 void BaseTrackTableModel::invalidateDuplicateTrackIds() {
     m_duplicateTrackIdsDirty = true;
+    // Row inserts/removes, a model reset or a toggle can change which track sits
+    // on a row, so the memoized start-time marks are recomputed on demand after
+    // any of them. Plain repaints do not reach here, so the cache survives them.
+    m_tangoStartTimeMarkCache.clear();
 }
 
 const QSet<TrackId>& BaseTrackTableModel::duplicateTrackIds() const {
@@ -644,6 +648,27 @@ void BaseTrackTableModel::setShowCortinaMarks(bool enable) {
 }
 
 QString BaseTrackTableModel::tangoStartTimeMark(const QModelIndex& index) const {
+    // Reading the id from the query record is cheap and does not resolve the
+    // track. Resolving the track (below) can re-import tags from disk, so it
+    // must happen at most once per track, not on every repaint of this cell.
+    const TrackId trackId(rawSiblingValue(
+            index, ColumnCache::COLUMN_LIBRARYTABLE_ID));
+    if (trackId.isValid()) {
+        const auto cached = m_tangoStartTimeMarkCache.constFind(trackId);
+        if (cached != m_tangoStartTimeMarkCache.constEnd()) {
+            return cached.value();
+        }
+    }
+
+    const QString mark = computeTangoStartTimeMark(index);
+    if (trackId.isValid()) {
+        m_tangoStartTimeMarkCache.insert(trackId, mark);
+    }
+    return mark;
+}
+
+QString BaseTrackTableModel::computeTangoStartTimeMark(
+        const QModelIndex& index) const {
     const TrackPointer pTrack = getTrack(index);
     if (!pTrack) {
         return QString();
@@ -1407,6 +1432,8 @@ void BaseTrackTableModel::slotTrackCuesUpdated() {
     if (!trackId.isValid()) {
         return;
     }
+    // Drop the memoized start-time mark so the repaint below recomputes it once.
+    m_tangoStartTimeMarkCache.remove(trackId);
     const int titleColumn = fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE);
     VERIFY_OR_DEBUG_ASSERT(titleColumn >= 0) {
         return;
