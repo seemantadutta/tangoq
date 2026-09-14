@@ -1347,6 +1347,12 @@ void WTrackTableView::wheelEvent(QWheelEvent* pEvent) {
     WLibraryTableView::wheelEvent(pEvent);
 }
 
+bool WTrackTableView::overrideHideRemoveConfirmationText(
+        QString* /*pTitle*/, QString* /*pMessage*/) const {
+    // The ordinary track view uses the default wording.
+    return false;
+}
+
 void WTrackTableView::hideOrRemoveSelectedTracks() {
     TrackModel* pTrackModel = getTrackModel();
     if (!pTrackModel) {
@@ -1390,25 +1396,29 @@ void WTrackTableView::hideOrRemoveSelectedTracks() {
     if (pTrackModel->getRequireConfirmationToHideRemoveTracks()) {
         QString title;
         QString message;
-        if (cap == TrackModel::Capability::Hide) {
-            // Hide tracks if this is the main library table
-            title = tr("Confirm track hide");
-            message = tr("Are you sure you want to hide the selected tracks?");
-        } else {
-            title = tr("Confirm track removal");
-            // Else remove the tracks from AutoDJ/crate/playlist
-            if (cap == TrackModel::Capability::Remove) {
-                message =
-                        tr("Are you sure you want to remove the selected "
-                           "tracks from AutoDJ queue?");
-            } else if (cap == TrackModel::Capability::RemoveCrate) {
-                message =
-                        tr("Are you sure you want to remove the selected "
-                           "tracks from this crate?");
-            } else { // TrackModel::Capability::RemovePlaylist
-                message =
-                        tr("Are you sure you want to remove the selected "
-                           "tracks from this playlist?");
+        // Specialized views (e.g. the tanda queue) may replace the wording for
+        // their own selection. Otherwise use the default track wording.
+        if (!overrideHideRemoveConfirmationText(&title, &message)) {
+            if (cap == TrackModel::Capability::Hide) {
+                // Hide tracks if this is the main library table
+                title = tr("Confirm track hide");
+                message = tr("Are you sure you want to hide the selected tracks?");
+            } else {
+                title = tr("Confirm track removal");
+                // Else remove the tracks from AutoDJ/crate/playlist
+                if (cap == TrackModel::Capability::Remove) {
+                    message =
+                            tr("Are you sure you want to remove the selected "
+                               "tracks from AutoDJ queue?");
+                } else if (cap == TrackModel::Capability::RemoveCrate) {
+                    message =
+                            tr("Are you sure you want to remove the selected "
+                               "tracks from this crate?");
+                } else { // TrackModel::Capability::RemovePlaylist
+                    message =
+                            tr("Are you sure you want to remove the selected "
+                               "tracks from this playlist?");
+                }
             }
         }
 

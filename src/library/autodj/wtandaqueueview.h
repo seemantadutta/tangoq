@@ -47,6 +47,10 @@ class WTandaQueueView final : public WTrackTableView {
     void dropEvent(QDropEvent* pEvent) override;
     void keyPressEvent(QKeyEvent* pEvent) override;
     void paintEvent(QPaintEvent* pEvent) override;
+    // Tanda-specific wording for the hide/remove confirmation when the selection
+    // includes one or more tanda headers; otherwise defers to the track wording.
+    bool overrideHideRemoveConfirmationText(
+            QString* pTitle, QString* pMessage) const override;
     void prepareTrackMenu(
             WTrackMenu* pTrackMenu, const QModelIndexList& indices) override;
 
