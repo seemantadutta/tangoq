@@ -318,6 +318,8 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     /// nearest its old row - the same disambiguation the Tango cursor uses.
     void reanchorPauseAfterRows();
     QString tangoStartTimeMark(const QModelIndex& index) const;
+    // Resolves the track and reads its cues; call only on a cache miss.
+    QString computeTangoStartTimeMark(const QModelIndex& index) const;
     void refreshTangoStartCueObservers();
     void observeTangoStartCueTrack(
             const QString& group,
@@ -358,6 +360,13 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     // When true, render Tango Auto DJ row colors and display-only title marks.
     bool m_showCortinaMarks = false;
     QHash<QString, TrackPointer> m_tangoStartCueTracksByGroup;
+
+    // Start-time mark shown in the title cell, memoized per track id. Computing
+    // it needs the full Track (to read its cues), so resolving it on every
+    // repaint would re-import tags from disk for every visible row each frame.
+    // The cache holds one entry per track (an empty string means "no mark");
+    // slotTrackCuesUpdated() drops a track's entry and a rebuild clears it all.
+    mutable QHash<TrackId, QString> m_tangoStartTimeMarkCache;
 
     // Ids appearing on more than one row, excluding cortinas. Scanning every row
     // per cell would be quadratic, so it is computed once per queue edit and
