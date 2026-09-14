@@ -35,6 +35,7 @@
 #include "library/autodj/tandaqueuestate.h"
 #include "library/playlisttablemodel.h"
 #include "moc_wtandaqueueview.cpp"
+#include "util/defs.h"
 #include "util/dnd.h"
 #include "widget/wtrackmenu.h"
 
@@ -154,6 +155,12 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
             m_pAutoDJFeature->ungroupTanda(m_contextTandaId);
         }
     });
+    // Show the same Remove shortcut hint as the track context menu (Cmd+Backspace
+    // on macOS). Like a track's right-click Remove, this removes immediately
+    // without a confirmation dialog; only the keyboard shortcut confirms.
+    m_pRemoveAction->setShortcut(QKeySequence(
+            static_cast<int>(kHideRemoveShortcutModifier) | kHideRemoveShortcutKey));
+    m_pRemoveAction->setShortcutVisibleInContextMenu(true);
     connect(m_pRemoveAction, &QAction::triggered, this, [this] {
         removeSelectedTracks();
     });
@@ -303,7 +310,7 @@ void WTandaQueueView::keyPressEvent(QKeyEvent* pEvent) {
         }
         if (pEvent->matches(QKeySequence::Delete) ||
                 pEvent->key() == Qt::Key_Backspace) {
-            removeSelectedTracks();
+            hideOrRemoveSelectedTracks();
             pEvent->accept();
             return;
         }
@@ -456,6 +463,36 @@ bool WTandaQueueView::selectedRowsAreHeaders() const {
         }
     }
     return false;
+}
+
+bool WTandaQueueView::overrideHideRemoveConfirmationText(
+        QString* pTitle, QString* pMessage) const {
+    TandaQueueModel* pModel = tandaModel();
+    if (!pModel || !selectionModel()) {
+        return false;
+    }
+    QSet<int> rows;
+    for (const QModelIndex& index : selectionModel()->selectedIndexes()) {
+        rows.insert(index.row());
+    }
+    int tandaCount = 0;
+    for (int row : std::as_const(rows)) {
+        if (pModel->isHeaderRow(row)) {
+            ++tandaCount;
+        }
+    }
+    if (tandaCount == 0) {
+        // No tanda header selected, so this removes plain tracks. Keep the
+        // default track wording.
+        return false;
+    }
+    *pTitle = tr("Confirm tanda removal");
+    *pMessage = tandaCount > 1
+            ? tr("Are you sure you want to remove the selected tandas and their "
+                 "tracks from the queue?")
+            : tr("Are you sure you want to remove this tanda and its tracks "
+                 "from the queue?");
+    return true;
 }
 
 QVector<int> WTandaQueueView::selectedQueuePositions(bool* pAllLeaves) const {

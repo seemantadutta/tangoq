@@ -465,16 +465,22 @@ void WTrackMenu::createActions() {
     if (featureIsEnabled(Feature::Remove)) {
         // Keyboard shortcuts are set here just to have them displayed in the menu.
         // Actual keypress is handled in WTrackTableView::keyPressEvent().
+        // setShortcutVisibleInContextMenu is required on macOS, where Qt hides
+        // context-menu shortcuts by default, so the Cmd+Backspace hint would
+        // otherwise be invisible and users could not discover it.
         m_pRemoveAct = make_parented<QAction>(tr("Remove"), this);
         m_pRemoveAct->setShortcut(hideRemoveKeySequence);
+        m_pRemoveAct->setShortcutVisibleInContextMenu(true);
         connect(m_pRemoveAct, &QAction::triggered, this, &WTrackMenu::slotRemove);
 
         m_pRemovePlaylistAct = make_parented<QAction>(tr("Remove from Playlist"), this);
         m_pRemovePlaylistAct->setShortcut(hideRemoveKeySequence);
+        m_pRemovePlaylistAct->setShortcutVisibleInContextMenu(true);
         connect(m_pRemovePlaylistAct, &QAction::triggered, this, &WTrackMenu::slotRemove);
 
         m_pRemoveCrateAct = make_parented<QAction>(tr("Remove from Crate"), this);
         m_pRemoveCrateAct->setShortcut(hideRemoveKeySequence);
+        m_pRemoveCrateAct->setShortcutVisibleInContextMenu(true);
         connect(m_pRemoveCrateAct, &QAction::triggered, this, &WTrackMenu::slotRemove);
     }
 
@@ -485,6 +491,7 @@ void WTrackMenu::createActions() {
         // Note: don't show the hotkey for more than one action
         if (!featureIsEnabled(Feature::Remove)) {
             m_pHideAct->setShortcut(hideRemoveKeySequence);
+            m_pHideAct->setShortcutVisibleInContextMenu(true);
         }
         connect(m_pHideAct, &QAction::triggered, this, &WTrackMenu::slotHide);
 

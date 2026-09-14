@@ -154,6 +154,18 @@ class WTrackTableView : public WLibraryTableView {
     void dragEnterEvent(QDragEnterEvent * event) override;
     void dropEvent(QDropEvent * event) override;
 
+    // Removes or hides the selected rows through the shared confirmation dialog.
+    // Protected so specialized views (e.g. the tanda queue) remove grouped rows
+    // with the same prompt as ordinary tracks.
+    void hideOrRemoveSelectedTracks();
+
+    // Lets a specialized view supply its own hide/remove confirmation title and
+    // message for the current selection (e.g. the tanda queue when whole tandas
+    // are selected). Returns true and fills the strings to override the default
+    // track wording, false to keep it.
+    virtual bool overrideHideRemoveConfirmationText(
+            QString* pTitle, QString* pMessage) const;
+
   private:
     void addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc);
 
@@ -171,8 +183,6 @@ class WTrackTableView : public WLibraryTableView {
 
     void initTrackMenu();
     void showTrackMenu(const QPoint pos, const QModelIndex& index);
-
-    void hideOrRemoveSelectedTracks();
 
     const UserSettingsPointer m_pConfig;
     Library* const m_pLibrary;
