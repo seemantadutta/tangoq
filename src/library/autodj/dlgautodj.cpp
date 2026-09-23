@@ -595,8 +595,9 @@ void DlgAutoDJ::refreshTangoModeUi() {
         pButton->setVisible(!tango);
         pButton->setEnabled(!tango);
     }
-    // The stock Fade Now button becomes Fade Cortina in Tango mode. Reusing the
-    // same widget preserves the skin's native hover, press, and disabled states.
+    // The stock Fade button becomes Fade Now (fade the playing cortina) in Tango
+    // mode. Reusing the same widget preserves the skin's native hover, press,
+    // and disabled states.
     const AutoDJProcessor::AutoDJState state = m_pAutoDJProcessor->getState();
     const bool running = state != AutoDJProcessor::ADJ_DISABLED;
     const bool fading = state == AutoDJProcessor::ADJ_LEFT_FADING ||
@@ -614,8 +615,12 @@ void DlgAutoDJ::refreshTangoModeUi() {
                          "continue with the configured gap and next tanda track.")
                     : tr("Trigger the transition to the next track\n\n"
                          "Shortcut: Shift+F11"));
-    if (m_bShowButtonText) {
-        pushButtonFadeNow->setText(tango ? tr("Fade Cortina") : tr("Fade"));
+    // In Tango mode the button always carries its name: an icon alone was too
+    // easy to miss. Outside Tango it keeps the stock icon-or-text behavior.
+    if (tango) {
+        pushButtonFadeNow->setText(tr("Fade Now"));
+    } else {
+        pushButtonFadeNow->setText(m_bShowButtonText ? tr("Fade") : QString());
     }
     // Prevent click-to-sort from reordering the queue out of its play order.
     QHeaderView* pHeader = m_pTrackTableView->horizontalHeader();

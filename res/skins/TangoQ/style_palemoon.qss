@@ -1765,6 +1765,7 @@ WPushButton#Reverse[pressed="true"],
 #MicDucking[value="2"],
 #PassthroughButton[displayValue="1"],
 #BroadcastButton[displayValue="4"], /* warning */
+QPushButton#pushButtonFadeNow:enabled,
 QPushButton#pushButtonAutoDJ:checked,
 QPushButton#pushButtonAnalyze:checked {
   background-color: #b24c12;
@@ -2601,15 +2602,12 @@ QPushButton#pushButtonAutoDJ:!checked {
     image: url(skins:TangoQ/palemoon/buttons/btn__autodj_enable_on.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonFadeNow:!enabled {
-  image: url(skins:TangoQ/palemoon/buttons/btn__autodj_fade_disabled.svg) no-repeat center center;
-  }
-  /* Fade Cortina is only enabled while a cortina plays. Give that moment the
-     "active" color so the button stands out when it can be used (#59). */
-  QPushButton#pushButtonFadeNow:enabled {
-    image: url(skins:TangoQ/palemoon/buttons/btn__autodj_fade_armed.svg) no-repeat center center;
-    background-color: #b24c12;
-  }
+/* Fade Now is a text button, only enabled while a cortina plays. It then
+   takes the TangoQ button's active background (see the list above) so it
+   stands out when it can be used (#59). White text reads better on it. */
+QPushButton#pushButtonFadeNow:enabled {
+  color: #fff;
+}
 
 QPushButton#pushButtonSkipNext:!enabled {
   image: url(skins:TangoQ/palemoon/buttons/btn__autodj_skip_disabled.svg) no-repeat center center;

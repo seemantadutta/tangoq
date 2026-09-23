@@ -71,7 +71,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
     void updateNowPlaying();
     // Publishes the Tango set timing (length, projected end, over/under against
-    // the target end time) for the HUD, and refreshes the Fade Cortina button.
+    // the target end time) for the HUD, and refreshes the Fade Now button.
     void updateSetEndTime();
     // Refreshes the LIVE indicator (red when on, greyed when off) and applies the
     // matching deck play/pause (D/L) keyboard suppression.

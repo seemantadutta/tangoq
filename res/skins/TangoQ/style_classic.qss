@@ -1333,6 +1333,7 @@ WPushButton#VinylStatus[displayValue="3"], /* needle skip detected (pink bg) */
 #RecDuration[highlight="1"],
 #RecDuration[highlight="2"],
 #SkinSettingsToggle[displayValue="1"],
+QPushButton#pushButtonFadeNow:enabled,
 QPushButton#pushButtonAutoDJ:checked,
 QPushButton#pushButtonRepeatPlaylist:checked,
 QPushButton#pushButtonAnalyze:checked,
@@ -1428,6 +1429,7 @@ WPushButton#FxAssignButton1[displayValue="1"],
 #BroadcastButton[displayValue="4"],
 #SkinSettingsToggle[displayValue="1"],
 #LibraryFeatureControls QPushButton:pressed,
+QPushButton#pushButtonFadeNow:enabled,
 QPushButton#pushButtonAutoDJ:checked,
 QPushButton#pushButtonRepeatPlaylist:checked,
 QPushButton#pushButtonAnalyze:checked,
@@ -1620,6 +1622,7 @@ WPushButton#VinylStatus[displayValue="2"], /* blinks when the needle reaches the
 #BroadcastButton[displayValue="1"],   /* connecting: yellow */
 #RecFeedback[displayValue="1"],   /* initialize recording */
 #SkinSettingsToggle[displayValue="1"],
+QPushButton#pushButtonFadeNow:enabled,
 QPushButton#pushButtonAutoDJ:checked,
 QPushButton#pushButtonAnalyze:checked {
   background-color: #d09300;
@@ -2136,15 +2139,9 @@ QPushButton#pushButtonAutoDJ:!checked {
     image: url(skins:TangoQ/classic/buttons/btn__autodj_enable_on.svg) no-repeat center center;
   }
 
-QPushButton#pushButtonFadeNow:!enabled {
-  image: url(skins:TangoQ/classic/buttons/btn__autodj_fade_disabled.svg) no-repeat center center;
-  }
-  /* Fade Cortina is only enabled while a cortina plays. Give that moment the
-     "active" color so the button stands out when it can be used (#59). */
-  QPushButton#pushButtonFadeNow:enabled {
-    image: url(skins:TangoQ/classic/buttons/btn__autodj_fade_armed.svg) no-repeat center center;
-    background-color: #d09300;
-  }
+/* Fade Now is a text button, only enabled while a cortina plays. It then
+   takes the TangoQ button's active look (see the lists above) so it stands
+   out when it can be used (#59). */
 
 QPushButton#pushButtonSkipNext:!enabled {
   image: url(skins:TangoQ/classic/buttons/btn__autodj_skip_disabled.svg) no-repeat center center;

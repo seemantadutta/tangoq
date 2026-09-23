@@ -291,7 +291,7 @@
          <item>
        <widget class="QLabel" name="labelSetEndTime">
         <property name="text">
-         <string>T:</string>
+         <string>Target Time</string>
         </property>
         <property name="toolTip">
          <string>Target end time for the milonga (Tango DJ mode). The HUD shows whether the projected end is over or under this time.</string>
