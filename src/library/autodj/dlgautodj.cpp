@@ -1,11 +1,10 @@
 #include "library/autodj/dlgautodj.h"
 
 #include <QDateTime>
-#include <QFont>
-#include <QFontMetrics>
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStyle>
@@ -353,10 +352,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pSetTimeTimer->setInterval(1000);
     connect(m_pSetTimeTimer, &QTimer::timeout, this, &DlgAutoDJ::updateSetEndTime);
 
-    // Target end time for the milonga (Tango DJ mode). The over/under indicator
-    // next to it compares the projected set end against this. Editable at any time
-    // and persisted; defaults to 12:00 AM (midnight). Shown in 12-hour form with an
-    // AM/PM section (see the endTimeEdit displayFormat in the .ui).
+    // Target end time for the milonga (Tango DJ mode). The HUD's over/under line
+    // compares the projected set end against this. Editable at any time and
+    // persisted; defaults to midnight. Shown in the operating system's short time
+    // format, like the toolbar clock and the HUD's "Ends at", so 12-hour (AM/PM)
+    // or 24-hour time reads the same everywhere.
+    endTimeEdit->setDisplayFormat(QLocale().timeFormat(QLocale::ShortFormat));
     QTime endTime = QTime::fromString(
             m_pConfig->getValue(ConfigKey(kPreferenceGroupName, kEndTimePreference),
                     kDefaultEndTime),
