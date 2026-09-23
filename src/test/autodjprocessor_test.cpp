@@ -63,13 +63,15 @@ class FakeDeck : public BaseTrackPlayer {
               outroStartPos(ConfigKey(group, "outro_start_position")),
               outroEndPos(ConfigKey(group, "outro_end_position")),
               orientation(ConfigKey(group, "orientation")),
-              autodjFadeGain(ConfigKey(group, "autodj_fade_gain")) {
+              autodjFadeGain(ConfigKey(group, "autodj_fade_gain")),
+              autodjLevelGain(ConfigKey(group, "autodj_level_gain")) {
         play.setButtonMode(ControlPushButton::TOGGLE);
         repeat.setButtonMode(ControlPushButton::TOGGLE);
         outroStartPos.set(Cue::kNoPosition);
         outroEndPos.set(Cue::kNoPosition);
         orientation.set(orient);
         autodjFadeGain.set(1.0);
+        autodjLevelGain.set(1.0);
     }
 
     void fakeTrackLoadedEvent(TrackPointer pTrack) {
@@ -132,6 +134,7 @@ class FakeDeck : public BaseTrackPlayer {
     ControlObject outroEndPos;
     ControlObject orientation;
     ControlObject autodjFadeGain;
+    ControlObject autodjLevelGain;
 };
 
 class MockPlayerManager : public PlayerManagerInterface {
@@ -1134,6 +1137,65 @@ TEST_F(AutoDJProcessorTest, CortinaLevel_PersistsAndClampsToItsRange) {
     EXPECT_EQ(mixxx::cortinalevel::kMaxDb, config()->getValue(configKey, 0));
     ControlObject::set(controlKey, -40.0);
     EXPECT_EQ(mixxx::cortinalevel::kMinDb, config()->getValue(configKey, 0));
+}
+
+TEST_F(AutoDJProcessorTest, CortinaLevel_AppliesOnlyToDecksHoldingACortina) {
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    const TrackId cortinaId = addTrackToCollection(kTrackLocationTest);
+    const TrackId tangoId = addTrackToCollection(kTrackLocationTest2);
+    ASSERT_TRUE(cortinaId.isValid());
+    ASSERT_TRUE(tangoId.isValid());
+    CortinaRegistry::instance().mark(cortinaId);
+    const TrackPointer pCortina = newTestTrack(cortinaId);
+    const TrackPointer pTango = newTestTrack(tangoId);
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"), -6.0);
+    deck1.slotLoadTrack(pCortina, false);
+    deck1.fakeTrackLoadedEvent(pCortina);
+    deck2.slotLoadTrack(pTango, false);
+    deck2.fakeTrackLoadedEvent(pTango);
+
+    // -6 dB is half the amplitude, on the cortina's deck only.
+    EXPECT_NEAR(mixxx::cortinalevel::gainForDb(-6), deck1.autodjLevelGain.get(), 1e-9);
+    EXPECT_NEAR(0.501, deck1.autodjLevelGain.get(), 1e-3);
+    EXPECT_DOUBLE_EQ(1.0, deck2.autodjLevelGain.get());
+    // The level is separate from the fade envelope's gain.
+    EXPECT_DOUBLE_EQ(1.0, deck1.autodjFadeGain.get());
+
+    // A live change applies to the loaded cortina straight away.
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"), 3.0);
+    EXPECT_NEAR(mixxx::cortinalevel::gainForDb(3), deck1.autodjLevelGain.get(), 1e-9);
+    EXPECT_DOUBLE_EQ(1.0, deck2.autodjLevelGain.get());
+
+    // Loading a tanda track onto that deck resets it before it can play.
+    deck1.slotLoadTrack(pTango, false);
+    deck1.fakeTrackLoadedEvent(pTango);
+    EXPECT_DOUBLE_EQ(1.0, deck1.autodjLevelGain.get());
+
+    CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"), 0.0);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, CortinaLevel_FollowsCortinaMarks) {
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    const TrackId trackId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(trackId.isValid());
+    const TrackPointer pTrack = newTestTrack(trackId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"), -4.0);
+    deck1.slotLoadTrack(pTrack, false);
+    deck1.fakeTrackLoadedEvent(pTrack);
+    EXPECT_DOUBLE_EQ(1.0, deck1.autodjLevelGain.get());
+
+    // Marking the loaded track as a cortina applies the level, and unmarking
+    // it removes the level again.
+    CortinaRegistry::instance().mark(trackId);
+    EXPECT_NEAR(mixxx::cortinalevel::gainForDb(-4), deck1.autodjLevelGain.get(), 1e-9);
+    CortinaRegistry::instance().unmark(trackId);
+    EXPECT_DOUBLE_EQ(1.0, deck1.autodjLevelGain.get());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"), 0.0);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
 TEST_F(AutoDJProcessorTest, EndTimeDelta_OverUnderAndOnTime) {

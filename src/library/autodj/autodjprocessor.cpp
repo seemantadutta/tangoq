@@ -107,6 +107,7 @@ DeckAttributes::DeckAttributes(int index,
           m_sampleRate(group, "track_samplerate"),
           m_rateRatio(group, "rate_ratio"),
           m_autoDJFadeGain(group, "autodj_fade_gain"),
+          m_autoDJLevelGain(group, "autodj_level_gain"),
           m_tangoFadeActive(ConfigKey(group, "tango_fade_active")),
           m_tangoFadeStartPos(ConfigKey(group, "tango_fade_start_position")),
           m_tangoFadePlateauStartPos(
@@ -372,6 +373,11 @@ AutoDJProcessor::AutoDJProcessor(
             &CortinaRegistry::cortinaMarksChanged,
             this,
             &AutoDJProcessor::refreshCortinaFadePreviews);
+    // ... and must gain (or lose) the cortina level on that deck.
+    connect(&CortinaRegistry::instance(),
+            &CortinaRegistry::cortinaMarksChanged,
+            this,
+            &AutoDJProcessor::updateCortinaLevelGains);
 
     connect(&m_shufflePlaylist,
             &ControlPushButton::valueChanged,
@@ -532,6 +538,18 @@ void AutoDJProcessor::slotNumberOfDecksChanged(int decks) {
             return;
         }
         m_decks.emplace_back(std::make_unique<DeckAttributes>(i, pPlayer));
+        // Keep the cortina level in step with what each deck holds. Unlike the
+        // transition connections, these stay connected while Auto DJ is off, so
+        // a tanda track loaded onto a former cortina deck is reset before it
+        // can play.
+        DeckAttributes* pDeck = m_decks.back().get();
+        connect(pDeck,
+                &DeckAttributes::trackLoaded,
+                this,
+                &AutoDJProcessor::applyCortinaLevel);
+        connect(pDeck, &DeckAttributes::playerEmpty, this, [this](DeckAttributes* pEmpty) {
+            applyCortinaLevel(pEmpty, TrackPointer());
+        });
     }
 }
 
@@ -2877,6 +2895,8 @@ void AutoDJProcessor::controlKeepQueueChangeRequest(double value) {
     // *request* and lands here, so this is the path that actually runs.
     m_keepQueueOff.set(enabled ? 0.0 : 1.0);
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("KeepQueue")), enabled);
+    // The cortina level only applies in Tango mode.
+    updateCortinaLevelGains();
 }
 
 void AutoDJProcessor::lockTangoModeOn() {
@@ -2897,6 +2917,29 @@ void AutoDJProcessor::controlCortinaLevelDb(double value) {
     m_pConfig->setValue(
             ConfigKey(kPreferenceGroup, QStringLiteral("CortinaLevelDb")),
             mixxx::cortinalevel::clampDb(value));
+    // Applies to a cortina that is already playing, too. The engine ramps gain
+    // changes across an audio buffer, so a live change does not click.
+    updateCortinaLevelGains();
+}
+
+void AutoDJProcessor::applyCortinaLevel(
+        DeckAttributes* pDeck, const TrackPointer& pTrack) {
+    if (!pDeck) {
+        return;
+    }
+    const double gain = keepQueueEnabled() && isCortina(pTrack)
+            ? mixxx::cortinalevel::gainForDb(
+                      mixxx::cortinalevel::clampDb(m_cortinaLevelDb.get()))
+            : 1.0;
+    pDeck->setAutoDJLevelGain(gain);
+}
+
+void AutoDJProcessor::updateCortinaLevelGains() {
+    for (const auto& pDeck : m_decks) {
+        if (pDeck) {
+            applyCortinaLevel(pDeck.get(), pDeck->getLoadedTrack());
+        }
+    }
 }
 
 void AutoDJProcessor::controlCortinaLength(double value) {

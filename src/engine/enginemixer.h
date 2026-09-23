@@ -111,6 +111,7 @@ class EngineMixer : public QObject, public AudioSource {
                   m_pVolumeControl(NULL),
                   m_pMuteControl(NULL),
                   m_pAutoDJFadeGainControl(NULL),
+                  m_pAutoDJLevelGainControl(NULL),
                   m_index(index) {
         }
         ChannelHandle m_handle;
@@ -119,6 +120,9 @@ class EngineMixer : public QObject, public AudioSource {
         ControlObject* m_pVolumeControl;
         ControlPushButton* m_pMuteControl;
         ControlObject* m_pAutoDJFadeGainControl;
+        // TangoQ cortina level: a steady volume offset set by AutoDJProcessor on
+        // a deck holding a cortina, separate from the fade envelope above.
+        ControlObject* m_pAutoDJLevelGainControl;
         GroupFeatureState m_features;
         int m_index;
     };
@@ -170,7 +174,9 @@ class EngineMixer : public QObject, public AudioSource {
                     m_dRightGain);
             const CSAMPLE_GAIN autoDJFadeGain = static_cast<CSAMPLE_GAIN>(
                     pChannelInfo->m_pAutoDJFadeGainControl->get());
-            return channelVolume * orientationGain * autoDJFadeGain;
+            const CSAMPLE_GAIN autoDJLevelGain = static_cast<CSAMPLE_GAIN>(
+                    pChannelInfo->m_pAutoDJLevelGainControl->get());
+            return channelVolume * orientationGain * autoDJFadeGain * autoDJLevelGain;
         }
 
         inline void setGains(CSAMPLE_GAIN leftGain,

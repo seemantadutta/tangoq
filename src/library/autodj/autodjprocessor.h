@@ -106,6 +106,17 @@ class DeckAttributes : public QObject {
         setAutoDJFadeGain(1.0);
     }
 
+    // The cortina level's steady gain on this deck's main-mix contribution,
+    // multiplied with the fade gain above by the engine. 1.0 unless the deck
+    // holds a cortina (see AutoDJProcessor::updateCortinaLevelGains).
+    void setAutoDJLevelGain(double gain) {
+        m_autoDJLevelGain.set(gain);
+    }
+
+    double autoDJLevelGain() const {
+        return m_autoDJLevelGain.get();
+    }
+
     double rateRatio() const {
         return m_rateRatio.get();
     }
@@ -178,6 +189,7 @@ class DeckAttributes : public QObject {
     ControlProxy m_sampleRate;
     ControlProxy m_rateRatio;
     ControlProxy m_autoDJFadeGain;
+    ControlProxy m_autoDJLevelGain;
     // Per-deck cortina fade overlay state, read by the waveform fade-envelope
     // renderer. Only written from the cortina fade path, so stock transition
     // modes leave these at their inactive defaults.
@@ -381,6 +393,10 @@ class AutoDJProcessor : public QObject {
     // the prefs Apply) to config and refreshes the envelope budget + estimate.
     void controlCortinaLength(double value);
     void controlCortinaLevelDb(double value);
+    // Sets every deck's level gain: the cortina level on a deck holding a
+    // marked cortina in Tango mode, 1.0 otherwise.
+    void updateCortinaLevelGains();
+    void applyCortinaLevel(DeckAttributes* pDeck, const TrackPointer& pTrack);
     // Triggered from the Auto DJ queue right-click "Eject decks and reset AutoDJ
     // queue state" action to restart the Tango set from the top (see
     // resetKeepQueueSet). The deck eject is done by the menu action itself.
