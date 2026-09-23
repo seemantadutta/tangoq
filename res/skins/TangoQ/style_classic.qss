@@ -251,6 +251,12 @@ WSearchLineEdit,
   qproperty-overColor: #a01010;
   qproperty-underColor: #155a24;
 }
+
+/* LIVE stop guard "Tap again" prompt: the countdown bar takes this scheme's
+   active amber (the default is Default's orange). */
+WCountdownOverlay {
+  qproperty-barColor: #d09300;
+}
   #BatteryBox {
     margin-bottom: 1px;
   }

@@ -7,7 +7,6 @@
 #include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
-#include <QSignalBlocker>
 #include <QStyle>
 #include <QStyleOptionButton>
 #include <QTimeEdit>
@@ -726,20 +725,17 @@ void DlgAutoDJ::showLiveContextMenu(const QPoint& pos) {
 }
 
 void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
-    // While armed, the button's active color drains away from the top over the
-    // guard window, revealing its stopped look, until it is empty when the
-    // window expires. The overlay ignores mouse events, so a second press on the
-    // button confirms the stop.
+    // While armed, the inside of the button reads "Tap again", with a bar along
+    // its bottom edge that shrinks to empty when the window expires. The overlay
+    // ignores mouse events, so a second press on the button confirms the stop.
     if (armed) {
         pushButtonAutoDJ->setChecked(true);
         pushButtonAutoDJ->setToolTip(
                 tr("Press again to stop the set (LIVE mode)."));
         if (m_pStopCountdown) {
-            // The button is the container: its active look drains to empty over
-            // the guard window, revealing its stopped look. Constrain the overlay
-            // to the button's visible area (inside the QSS margins and border) so
-            // it does not spill into the margin. The box model differs per skin,
-            // so ask the style.
+            // Constrain the overlay to the button's visible area (inside the QSS
+            // margins and border) so the border stays visible. The box model
+            // differs per skin, so ask the style.
             QStyleOptionButton option;
             option.initFrom(pushButtonAutoDJ);
             QRect inner = pushButtonAutoDJ->style()->subElementRect(
@@ -747,22 +743,9 @@ void DlgAutoDJ::slotStopGuardArmedChanged(bool armed) {
             if (!inner.isValid() || inner.isEmpty()) {
                 inner = pushButtonAutoDJ->rect();
             }
-            // Snapshot the button running (checked) and stopped (unchecked),
-            // both from the real button so the colors match the skin exactly.
-            // The overlay is hidden, so it is not in either grab, and the
-            // button only reacts to clicked(), so the brief uncheck is silent.
-            m_pStopCountdown->hide();
-            const QPixmap full = pushButtonAutoDJ->grab(inner);
-            QPixmap drained;
-            {
-                const QSignalBlocker blocker(pushButtonAutoDJ);
-                pushButtonAutoDJ->setChecked(false);
-                drained = pushButtonAutoDJ->grab(inner);
-                pushButtonAutoDJ->setChecked(true);
-            }
             m_pStopCountdown->setGeometry(inner);
             // Matches the AutoDJProcessor stop-guard timer (3 s).
-            m_pStopCountdown->start(3000, full, drained);
+            m_pStopCountdown->start(3000);
         }
     } else {
         if (m_pStopCountdown) {

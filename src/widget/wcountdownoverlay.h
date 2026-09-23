@@ -7,31 +7,31 @@
 
 #pragma once
 
+#include <QColor>
 #include <QElapsedTimer>
-#include <QPixmap>
 #include <QTimer>
 #include <QWidget>
 
-// A countdown overlay that drains like liquid: the host's "on" look (e.g. the
-// orange of a running Auto DJ or playing deck button) empties from the top over a
-// fixed duration, revealing the host's "off" look. Purely visual and transparent
-// to mouse events, so it can sit on top of a clickable widget (e.g. the Auto DJ
-// button) without blocking it.
+// The LIVE-mode stop guard's confirm prompt. While armed, it covers the inside
+// of the host button with a short "Tap again" label, and a thin bar along its
+// bottom edge shrinks from right to left over the guard window, so the DJ sees
+// both what to do and how long they have. Purely visual and transparent to mouse
+// events, so it can sit on top of a clickable widget (e.g. the Auto DJ button)
+// without blocking it.
 //
-// It paints two caller-supplied snapshots of the host, so both parts are
-// pixel-identical to the real button in each state, in every color scheme, and
-// the only moving edge is a straight horizontal liquid surface.
+// Its colors are skin properties, so a color scheme can set them, e.g.
+// WCountdownOverlay { qproperty-barColor: #d09300; }.
 class WCountdownOverlay : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(QColor backgroundColor MEMBER m_backgroundColor DESIGNABLE true)
+    Q_PROPERTY(QColor textColor MEMBER m_textColor DESIGNABLE true)
+    Q_PROPERTY(QColor barColor MEMBER m_barColor DESIGNABLE true)
   public:
     explicit WCountdownOverlay(QWidget* parent = nullptr);
 
     // Begins (or restarts) the countdown over durationMs and shows the overlay.
-    // fullSnapshot and drainedSnapshot are the host area covered by this widget,
-    // rendered in its current ("on") and its "off" state respectively.
-    void start(int durationMs,
-            const QPixmap& fullSnapshot,
-            const QPixmap& drainedSnapshot);
+    // Place it over the inside of the host (within its border) first.
+    void start(int durationMs);
     // Stops the animation and hides the overlay.
     void stop();
 
@@ -42,6 +42,7 @@ class WCountdownOverlay : public QWidget {
     QElapsedTimer m_elapsed;
     QTimer m_repaintTimer;
     int m_durationMs;
-    QPixmap m_fullSnapshot;
-    QPixmap m_drainedSnapshot;
+    QColor m_backgroundColor;
+    QColor m_textColor;
+    QColor m_barColor;
 };

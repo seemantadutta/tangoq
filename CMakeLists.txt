@@ -2305,6 +2305,7 @@ if(BUILD_TESTING)
     src/test/upgrade_test.cpp
     src/test/uuid_test.cpp
     src/test/wbatterytest.cpp
+    src/test/wcountdownoverlay_test.cpp
     src/test/wpushbutton_test.cpp
     src/test/wtangohud_test.cpp
     src/test/wwidgetstack_test.cpp

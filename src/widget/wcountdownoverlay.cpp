@@ -7,20 +7,31 @@
 
 #include "widget/wcountdownoverlay.h"
 
+#include <QFontMetrics>
 #include <QPainter>
 
 #include "moc_wcountdownoverlay.cpp"
 
 namespace {
 constexpr int kFrameIntervalMs = 33; // ~30 fps
+// Height of the countdown bar along the bottom edge.
+constexpr int kBarHeight = 3;
+// The label shrinks to fit small buttons, within these sizes.
+constexpr int kMaxLabelPixelSize = 12;
+constexpr int kMinLabelPixelSize = 8;
+// Defaults suit the dark Default scheme; the bar matches its active orange.
+const QColor kDefaultBackground(0x1b, 0x1b, 0x1d);
+const QColor kDefaultText(0xff, 0xff, 0xff);
+const QColor kDefaultBar(0xb2, 0x4c, 0x12);
 } // anonymous namespace
 
 WCountdownOverlay::WCountdownOverlay(QWidget* parent)
         : QWidget(parent),
-          m_durationMs(0) {
-    // Sit on top of the host widget without intercepting its clicks. The widget is
-    // opaque and paints snapshots of the host (see start()), so both the full
-    // and the drained part match the host exactly.
+          m_durationMs(0),
+          m_backgroundColor(kDefaultBackground),
+          m_textColor(kDefaultText),
+          m_barColor(kDefaultBar) {
+    // Sit on top of the host widget without intercepting its clicks.
     setAttribute(Qt::WA_TransparentForMouseEvents);
     hide();
     m_repaintTimer.setInterval(kFrameIntervalMs);
@@ -33,12 +44,8 @@ WCountdownOverlay::WCountdownOverlay(QWidget* parent)
     });
 }
 
-void WCountdownOverlay::start(int durationMs,
-        const QPixmap& fullSnapshot,
-        const QPixmap& drainedSnapshot) {
+void WCountdownOverlay::start(int durationMs) {
     m_durationMs = durationMs > 0 ? durationMs : 0;
-    m_fullSnapshot = fullSnapshot;
-    m_drainedSnapshot = drainedSnapshot;
     m_elapsed.start();
     m_repaintTimer.start();
     show();
@@ -59,21 +66,27 @@ void WCountdownOverlay::paintEvent(QPaintEvent* /*event*/) {
     remaining = qBound(0.0, remaining, 1.0);
 
     QPainter painter(this);
+    painter.fillRect(rect(), m_backgroundColor);
 
-    // The drained part is the host in its "off" state, filling the whole widget.
-    if (!m_drainedSnapshot.isNull()) {
-        painter.drawPixmap(0, 0, m_drainedSnapshot);
+    // The label, centered above the bar, at the largest size that fits.
+    const QString label = tr("Tap again");
+    const QRect labelRect(0, 0, width(), height() - kBarHeight);
+    QFont font = painter.font();
+    font.setBold(true);
+    for (int size = kMaxLabelPixelSize; size >= kMinLabelPixelSize; --size) {
+        font.setPixelSize(size);
+        if (QFontMetrics(font).horizontalAdvance(label) <= labelRect.width() - 4) {
+            break;
+        }
     }
+    painter.setFont(font);
+    painter.setPen(m_textColor);
+    painter.drawText(labelRect, Qt::AlignCenter, label);
 
-    // The liquid is the host in its "on" state, filling the bottom; its surface
-    // (top edge) falls from full to empty as the time runs out, like a leaking
-    // container. Only that horizontal surface moves.
-    const int level = static_cast<int>(height() * remaining + 0.5);
-    if (level > 0 && !m_fullSnapshot.isNull()) {
-        const qreal ratio = m_fullSnapshot.devicePixelRatio();
-        const int top = height() - level;
-        painter.drawPixmap(QRectF(0, top, width(), level),
-                m_fullSnapshot,
-                QRectF(0, top * ratio, width() * ratio, level * ratio));
+    // The bar shrinks from right to left as the time runs out.
+    const int barWidth = static_cast<int>(width() * remaining + 0.5);
+    if (barWidth > 0) {
+        painter.fillRect(QRect(0, height() - kBarHeight, barWidth, kBarHeight),
+                m_barColor);
     }
 }
