@@ -6,6 +6,7 @@
 #include <QStyleOption>
 #include <QStylePainter>
 #include <QtDebug>
+#include <utility>
 
 #include "control/controlbehavior.h"
 #include "control/controlobject.h"
@@ -615,22 +616,50 @@ void WPushButton::armLiveStopGuard() {
     }
     // Keep the overlay out of the snapshots when the guard is re-armed.
     m_pLiveStopCountdown->hide();
-    // The playing state drains away to the paused look, both taken from this
-    // button so the colors match the skin exactly.
-    const QPixmap full = grab(rect());
+    // The playing state drains away to the paused look, both taken from the
+    // skin so the colors match it exactly.
+    const QPixmap full = grabDisplayState(-1);
     const QPixmap drained = grabDisplayState(0);
     m_pLiveStopCountdown->setGeometry(rect());
     m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval(), full, drained);
 }
 
 QPixmap WPushButton::grabDisplayState(int state) {
+    // Skins often stack several buttons in one spot, e.g. the deck play button
+    // over indicator buttons that paint its "playing" fill. Grab the parent's
+    // area under this button so the snapshot shows the whole stack, and put
+    // every overlapping button into the requested state.
+    QWidget* pHost = parentWidget();
+    QList<WPushButton*> layers;
+    if (pHost) {
+        const auto siblings = pHost->findChildren<WPushButton*>(
+                QString(), Qt::FindDirectChildrenOnly);
+        for (WPushButton* pSibling : siblings) {
+            if (pSibling->isVisible() && pSibling->geometry().intersects(geometry())) {
+                layers.append(pSibling);
+            }
+        }
+    }
+    if (!layers.contains(this)) {
+        layers.append(this);
+    }
+
     // The QSS [displayValue="N"] selectors are only evaluated on polish, so
     // repolish around the grab and restore. Nothing is repainted on screen.
-    m_displayValueOverride = state;
-    style()->polish(this);
-    const QPixmap pixmap = grab(rect());
-    m_displayValueOverride = -1;
-    style()->polish(this);
+    // A negative state grabs the current look.
+    if (state >= 0) {
+        for (WPushButton* pLayer : std::as_const(layers)) {
+            pLayer->m_displayValueOverride = state;
+            pLayer->style()->polish(pLayer);
+        }
+    }
+    const QPixmap pixmap = pHost ? pHost->grab(geometry()) : grab(rect());
+    if (state >= 0) {
+        for (WPushButton* pLayer : std::as_const(layers)) {
+            pLayer->m_displayValueOverride = -1;
+            pLayer->style()->polish(pLayer);
+        }
+    }
     return pixmap;
 }
 

@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QScopedPointer>
 #include <QTestEventList>
+#include <QWidget>
 
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
@@ -176,4 +177,44 @@ TEST_F(WPushButtonTest, GrabDisplayStateRendersAnotherStateAndRestores) {
     EXPECT_EQ(1, m_pButton->readDisplayValue());
     const QImage on = m_pButton->grab().toImage();
     EXPECT_EQ(QColor(QStringLiteral("#b24c12")), on.pixelColor(10, 10));
+}
+
+TEST_F(WPushButtonTest, GrabDisplayStateIncludesStackedIndicators) {
+    // A deck play button is transparent and sits over an indicator button that
+    // paints the "playing" fill. Its snapshots must show the whole stack, with
+    // the indicator in the requested state too, or only the edges drain.
+    ControlObject control(ConfigKey("[Test]", "stacked_state"));
+    control.set(1.0);
+    QWidget host;
+    host.resize(20, 20);
+    const auto makeLayer = [&host, &control](const QString& name) {
+        auto* pButton = new WPushButton(&host);
+        pButton->setObjectName(name);
+        pButton->setStates(2);
+        auto* pConnection = new ControlParameterWidgetConnection(pButton,
+                control.getKey(),
+                nullptr,
+                ControlParameterWidgetConnection::DIR_TO_WIDGET,
+                ControlParameterWidgetConnection::EMIT_NEVER);
+        pButton->addConnection(pConnection);
+        pButton->setDisplayConnection(pConnection);
+        pConnection->Init();
+        pButton->setGeometry(0, 0, 20, 20);
+        return pButton;
+    };
+    makeLayer(QStringLiteral("Indicator"));
+    WPushButton* pPlay = makeLayer(QStringLiteral("Play"));
+    host.setStyleSheet(QStringLiteral(
+            "#Indicator[displayValue=\"0\"] { background-color: #000000; }"
+            "#Indicator[displayValue=\"1\"] { background-color: #b24c12; }"));
+    host.show();
+    host.ensurePolished();
+
+    EXPECT_EQ(QColor(QStringLiteral("#b24c12")),
+            pPlay->grabDisplayState(-1).toImage().pixelColor(10, 10));
+    EXPECT_EQ(QColor(QStringLiteral("#000000")),
+            pPlay->grabDisplayState(0).toImage().pixelColor(10, 10));
+    // Both layers are back in their real state afterwards.
+    EXPECT_EQ(QColor(QStringLiteral("#b24c12")),
+            pPlay->grabDisplayState(-1).toImage().pixelColor(10, 10));
 }

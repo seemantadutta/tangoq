@@ -44,9 +44,10 @@ class WPushButton : public WWidget {
     // background and foreground colors to indicate enabled/disabled state.
     Q_PROPERTY(int displayValue READ readDisplayValue NOTIFY displayValueChanged)
 
-    // Renders the button as it looks in display state `state`, for a snapshot,
-    // without changing the connected control. Used by the LIVE stop guard to
-    // drain from the playing look to the paused look.
+    // Renders the button, together with any sibling buttons stacked under it,
+    // as it looks in display state `state` (or as it looks now for a negative
+    // state), without changing the connected controls. Used by the LIVE stop
+    // guard to drain from the playing look to the paused look.
     QPixmap grabDisplayState(int state);
 
     int readDisplayValue() const {
