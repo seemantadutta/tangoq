@@ -12,6 +12,8 @@
 #include "widget/wwidget.h"
 
 class QDomNode;
+class QMoveEvent;
+class QPainter;
 class SkinContext;
 class ControlProxy;
 
@@ -31,6 +33,7 @@ class WTangoHud : public WWidget {
 
   protected:
     void paintEvent(QPaintEvent* pEvent) override;
+    void moveEvent(QMoveEvent* pEvent) override;
 
   private slots:
     void slotControlChanged(double value);
@@ -39,6 +42,13 @@ class WTangoHud : public WWidget {
     // Width the current content needs, so the widget sizes to fit and never
     // clips (used by sizeHint()).
     int contentWidth() const;
+    // Horizontal center of the countdown stack in local coordinates: above the
+    // deck playheads, clamped so a stack of stackWidth stays inside the HUD.
+    int stackCenterX(int stackWidth) const;
+    // Width of each timing column, sized for its widest possible text.
+    int leftColumnWidth() const;
+    int rightColumnWidth() const;
+    void paintTimingColumns(QPainter* p, int centerX, int stackWidth, int stackTop);
 
     // True when the countdown is in its final-30 s flash window (0 <= s < 30).
     bool inFlashWindow() const;
@@ -60,4 +70,14 @@ class WTangoHud : public WWidget {
     // reserved size either way so the toolbar never reflows.
     ControlProxy* m_pShowCountdownTimer;
     ControlProxy* m_pShowProgressPips;
+    // Set timing for the side columns, published by AutoDJProcessor from the
+    // Auto DJ toolbar's 1 s tick: the set length (left), and the projected end
+    // with its over/under against the target end time (right).
+    ControlProxy* m_pSetLengthSeconds;
+    ControlProxy* m_pSetEndEpochSeconds;
+    ControlProxy* m_pSetEndDeltaSeconds;
+    // Settings-panel toggles for the timing: "Set time" shows the length and the
+    // projected end, "End time" the over/under line.
+    ControlProxy* m_pShowSetTime;
+    ControlProxy* m_pShowEndTime;
 };

@@ -201,8 +201,6 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
-- The countdown sits slightly left of center; it should render centered over the
-  playheads.
 - **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
   tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
   span could then be created by classifying as Vals and changing the type to Tango

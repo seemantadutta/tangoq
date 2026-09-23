@@ -281,84 +281,6 @@
        </spacer>
       </item>
       <item>
-       <widget class="QWidget" name="containerAdjSetTime">
-        <layout class="QHBoxLayout" name="layoutAdjSetTime">
-         <property name="spacing"><number>0</number></property>
-         <property name="leftMargin"><number>0</number></property>
-         <property name="topMargin"><number>0</number></property>
-         <property name="rightMargin"><number>0</number></property>
-         <property name="bottomMargin"><number>0</number></property>
-         <item>
-          <widget class="QLabel" name="labelSetLength">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="minimumSize">
-            <!-- A tiny explicit minimum overrides the QLabel's full-text minimum
-                 so the Auto DJ pane can be dragged narrower than these readouts;
-                 the text clips instead of pinning the pane width. -->
-            <size>
-             <width>1</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>Total length of the TangoQ set (Tango DJ mode).</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacerSetLengthEnds">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Fixed</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>8</width>
-             <height>1</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QLabel" name="labelEnds">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>1</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>Projected end time of the TangoQ set (Tango DJ mode).</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacerEndTimeGap">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Fixed</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>8</width>
-             <height>1</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
        <widget class="QWidget" name="containerAdjEndTime">
         <layout class="QHBoxLayout" name="layoutAdjEndTime">
          <property name="spacing"><number>0</number></property>
@@ -372,7 +294,7 @@
          <string>T:</string>
         </property>
         <property name="toolTip">
-         <string>Target end time for the milonga (Tango DJ mode). The indicator to the right shows whether the projected end is over or under this time.</string>
+         <string>Target end time for the milonga (Tango DJ mode). The HUD shows whether the projected end is over or under this time.</string>
         </property>
        </widget>
       </item>
@@ -402,38 +324,6 @@
         </property>
         <property name="displayFormat">
          <string>hh:mm AP</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacerEndTimeDelta">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>8</width>
-          <height>1</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QLabel" name="labelEndTimeDelta">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>1</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>How far the projected end is over or under the target end time.</string>
         </property>
        </widget>
       </item>

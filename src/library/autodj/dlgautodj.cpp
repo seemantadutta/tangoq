@@ -47,18 +47,6 @@ void setEnabledIfChanged(QWidget* pWidget, bool enabled) {
     }
 }
 
-// Formats a set duration as HH:MM:SS, e.g. "2:03:47" or "0:47:12".
-QString formatSetDuration(const mixxx::Duration& duration) {
-    const qint64 totalSeconds = duration.toIntegerSeconds();
-    const qint64 hours = totalSeconds / 3600;
-    const qint64 minutes = (totalSeconds % 3600) / 60;
-    const qint64 seconds = totalSeconds % 60;
-    return QStringLiteral("%1:%2:%3")
-            .arg(hours)
-            .arg(minutes, 2, 10, QChar('0'))
-            .arg(seconds, 2, 10, QChar('0'));
-}
-
 } // anonymous namespace
 
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
@@ -291,7 +279,6 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         pProxy->connectValueChanged(this, [this](double) { refreshTangoModeUi(); });
         return pProxy;
     };
-    m_pShowAdjSetTime = makeShowProxy(QStringLiteral("show_adj_set_time"));
     m_pShowAdjEndTime = makeShowProxy(QStringLiteral("show_adj_end_time"));
     m_pShowAdjNudge = makeShowProxy(QStringLiteral("show_adj_nudge"));
 
@@ -382,18 +369,6 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &QTimeEdit::timeChanged,
             this,
             &DlgAutoDJ::slotEndTimeChanged);
-
-    // Reserve the over/under readout's width so it never grows the toolbar when it
-    // goes from empty (idle) to populated (running) as Auto DJ is enabled. That
-    // growth reflows everything to its right - the visible flicker on enable.
-    // Sized from the widest text in its bold render font, so it is DPI/theme aware.
-    {
-        QFont deltaFont = labelEndTimeDelta->font();
-        deltaFont.setBold(true);
-        const QFontMetrics deltaFm(deltaFont);
-        labelEndTimeDelta->setMinimumWidth(
-                deltaFm.horizontalAdvance(QStringLiteral("U: 88:88:88")) + 8);
-    }
 
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
     // mind that AutoDJ may already be active when DlgAutoDJ is created (due to
@@ -588,17 +563,15 @@ void DlgAutoDJ::refreshTangoModeUi() {
     if (m_pAutoDJTableModel) {
         m_pAutoDJTableModel->setShowCortinaMarks(tango);
     }
-    // The set-time readout, the target end-time controls and the LIVE indicator
-    // are Tango-only. Within Tango mode, three of these groups can additionally be
-    // hidden from the Settings panel; each group is shown only when Tango is on
-    // AND its toggle is set. Over/under (labelEndTimeDelta) rides with the end-time
-    // block, since it is meaningless without the target time it compares against.
-    const bool showSetTime = !m_pShowAdjSetTime || m_pShowAdjSetTime->toBool();
+    // The target end-time controls, the cortina nudge and the LIVE indicator are
+    // Tango-only. Within Tango mode, the first two can additionally be hidden
+    // from the Settings panel; each is shown only when Tango is on AND its toggle
+    // is set. The set length, projected end and over/under readouts live in the
+    // HUD, which reads the same toggles.
     const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
     const bool showNudge = !m_pShowAdjNudge || m_pShowAdjNudge->toBool();
     // Each group lives in its own container (with its trailing spacer) so hiding
     // it collapses cleanly, leaving no gap in the toolbar.
-    containerAdjSetTime->setVisible(tango && showSetTime);
     containerAdjEndTime->setVisible(tango && showEndTime);
     containerAdjNudge->setVisible(tango && showNudge);
     labelLive->setVisible(tango);
@@ -687,114 +660,15 @@ void DlgAutoDJ::updateNowPlaying() {
 }
 
 void DlgAutoDJ::updateSetEndTime() {
-    // Compact readouts to save toolbar space: "L:" = set Length, "E:" = Ends
-    // (projected end clock), "O:"/"U:" = over/under the target (see
-    // formatEndTimeDelta). Each is its own label so it clips independently on a
-    // narrow pane rather than pushing its neighbours off the toolbar.
-    QString lengthText;
-    QString endsText;
-    QString deltaText;
-    if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
-        setEnabledIfChanged(pushButtonFadeNow,
-                m_pAutoDJProcessor->canFadePlayingCortinaNow());
+    if (!m_pKeepQueueControl || !m_pKeepQueueControl->toBool()) {
+        return;
     }
-    // The readout is a Tango DJ mode feature only; otherwise it stays empty.
-    if (m_pKeepQueueControl && m_pKeepQueueControl->toBool()) {
-        // "L:" is the constant total of the whole set; it reads the same whether
-        // Auto DJ is running or not. The running state then fills in "E:" so the
-        // off->on change is purely additive, which keeps the cognitive load low live.
-        const mixxx::Duration total = m_pAutoDJProcessor->getTotalSetDuration();
-        const bool running =
-                m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED;
-        // The Auto DJ model briefly reports an empty queue mid-rebuild (rowCount 0
-        // between rowsRemoved and rowsInserted). While running, treat a
-        // non-positive total as that transient and keep the last readout, instead
-        // of blanking it and repopulating a moment later - the visible flicker
-        // seen when Auto DJ is enabled.
-        if (running && total.toIntegerMillis() <= 0) {
-            return;
-        }
-        // A non-positive total means the queue is empty / nothing to play.
-        if (total.toIntegerMillis() > 0) {
-            lengthText = tr("L: %1").arg(formatSetDuration(total));
-            if (running) {
-                const mixxx::Duration remaining =
-                        m_pAutoDJProcessor->getRemainingSetDuration();
-                // The projected end clock is the most important number, so
-                // emphasise it in red.
-                const QDateTime end = QDateTime::currentDateTime().addMSecs(
-                        remaining.toIntegerMillis());
-                const QString endRed = QStringLiteral(
-                        "<span style=\"color:#ee4444; font-weight:bold;\">%1</span>")
-                                               .arg(end.toString(QStringLiteral(
-                                                       "HH:mm:ss")));
-                endsText = tr("E: %1").arg(endRed);
-                // The remaining "Left:" readout was dropped as redundant: the "E:"
-                // clock and the over/under delta already convey time remaining, and it
-                // was the readout being clipped at the crowded end of the toolbar.
-                // Over/under against the target end time, shown only while running
-                // (there is no projected end clock otherwise).
-                deltaText = formatEndTimeDelta(end);
-            }
-        }
-    }
-    // Only touch the labels when the text actually changes. Re-setting them every
-    // second otherwise forces a needless toolbar repaint, which can make sibling
-    // widgets (e.g. the deck waveforms) flicker.
-    //
-    // Skip a readout entirely when the Settings panel has hidden it. Its container
-    // is already invisible, but writing "L: ..." into the label still invalidates
-    // the toolbar layout, so on enable the text is briefly laid out and then
-    // removed - a visible flicker when Set Time (or End Time) is off. The matching
-    // container is shown/hidden in refreshTangoModeUi, which also calls this, so a
-    // re-enabled readout repaints with the current value right away.
-    const bool showSetTime = !m_pShowAdjSetTime || m_pShowAdjSetTime->toBool();
-    const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
-    if (showSetTime && lengthText != m_lastSetLengthText) {
-        m_lastSetLengthText = lengthText;
-        labelSetLength->setText(lengthText);
-    }
-    if (showSetTime && endsText != m_lastEndsText) {
-        m_lastEndsText = endsText;
-        labelEnds->setText(endsText);
-    }
-    if (showEndTime && deltaText != m_lastEndTimeDeltaText) {
-        m_lastEndTimeDeltaText = deltaText;
-        labelEndTimeDelta->setText(deltaText);
-    }
-}
-
-QString DlgAutoDJ::formatEndTimeDelta(const QDateTime& projectedEnd) const {
-    // The target end time is the first occurrence of the configured time-of-day
-    // at or after the set started. "Midnight" set during a 9am soundcheck means
-    // the coming midnight, not the one already ~9 hours past. Anchoring to the
-    // set start (rather than "now" or the projected end) keeps that instant fixed
-    // for the whole session, so the reading stays correct across midnight and
-    // when the set legitimately runs past its target. Fall back to now if the
-    // start was somehow not captured (the readout only shows while running).
-    const QDateTime sessionStart =
-            m_pAutoDJProcessor->autoDJSessionStartDateTime();
-    const QDateTime start = sessionStart.isValid()
-            ? sessionStart
-            : QDateTime::currentDateTime();
-    QDateTime target(start.date(), endTimeEdit->time());
-    if (target < start) {
-        target = target.addDays(1);
-    }
-    const qint64 deltaSecs = target.secsTo(projectedEnd);
-    if (deltaSecs == 0) {
-        return tr("● On time");
-    }
-    // Positive => the set ends after the target (running over); negative => under.
-    const bool over = deltaSecs > 0;
-    const QString magnitude = formatSetDuration(
-            mixxx::Duration::fromMillis(qAbs(deltaSecs) * 1000));
-    // Lead with "O:"/"U:" (over/under) to save toolbar space; the colour
-    // (red/green) already carries the direction, so no arrow or sign is needed.
-    return QStringLiteral("<span style=\"color:%1; font-weight:bold;\">%2 %3</span>")
-            .arg(over ? QStringLiteral("#ee4444") : QStringLiteral("#55aa55"),
-                    over ? tr("O:") : tr("U:"),
-                    magnitude);
+    setEnabledIfChanged(pushButtonFadeNow,
+            m_pAutoDJProcessor->canFadePlayingCortinaNow());
+    // The HUD paints the set length, projected end and over/under from these
+    // controls. The target end time is edited here in the toolbar.
+    m_pAutoDJProcessor->publishSetTiming(
+            endTimeEdit->time(), QDateTime::currentDateTime());
 }
 
 void DlgAutoDJ::slotEndTimeChanged(const QTime& time) {

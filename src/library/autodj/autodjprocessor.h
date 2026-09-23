@@ -264,6 +264,21 @@ class AutoDJProcessor : public QObject {
     // Returns an empty Duration when not in Tango mode or when the queue is empty.
     mixxx::Duration getTotalSetDuration();
 
+    // Tango HUD set timing: publishes the set length, projected end clock and
+    // over/under against the target end time as [AutoDJ],hud_set_* controls for
+    // the WTangoHud side columns. DlgAutoDJ calls it from its 1 s set-time tick
+    // with the toolbar's target end time. now is a parameter so tests can pin it.
+    void publishSetTiming(const QTime& targetEndTime, const QDateTime& now);
+
+    // Seconds the projected end runs past the target end time; negative when the
+    // set ends early. The target is the first occurrence of targetEndTime at or
+    // after sessionStart. "Midnight" set during a 9 pm start means the coming
+    // midnight, and that instant stays fixed for the whole session, so the result
+    // stays correct across midnight and when the set runs past its target.
+    static qint64 endTimeDeltaSeconds(const QDateTime& sessionStart,
+            const QTime& targetEndTime,
+            const QDateTime& projectedEnd);
+
     double getTransitionTime() const {
         return m_transitionTime;
     }
@@ -727,6 +742,13 @@ class AutoDJProcessor : public QObject {
     // (0). Published by TandaQueueModel from the real span count. The skin hides
     // the "Progress Pips" toggle when this is 0.
     ControlObject m_hudHasTandaGroupings;
+    // Set timing for the HUD side columns, published by publishSetTiming().
+    // Length is the whole set in seconds, or -1 when the queue is empty. The
+    // projected end is msecs since the epoch / 1000, or -1 while Auto DJ is
+    // stopped. The end delta is only meaningful while the projected end is set.
+    ControlObject m_hudSetLengthSeconds;
+    ControlObject m_hudSetEndEpochSeconds;
+    ControlObject m_hudSetEndDeltaSeconds;
     QTimer m_hudTimer;
     // Stop-guard arm state: in LIVE mode the first disable request only arms a
     // short confirmation window; a second request within it actually stops.

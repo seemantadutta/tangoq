@@ -1120,6 +1120,100 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 
+TEST_F(AutoDJProcessorTest, EndTimeDelta_OverUnderAndOnTime) {
+    const QDateTime start(QDate(2026, 9, 23), QTime(20, 0));
+    const QTime target(23, 0);
+    const QDate day(2026, 9, 23);
+
+    EXPECT_EQ(252,
+            AutoDJProcessor::endTimeDeltaSeconds(
+                    start, target, QDateTime(day, QTime(23, 4, 12))));
+    EXPECT_EQ(-180,
+            AutoDJProcessor::endTimeDeltaSeconds(
+                    start, target, QDateTime(day, QTime(22, 57))));
+    EXPECT_EQ(0,
+            AutoDJProcessor::endTimeDeltaSeconds(
+                    start, target, QDateTime(day, QTime(23, 0))));
+}
+
+TEST_F(AutoDJProcessorTest, EndTimeDelta_TargetAfterMidnightIsTheComingOne) {
+    // A 00:30 target set for a 21:00 start means the coming 00:30, whether the
+    // projected end is still before midnight or already past it.
+    const QDateTime start(QDate(2026, 9, 23), QTime(21, 0));
+    const QTime target(0, 30);
+
+    EXPECT_EQ(-1860,
+            AutoDJProcessor::endTimeDeltaSeconds(start,
+                    target,
+                    QDateTime(QDate(2026, 9, 23), QTime(23, 59))));
+    EXPECT_EQ(-1200,
+            AutoDJProcessor::endTimeDeltaSeconds(start,
+                    target,
+                    QDateTime(QDate(2026, 9, 24), QTime(0, 10))));
+    EXPECT_EQ(600,
+            AutoDJProcessor::endTimeDeltaSeconds(start,
+                    target,
+                    QDateTime(QDate(2026, 9, 24), QTime(0, 40))));
+}
+
+TEST_F(AutoDJProcessorTest, EndTimeDelta_TargetBeforeStartMeansNextDay) {
+    // A target earlier in the day than the start cannot be tonight's, so it is
+    // tomorrow's. The set then reads as far under rather than hours over.
+    const QDateTime start(QDate(2026, 9, 23), QTime(21, 0));
+    EXPECT_EQ(-21 * 3600,
+            AutoDJProcessor::endTimeDeltaSeconds(start,
+                    QTime(20, 0),
+                    QDateTime(QDate(2026, 9, 23), QTime(23, 0))));
+}
+
+TEST_F(AutoDJProcessorTest, PublishSetTiming_LengthAlwaysEndOnlyWhileRunning) {
+    const ConfigKey lengthKey("[AutoDJ]", "hud_set_length_seconds");
+    const ConfigKey endKey("[AutoDJ]", "hud_set_end_epoch_seconds");
+    const ConfigKey deltaKey("[AutoDJ]", "hud_set_end_delta_seconds");
+    const QTime target(23, 0);
+    const QDateTime now(QDate(2026, 9, 23), QTime(21, 0));
+
+    // Outside Tango mode there is nothing to show.
+    pProcessor->publishSetTiming(target, now);
+    EXPECT_DOUBLE_EQ(-1.0, ControlObject::get(lengthKey));
+    EXPECT_DOUBLE_EQ(-1.0, ControlObject::get(endKey));
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+    mixer.crossfader.set(-1.0);
+    TrackPointer pTrack = newTestTrack(testId);
+    pTrack->setDuration(100);
+    deck1.slotLoadTrack(pTrack, true);
+    deck1.fakeTrackLoadedEvent(pTrack);
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+    pAutoDJTableModel->appendTrack(testId);
+
+    // Stopped: the set length shows, the projected end does not.
+    const mixxx::Duration total = pProcessor->getTotalSetDuration();
+    ASSERT_GT(total.toIntegerMillis(), 0);
+    pProcessor->publishSetTiming(target, now);
+    EXPECT_DOUBLE_EQ(total.toDoubleSeconds(), ControlObject::get(lengthKey));
+    EXPECT_DOUBLE_EQ(-1.0, ControlObject::get(endKey));
+
+    // Running: the projected end is now plus the remaining set, and the delta
+    // is measured against the target anchored to the session start.
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    const QDateTime end = now.addMSecs(
+            pProcessor->getRemainingSetDuration().toIntegerMillis());
+    pProcessor->publishSetTiming(target, now);
+    EXPECT_DOUBLE_EQ(end.toMSecsSinceEpoch() / 1000.0, ControlObject::get(endKey));
+    EXPECT_DOUBLE_EQ(static_cast<double>(AutoDJProcessor::endTimeDeltaSeconds(
+                             pProcessor->autoDJSessionStartDateTime(), target, end)),
+            ControlObject::get(deltaKey));
+    EXPECT_DOUBLE_EQ(total.toDoubleSeconds(), ControlObject::get(lengthKey));
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
 TEST_F(AutoDJProcessorTest, EndOfQueue_StaysEnabledUntilLastTrackEnds) {
     // When the queue runs dry, Auto DJ looks for a successor at the moment the
     // last track *starts*. Stopping there would report the set as over while the

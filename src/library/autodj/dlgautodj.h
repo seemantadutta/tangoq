@@ -70,12 +70,9 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void refreshTangoModeUi();
     // Marks the currently playing track (red) in the Auto DJ list in Tango mode.
     void updateNowPlaying();
-    // Refreshes the Tango DJ mode set end-time / time-left readout, including the
-    // over/under delta against the target end time.
+    // Publishes the Tango set timing (length, projected end, over/under against
+    // the target end time) for the HUD, and refreshes the Fade Cortina button.
     void updateSetEndTime();
-    // Builds the colored over/under delta text comparing the projected end against
-    // the target end time (endTimeEdit), e.g. "▲ +0:04:20 over".
-    QString formatEndTimeDelta(const QDateTime& projectedEnd) const;
     // Refreshes the LIVE indicator (red when on, greyed when off) and applies the
     // matching deck play/pause (D/L) keyboard suppression.
     void refreshLiveMode();
@@ -116,9 +113,8 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     ControlProxy* m_pLiveModeControl;
     // Auto DJ cockpit control-visibility toggles ([TangoQ],show_adj_*), set from
     // the skin Settings panel and owned by AutoDJProcessor. refreshTangoModeUi
-    // hides the set-time readout, the end-time block, or the cortina nudge
-    // controls when the matching toggle is off.
-    ControlProxy* m_pShowAdjSetTime;
+    // hides the end-time block or the cortina nudge controls when the matching
+    // toggle is off. The set-time toggle only affects the HUD.
     ControlProxy* m_pShowAdjEndTime;
     ControlProxy* m_pShowAdjNudge;
     // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
@@ -128,13 +124,6 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Ticks once a second to keep the Tango set end-time readout current. Only
     // runs while Tango mode is on (see refreshTangoModeUi).
     QTimer* m_pSetTimeTimer;
-    // Last text shown in labelSetLength / labelEnds, so the per-second tick only
-    // repaints a label when its value actually changed (avoids needless toolbar
-    // repaints that can flicker sibling widgets such as the waveform).
-    QString m_lastSetLengthText;
-    QString m_lastEndsText;
-    // Last text shown in labelEndTimeDelta, same repaint-avoidance rationale.
-    QString m_lastEndTimeDeltaText;
 
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;

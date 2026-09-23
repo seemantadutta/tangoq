@@ -276,6 +276,12 @@ AutoDJProcessor::AutoDJProcessor(
                   ConfigKey(kControlGroup, QStringLiteral("hud_tanda_playing_index"))),
           m_hudHasTandaGroupings(
                   ConfigKey(kControlGroup, QStringLiteral("hud_has_tanda_groupings"))),
+          m_hudSetLengthSeconds(
+                  ConfigKey(kControlGroup, QStringLiteral("hud_set_length_seconds"))),
+          m_hudSetEndEpochSeconds(ConfigKey(
+                  kControlGroup, QStringLiteral("hud_set_end_epoch_seconds"))),
+          m_hudSetEndDeltaSeconds(ConfigKey(
+                  kControlGroup, QStringLiteral("hud_set_end_delta_seconds"))),
           m_stopGuardArmed(false),
           m_bStopWhenLastTrackEnds(false),
           m_bPauseAfterPending(false) {
@@ -1772,6 +1778,59 @@ void AutoDJProcessor::disarmStopGuard() {
     m_stopGuardArmed = false;
     m_stopGuardTimer.stop();
     emit stopGuardArmedChanged(false);
+}
+
+// static
+qint64 AutoDJProcessor::endTimeDeltaSeconds(const QDateTime& sessionStart,
+        const QTime& targetEndTime,
+        const QDateTime& projectedEnd) {
+    QDateTime target(sessionStart.date(), targetEndTime);
+    if (target < sessionStart) {
+        target = target.addDays(1);
+    }
+    return target.secsTo(projectedEnd);
+}
+
+void AutoDJProcessor::publishSetTiming(
+        const QTime& targetEndTime, const QDateTime& now) {
+    const auto clear = [this]() {
+        m_hudSetLengthSeconds.set(-1.0);
+        m_hudSetEndEpochSeconds.set(-1.0);
+        m_hudSetEndDeltaSeconds.set(0.0);
+    };
+    if (!keepQueueEnabled()) {
+        clear();
+        return;
+    }
+    // The length is the constant total of the whole set, so it reads the same
+    // whether Auto DJ is running or not. Running then adds the projected end.
+    const mixxx::Duration total = getTotalSetDuration();
+    const bool running = m_eState != ADJ_DISABLED;
+    // The Auto DJ model briefly reports an empty queue mid-rebuild (rowCount 0
+    // between rowsRemoved and rowsInserted). While running, treat a non-positive
+    // total as that transient and keep the last readout rather than blanking it.
+    if (running && total.toIntegerMillis() <= 0) {
+        return;
+    }
+    if (total.toIntegerMillis() <= 0) {
+        clear();
+        return;
+    }
+    m_hudSetLengthSeconds.set(total.toDoubleSeconds());
+    if (!running) {
+        m_hudSetEndEpochSeconds.set(-1.0);
+        m_hudSetEndDeltaSeconds.set(0.0);
+        return;
+    }
+    const QDateTime end = now.addMSecs(getRemainingSetDuration().toIntegerMillis());
+    // Anchor the target to the session start, or to now if the start was somehow
+    // not captured (this only runs while Auto DJ is running).
+    const QDateTime start = m_autoDJSessionStartDateTime.isValid()
+            ? m_autoDJSessionStartDateTime
+            : now;
+    m_hudSetEndEpochSeconds.set(end.toMSecsSinceEpoch() / 1000.0);
+    m_hudSetEndDeltaSeconds.set(static_cast<double>(
+            endTimeDeltaSeconds(start, targetEndTime, end)));
 }
 
 void AutoDJProcessor::publishHudTiming() {
