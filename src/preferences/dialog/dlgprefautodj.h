@@ -31,6 +31,7 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
 
   private slots:
     void slotSetCortinaLength(int);
+    void slotSetCortinaLevel(int);
     void slotSetCortinaFadeMode(int);
     void slotSetCortinaFadeIn(int);
     void slotSetCortinaFadeOut(int);
@@ -78,6 +79,9 @@ class DlgPrefAutoDJ : public DlgPreferencePage, public Ui::DlgPrefAutoDJDlg {
     // reflects cockpit nudges made while Auto DJ is running, even though it stays
     // greyed out then.
     ControlProxy* m_pCortinaLengthControl;
+    // Observes the live [AutoDJ],cortina_level_db so the level field reflects
+    // changes made with the toolbar Level buttons.
+    ControlProxy* m_pCortinaLevelControl;
     // Observes [AutoDJ],enabled so the cortina timing controls lock/unlock live
     // when a set starts or stops while the preferences dialog is already open.
     ControlProxy* m_pAutoDJEnabledControl;

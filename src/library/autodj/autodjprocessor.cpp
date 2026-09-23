@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "engine/channels/enginedeck.h"
+#include "library/autodj/cortinalevel.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/basetracktablemodel.h"
 #include "library/columncache.h"
@@ -238,6 +239,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_keepQueueOff(ConfigKey(kControlGroup, QStringLiteral("keep_queue_off"))),
           m_pauseAfterDeck(ConfigKey(kControlGroup, QStringLiteral("pause_after_deck"))),
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
+          m_cortinaLevelDb(ConfigKey(kControlGroup, QStringLiteral("cortina_level_db"))),
           m_showAdjSetTime(ConfigKey(QStringLiteral("[TangoQ]"),
                                    QStringLiteral("show_adj_set_time")),
                   true,
@@ -425,6 +427,16 @@ AutoDJProcessor::AutoDJProcessor(
             &ControlObject::valueChanged,
             this,
             &AutoDJProcessor::controlCortinaLength);
+
+    // Live cortina level: initialize from the persistent value and keep the
+    // config in sync when it changes from the cockpit or Preferences.
+    m_cortinaLevelDb.set(mixxx::cortinalevel::clampDb(m_pConfig->getValue(
+            ConfigKey(kPreferenceGroup, QStringLiteral("CortinaLevelDb")),
+            mixxx::cortinalevel::kDefaultDb)));
+    connect(&m_cortinaLevelDb,
+            &ControlObject::valueChanged,
+            this,
+            &AutoDJProcessor::controlCortinaLevelDb);
 
     connect(&m_resetQueueState,
             &ControlObject::valueChanged,
@@ -2872,6 +2884,14 @@ void AutoDJProcessor::lockTangoModeOn() {
     // restores the user-switchable Tango mode.
     m_tangoModeLocked = true;
     m_keepQueue.set(1.0);
+}
+
+void AutoDJProcessor::controlCortinaLevelDb(double value) {
+    // The UI setters clamp before writing, so this only guards against
+    // out-of-range values from elsewhere; don't write the control back.
+    m_pConfig->setValue(
+            ConfigKey(kPreferenceGroup, QStringLiteral("CortinaLevelDb")),
+            mixxx::cortinalevel::clampDb(value));
 }
 
 void AutoDJProcessor::controlCortinaLength(double value) {

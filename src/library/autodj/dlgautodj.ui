@@ -486,6 +486,117 @@
         </property>
        </widget>
       </item>
+      <item>
+       <spacer name="horizontalSpacerCortinaLevelGap">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>12</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="labelCortinaLevelCaption">
+        <property name="text">
+         <string>Level:</string>
+        </property>
+        <property name="toolTip">
+         <string>Cortina level (Tango DJ mode): raises or lowers cortinas relative to the tanda tracks, on the main output only. Headphones are not affected. −6 dB sounds about two-thirds as loud; +6 dB about 1.5 times as loud, and can distort a cortina that is already loud. Adjustable at any time; the default is set in Preferences → TangoQ.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacerCortinaLevelCaption">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>8</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonCortinaLevelDown">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Lower the cortina level by 1 dB.</string>
+        </property>
+        <property name="text">
+         <string>−</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>28</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="labelCortinaLevelValue">
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="text">
+         <string>0 dB</string>
+        </property>
+        <property name="toolTip">
+         <string>Cortina level (Tango DJ mode): raises or lowers cortinas relative to the tanda tracks, on the main output only. Headphones are not affected. −6 dB sounds about two-thirds as loud; +6 dB about 1.5 times as loud, and can distort a cortina that is already loud. Adjustable at any time; the default is set in Preferences → TangoQ.</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>48</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonCortinaLevelUp">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Raise the cortina level by 1 dB.</string>
+        </property>
+        <property name="text">
+         <string>+</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>28</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
         </layout>
        </widget>
       </item>

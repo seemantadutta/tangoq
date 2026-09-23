@@ -15,6 +15,7 @@
 
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
+#include "library/autodj/cortinalevel.h"
 #include "library/autodj/tandacolorpalette.h"
 #include "moc_dlgprefautodj.cpp"
 
@@ -44,6 +45,7 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
         : DlgPreferencePage(pParent),
           m_pConfig(pConfig),
           m_pCortinaLengthControl(nullptr),
+          m_pCortinaLevelControl(nullptr),
           m_pAutoDJEnabledControl(nullptr),
           m_pTandaColorPalette(TandaColorPalette::shared(pConfig)) {
     setupUi(this);
@@ -148,6 +150,29 @@ DlgPrefAutoDJ::DlgPrefAutoDJ(QWidget* pParent,
             CortinaLengthSpinBox->setValue(seconds);
         }
     });
+    // Cortina level (whole dB). Unlike the timing controls it stays editable
+    // during a set; the toolbar Level − / + buttons change the same control, and
+    // those changes are mirrored here.
+    CortinaLevelSpinBox->setRange(
+            mixxx::cortinalevel::kMinDb, mixxx::cortinalevel::kMaxDb);
+    const int cortinaLevel = mixxx::cortinalevel::clampDb(m_pConfig->getValue(
+            ConfigKey("[Auto DJ]", "CortinaLevelDb"),
+            mixxx::cortinalevel::kDefaultDb));
+    CortinaLevelSpinBox->setValue(cortinaLevel);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLevelDbBuff"), cortinaLevel);
+    connect(CortinaLevelSpinBox,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            &DlgPrefAutoDJ::slotSetCortinaLevel);
+    m_pCortinaLevelControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "cortina_level_db"), this);
+    m_pCortinaLevelControl->connectValueChanged(this, [this](double v) {
+        const int db = mixxx::cortinalevel::clampDb(v);
+        if (CortinaLevelSpinBox->value() != db) {
+            CortinaLevelSpinBox->setValue(db);
+        }
+    });
+
     // Lock the cortina timing controls the moment a set starts and unlock them
     // when it stops, even if the preferences dialog was already open. Without
     // this, the stop-only gating was applied only on dialog show.
@@ -363,6 +388,10 @@ void DlgPrefAutoDJ::slotSetCortinaLength(int seconds) {
     updateCortinaHoldLabel();
 }
 
+void DlgPrefAutoDJ::slotSetCortinaLevel(int db) {
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLevelDbBuff"), db);
+}
+
 void DlgPrefAutoDJ::slotSetCortinaFadeMode(int index) {
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), index);
     updateCortinaFadeEnabled();
@@ -456,6 +485,11 @@ void DlgPrefAutoDJ::slotApply() {
     ControlObject::set(ConfigKey("[AutoDJ]", "cortina_length"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45));
+    // The cortina level likewise goes through its live control.
+    ControlObject::set(ConfigKey("[AutoDJ]", "cortina_level_db"),
+            mixxx::cortinalevel::clampDb(m_pConfig->getValue(
+                    ConfigKey("[Auto DJ]", "CortinaLevelDbBuff"),
+                    mixxx::cortinalevel::kDefaultDb)));
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaFadeMode"),
             m_pConfig->getValue(
                     ConfigKey("[Auto DJ]", "CortinaFadeModeBuff"), 0));
@@ -504,6 +538,12 @@ void DlgPrefAutoDJ::slotCancel() {
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaLength"), 45);
     CortinaLengthSpinBox->setValue(cortinaLength);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), cortinaLength);
+
+    const int cortinaLevel = mixxx::cortinalevel::clampDb(m_pConfig->getValue(
+            ConfigKey("[Auto DJ]", "CortinaLevelDb"),
+            mixxx::cortinalevel::kDefaultDb));
+    CortinaLevelSpinBox->setValue(cortinaLevel);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLevelDbBuff"), cortinaLevel);
 
     int cortinaFadeMode =
             m_pConfig->getValue(ConfigKey("[Auto DJ]", "CortinaFadeMode"), 0);
@@ -572,6 +612,9 @@ void DlgPrefAutoDJ::slotCancel() {
 void DlgPrefAutoDJ::slotResetToDefaults() {
     CortinaLengthSpinBox->setValue(45);
     m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLengthBuff"), 45);
+    CortinaLevelSpinBox->setValue(mixxx::cortinalevel::kDefaultDb);
+    m_pConfig->setValue(ConfigKey("[Auto DJ]", "CortinaLevelDbBuff"),
+            mixxx::cortinalevel::kDefaultDb);
 
     // Cortina Fade (index 1) is the shipped default: applyFirstRunDefaults()
     // seeds CortinaFadeMode = 1, so Restore Defaults must match it rather than

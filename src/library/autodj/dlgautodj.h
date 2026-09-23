@@ -105,6 +105,15 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     // Refreshes the cockpit cortina-length value label from the control.
     void updateCortinaLengthReadout();
 
+    // Cockpit cortina level ([AutoDJ],cortina_level_db, whole dB). The − / +
+    // buttons step it by 1 dB at any time, including during a set; the value
+    // label mirrors it, including changes applied from Preferences.
+    ControlProxy* m_pCortinaLevelControl;
+    // Steps the cortina level by delta dB, clamped to its range.
+    void stepCortinaLevel(int delta);
+    // Refreshes the cockpit cortina-level value label from the control.
+    void updateCortinaLevelReadout();
+
     // The app keyboard filter, used to suppress the deck play/pause keys (D/L)
     // while LIVE mode is on. Not owned.
     KeyboardEventFilter* const m_pKeyboard;

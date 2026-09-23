@@ -16,6 +16,7 @@
 
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/autodj/autodjfeature.h"
+#include "library/autodj/cortinalevel.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/tandacolorpalette.h"
 #include "library/autodj/tandaqueuemodel.h"
@@ -68,6 +69,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
           m_pTandaQueueModel(nullptr),
           m_pKeepQueueControl(nullptr),
           m_pCortinaLengthControl(nullptr),
+          m_pCortinaLevelControl(nullptr),
           m_pKeyboard(pKeyboard),
           m_pLiveModeControl(nullptr),
           m_pStopCountdown(nullptr),
@@ -310,6 +312,21 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         nudgeCortinaLength(spinBoxCortinaNudgeStep->value());
     });
     updateCortinaLengthReadout();
+
+    // Cockpit cortina level. Unlike the length, it is adjustable during a set,
+    // so a DJ can react to the room.
+    m_pCortinaLevelControl = new ControlProxy(
+            ConfigKey("[AutoDJ]", "cortina_level_db"), this);
+    m_pCortinaLevelControl->connectValueChanged(this, [this](double) {
+        updateCortinaLevelReadout();
+    });
+    connect(pushButtonCortinaLevelDown, &QPushButton::clicked, this, [this]() {
+        stepCortinaLevel(-1);
+    });
+    connect(pushButtonCortinaLevelUp, &QPushButton::clicked, this, [this]() {
+        stepCortinaLevel(1);
+    });
+    updateCortinaLevelReadout();
 
     // LIVE mode: a session-only performance lock. The toolbar shows a read-only
     // "LIVE" indicator (red when on); it is toggled deliberately via the
@@ -578,6 +595,7 @@ void DlgAutoDJ::refreshTangoModeUi() {
     labelLive->setVisible(tango);
     if (tango) {
         updateCortinaLengthReadout();
+        updateCortinaLevelReadout();
     }
     // LIVE mode only exists within Tango mode: leaving Tango exits LIVE so its
     // guards (stop-confirm, deck-key suppression) can't linger outside Tango.
@@ -654,6 +672,23 @@ void DlgAutoDJ::nudgeCortinaLength(int delta) {
 void DlgAutoDJ::updateCortinaLengthReadout() {
     const int seconds = static_cast<int>(std::lround(m_pCortinaLengthControl->get()));
     labelCortinaLengthValue->setText(tr("%1 s").arg(seconds));
+}
+
+void DlgAutoDJ::stepCortinaLevel(int delta) {
+    const int current = mixxx::cortinalevel::clampDb(m_pCortinaLevelControl->get());
+    const int next = mixxx::cortinalevel::clampDb(current + delta);
+    if (next != current) {
+        m_pCortinaLevelControl->set(next);
+    }
+    // The control does not echo its own set back to this proxy.
+    updateCortinaLevelReadout();
+}
+
+void DlgAutoDJ::updateCortinaLevelReadout() {
+    const int db = mixxx::cortinalevel::clampDb(m_pCortinaLevelControl->get());
+    labelCortinaLevelValue->setText(mixxx::cortinalevel::formatDb(db));
+    pushButtonCortinaLevelDown->setEnabled(db > mixxx::cortinalevel::kMinDb);
+    pushButtonCortinaLevelUp->setEnabled(db < mixxx::cortinalevel::kMaxDb);
 }
 
 void DlgAutoDJ::updateNowPlaying() {

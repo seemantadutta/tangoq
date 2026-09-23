@@ -380,6 +380,7 @@ class AutoDJProcessor : public QObject {
     // Persists a live cortina-length change (from the cockpit nudge buttons or
     // the prefs Apply) to config and refreshes the envelope budget + estimate.
     void controlCortinaLength(double value);
+    void controlCortinaLevelDb(double value);
     // Triggered from the Auto DJ queue right-click "Eject decks and reset AutoDJ
     // queue state" action to restart the Tango set from the top (see
     // resetKeepQueueSet). The deck eject is done by the menu action itself.
@@ -698,6 +699,12 @@ class AutoDJProcessor : public QObject {
     // change it persists to [Auto DJ],CortinaLength and updates the envelope
     // budget + set-length estimate immediately. Clamped to [5, 600] s.
     ControlObject m_cortinaLength;
+
+    // Live cortina level (whole dB, see cortinalevel.h): a volume offset for
+    // cortinas on the main output, relative to each file's own level. Shared by
+    // Preferences and the cockpit, both adjustable during a set. On change it
+    // persists to [Auto DJ],CortinaLevelDb.
+    ControlObject m_cortinaLevelDb;
 
     // Auto DJ cockpit control-visibility toggles (persistent, default shown),
     // set from the skin Settings panel and read by DlgAutoDJ to show/hide the

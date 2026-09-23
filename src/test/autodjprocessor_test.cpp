@@ -12,6 +12,7 @@
 #include "control/controlpotmeter.h"
 #include "control/controlpushbutton.h"
 #include "engine/engine.h"
+#include "library/autodj/cortinalevel.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
@@ -1118,6 +1119,21 @@ TEST_F(AutoDJProcessorTest, PauseAfter_StopsInsteadOfStartingNextTanda) {
             -1.0, ControlObject::get(ConfigKey("[AutoDJ]", "hud_countdown_seconds")));
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, CortinaLevel_PersistsAndClampsToItsRange) {
+    const ConfigKey controlKey("[AutoDJ]", "cortina_level_db");
+    const ConfigKey configKey("[Auto DJ]", "CortinaLevelDb");
+    EXPECT_DOUBLE_EQ(0.0, ControlObject::get(controlKey));
+
+    ControlObject::set(controlKey, -4.0);
+    EXPECT_EQ(-4, config()->getValue(configKey, 0));
+
+    // Out-of-range writes are stored at the nearest limit.
+    ControlObject::set(controlKey, 20.0);
+    EXPECT_EQ(mixxx::cortinalevel::kMaxDb, config()->getValue(configKey, 0));
+    ControlObject::set(controlKey, -40.0);
+    EXPECT_EQ(mixxx::cortinalevel::kMinDb, config()->getValue(configKey, 0));
 }
 
 TEST_F(AutoDJProcessorTest, EndTimeDelta_OverUnderAndOnTime) {

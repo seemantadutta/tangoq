@@ -96,6 +96,58 @@
         </layout>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="CortinaLevelLayout">
+         <item>
+          <widget class="QLabel" name="CortinaLevelLabel">
+           <property name="text">
+            <string>Cortina level</string>
+           </property>
+           <property name="toolTip">
+            <string>Volume offset for cortinas, relative to the tanda tracks, on the main output only. Headphones are not affected.&lt;br/&gt;&lt;br/&gt;−6 dB sounds about two-thirds as loud, and +6 dB about 1.5 times as loud. Boosting can distort a cortina that is already loud.&lt;br/&gt;&lt;br/&gt;Adjustable at any time, including during a set, here or with the Level − / + buttons in the TangoQ toolbar.</string>
+           </property>
+           <property name="buddy">
+            <cstring>CortinaLevelSpinBox</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="CortinaLevelSpinBox">
+           <property name="toolTip">
+            <string>Volume offset for cortinas, relative to the tanda tracks, on the main output only. Headphones are not affected.&lt;br/&gt;&lt;br/&gt;−6 dB sounds about two-thirds as loud, and +6 dB about 1.5 times as loud. Boosting can distort a cortina that is already loud.&lt;br/&gt;&lt;br/&gt;Adjustable at any time, including during a set, here or with the Level − / + buttons in the TangoQ toolbar.</string>
+           </property>
+           <property name="suffix">
+            <string> dB</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>70</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>90</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacerCortinaLevel">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
         <layout class="QHBoxLayout" name="CortinaFadeModeLayout">
          <item>
           <widget class="QLabel" name="CortinaFadeModeLabel">
