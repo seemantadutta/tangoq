@@ -122,10 +122,11 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     ControlProxy* m_pLiveModeControl;
     // Auto DJ cockpit control-visibility toggles ([TangoQ],show_adj_*), set from
     // the skin Settings panel and owned by AutoDJProcessor. refreshTangoModeUi
-    // hides the end-time block or the cortina nudge controls when the matching
-    // toggle is off. The set-time toggle only affects the HUD.
+    // hides the end-time block, the cortina nudge or the cortina level controls
+    // when the matching toggle is off. The set-time toggle only affects the HUD.
     ControlProxy* m_pShowAdjEndTime;
     ControlProxy* m_pShowAdjNudge;
+    ControlProxy* m_pShowAdjLevel;
     // Liquid-drain countdown overlay on the Auto DJ button while the LIVE-mode
     // stop guard is armed (parented to the button). Owned by the button.
     WCountdownOverlay* m_pStopCountdown;

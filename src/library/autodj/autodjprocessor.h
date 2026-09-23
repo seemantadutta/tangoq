@@ -708,13 +708,15 @@ class AutoDJProcessor : public QObject {
 
     // Auto DJ cockpit control-visibility toggles (persistent, default shown),
     // set from the skin Settings panel and read by DlgAutoDJ to show/hide the
-    // set-time readout, the end-time block (with over/under), and the cortina
-    // nudge controls. Owned here so they exist before any skin parses the toggle
-    // widgets that bind to them - DlgAutoDJ is built during skin load, too late
-    // to guarantee creation with the right default.
+    // set-time readout, the end-time block (with over/under), the cortina
+    // nudge controls, and the cortina level controls. Owned here so they exist
+    // before any skin parses the toggle widgets that bind to them - DlgAutoDJ
+    // is built during skin load, too late to guarantee creation with the right
+    // default.
     ControlPushButton m_showAdjSetTime;
     ControlPushButton m_showAdjEndTime;
     ControlPushButton m_showAdjNudge;
+    ControlPushButton m_showAdjLevel;
     // Same idea for the Tango HUD in the toolbar: the countdown timer (label +
     // time) and the tanda progress pips each have a persistent, default-shown
     // toggle set from the Settings panel and read by WTangoHud. Owned here so

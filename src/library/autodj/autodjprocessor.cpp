@@ -252,6 +252,10 @@ AutoDJProcessor::AutoDJProcessor(
                                  QStringLiteral("show_adj_nudge")),
                   true,
                   1.0),
+          m_showAdjLevel(ConfigKey(QStringLiteral("[TangoQ]"),
+                                 QStringLiteral("show_adj_level")),
+                  true,
+                  1.0),
           m_showCountdownTimer(ConfigKey(QStringLiteral("[TangoQ]"),
                                        QStringLiteral("show_countdown_timer")),
                   true,
@@ -411,6 +415,7 @@ AutoDJProcessor::AutoDJProcessor(
     m_showAdjSetTime.setButtonMode(ControlPushButton::TOGGLE);
     m_showAdjEndTime.setButtonMode(ControlPushButton::TOGGLE);
     m_showAdjNudge.setButtonMode(ControlPushButton::TOGGLE);
+    m_showAdjLevel.setButtonMode(ControlPushButton::TOGGLE);
     m_showCountdownTimer.setButtonMode(ControlPushButton::TOGGLE);
     m_showProgressPips.setButtonMode(ControlPushButton::TOGGLE);
 

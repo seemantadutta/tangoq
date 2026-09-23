@@ -282,6 +282,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     };
     m_pShowAdjEndTime = makeShowProxy(QStringLiteral("show_adj_end_time"));
     m_pShowAdjNudge = makeShowProxy(QStringLiteral("show_adj_nudge"));
+    m_pShowAdjLevel = makeShowProxy(QStringLiteral("show_adj_level"));
 
     // Cockpit cortina-length nudge (Tango DJ mode). The − / + buttons bump the
     // shared [AutoDJ],cortina_length control by the nudge step; the value label
@@ -581,17 +582,19 @@ void DlgAutoDJ::refreshTangoModeUi() {
     if (m_pAutoDJTableModel) {
         m_pAutoDJTableModel->setShowCortinaMarks(tango);
     }
-    // The target end-time controls, the cortina nudge and the LIVE indicator are
-    // Tango-only. Within Tango mode, the first two can additionally be hidden
+    // The target end-time controls, the cortina nudge and level, and the LIVE
+    // indicator are Tango-only. Within Tango mode, the first three can be hidden
     // from the Settings panel; each is shown only when Tango is on AND its toggle
     // is set. The set length, projected end and over/under readouts live in the
     // HUD, which reads the same toggles.
     const bool showEndTime = !m_pShowAdjEndTime || m_pShowAdjEndTime->toBool();
     const bool showNudge = !m_pShowAdjNudge || m_pShowAdjNudge->toBool();
+    const bool showLevel = !m_pShowAdjLevel || m_pShowAdjLevel->toBool();
     // Each group lives in its own container (with its trailing spacer) so hiding
     // it collapses cleanly, leaving no gap in the toolbar.
     containerAdjEndTime->setVisible(tango && showEndTime);
     containerAdjNudge->setVisible(tango && showNudge);
+    containerAdjLevel->setVisible(tango && showLevel);
     labelLive->setVisible(tango);
     if (tango) {
         updateCortinaLengthReadout();

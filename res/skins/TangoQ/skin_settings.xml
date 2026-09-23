@@ -166,7 +166,7 @@ Description:
 
           <!-- Auto DJ toolbar controls (Tango cockpit): show or hide the set-time
                readout, the end-time block (with its over/under indicator), and the
-               cortina nudge controls in the Auto DJ bar (bound to [TangoQ],show_adj_*,
+               cortina nudge and level controls in the Auto DJ bar (bound to [TangoQ],show_adj_*,
                owned by AutoDJProcessor and read by DlgAutoDJ), plus the Tango HUD's
                countdown timer and progress pips ([TangoQ],show_countdown_timer /
                show_progress_pips, read by WTangoHud). All default on. -->
@@ -195,6 +195,11 @@ Description:
               <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
                 <SetVariable name="Text">Cortina Nudge</SetVariable>
                 <SetVariable name="Setting">[TangoQ],show_adj_nudge</SetVariable>
+              </Template>
+
+              <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
+                <SetVariable name="Text">Cortina Level</SetVariable>
+                <SetVariable name="Setting">[TangoQ],show_adj_level</SetVariable>
               </Template>
 
               <Template src="skins:TangoQ/helpers/skin_settings_button_2state.xml">
