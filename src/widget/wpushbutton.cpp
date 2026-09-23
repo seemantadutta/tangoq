@@ -22,7 +22,8 @@ WPushButton::WPushButton(QWidget* pParent)
           m_rightButtonMode(ControlPushButton::PUSH),
           m_pLiveStopCountdown(nullptr),
           m_liveStopGuardArmed(false),
-          m_bypassNextLiveStopGuard(false) {
+          m_bypassNextLiveStopGuard(false),
+          m_displayValueOverride(-1) {
     setStates(0);
     m_liveStopGuardTimer.setSingleShot(true);
     m_liveStopGuardTimer.setInterval(3000);
@@ -40,7 +41,8 @@ WPushButton::WPushButton(QWidget* pParent,
           m_rightButtonMode(rightButtonMode),
           m_pLiveStopCountdown(nullptr),
           m_liveStopGuardArmed(false),
-          m_bypassNextLiveStopGuard(false) {
+          m_bypassNextLiveStopGuard(false),
+          m_displayValueOverride(-1) {
     setStates(0);
     m_liveStopGuardTimer.setSingleShot(true);
     m_liveStopGuardTimer.setInterval(3000);
@@ -611,9 +613,25 @@ void WPushButton::armLiveStopGuard() {
     if (!m_pLiveStopCountdown) {
         m_pLiveStopCountdown = new WCountdownOverlay(this);
     }
-    const QPixmap background = grab(rect());
+    // Keep the overlay out of the snapshots when the guard is re-armed.
+    m_pLiveStopCountdown->hide();
+    // The playing state drains away to the paused look, both taken from this
+    // button so the colors match the skin exactly.
+    const QPixmap full = grab(rect());
+    const QPixmap drained = grabDisplayState(0);
     m_pLiveStopCountdown->setGeometry(rect());
-    m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval(), background);
+    m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval(), full, drained);
+}
+
+QPixmap WPushButton::grabDisplayState(int state) {
+    // The QSS [displayValue="N"] selectors are only evaluated on polish, so
+    // repolish around the grab and restore. Nothing is repainted on screen.
+    m_displayValueOverride = state;
+    style()->polish(this);
+    const QPixmap pixmap = grab(rect());
+    m_displayValueOverride = -1;
+    style()->polish(this);
+    return pixmap;
 }
 
 void WPushButton::disarmLiveStopGuard() {

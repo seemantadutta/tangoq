@@ -44,7 +44,15 @@ class WPushButton : public WWidget {
     // background and foreground colors to indicate enabled/disabled state.
     Q_PROPERTY(int displayValue READ readDisplayValue NOTIFY displayValueChanged)
 
+    // Renders the button as it looks in display state `state`, for a snapshot,
+    // without changing the connected control. Used by the LIVE stop guard to
+    // drain from the playing look to the paused look.
+    QPixmap grabDisplayState(int state);
+
     int readDisplayValue() const {
+        if (m_displayValueOverride >= 0) {
+            return m_displayValueOverride;
+        }
         double value = getControlParameterDisplay();
         if (!util_isnan(value) && m_iNoStates > 0) {
             return static_cast<int>(value) % m_iNoStates;
@@ -120,6 +128,9 @@ class WPushButton : public WWidget {
     WCountdownOverlay* m_pLiveStopCountdown;
     bool m_liveStopGuardArmed;
     bool m_bypassNextLiveStopGuard;
+    // When >= 0, readDisplayValue() reports this instead of the control, so
+    // grabDisplayState() can render another state. -1 otherwise.
+    int m_displayValueOverride;
     QVector<int> m_align;
 
     // Animates long press latching by storing the off state of the

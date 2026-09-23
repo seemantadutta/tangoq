@@ -7,7 +7,6 @@
 
 #include "widget/wcountdownoverlay.h"
 
-#include <QColor>
 #include <QPainter>
 
 #include "moc_wcountdownoverlay.cpp"
@@ -20,8 +19,8 @@ WCountdownOverlay::WCountdownOverlay(QWidget* parent)
         : QWidget(parent),
           m_durationMs(0) {
     // Sit on top of the host widget without intercepting its clicks. The widget is
-    // opaque and paints a snapshot of the host behind the liquid (see start()), so
-    // the drained part matches the host exactly.
+    // opaque and paints snapshots of the host (see start()), so both the full
+    // and the drained part match the host exactly.
     setAttribute(Qt::WA_TransparentForMouseEvents);
     hide();
     m_repaintTimer.setInterval(kFrameIntervalMs);
@@ -34,9 +33,12 @@ WCountdownOverlay::WCountdownOverlay(QWidget* parent)
     });
 }
 
-void WCountdownOverlay::start(int durationMs, const QPixmap& background) {
+void WCountdownOverlay::start(int durationMs,
+        const QPixmap& fullSnapshot,
+        const QPixmap& drainedSnapshot) {
     m_durationMs = durationMs > 0 ? durationMs : 0;
-    m_background = background;
+    m_fullSnapshot = fullSnapshot;
+    m_drainedSnapshot = drainedSnapshot;
     m_elapsed.start();
     m_repaintTimer.start();
     show();
@@ -58,22 +60,20 @@ void WCountdownOverlay::paintEvent(QPaintEvent* /*event*/) {
 
     QPainter painter(this);
 
-    // Snapshot of the host behind the overlay: fills the whole widget so the
-    // drained part is pixel-identical to the host (the Auto DJ button).
-    if (!m_background.isNull()) {
-        painter.drawPixmap(0, 0, m_background);
+    // The drained part is the host in its "off" state, filling the whole widget.
+    if (!m_drainedSnapshot.isNull()) {
+        painter.drawPixmap(0, 0, m_drainedSnapshot);
     }
 
-    // Red "liquid" filling the bottom of the button; its surface (top edge) falls
-    // from full to empty as the time runs out, like a leaking container. The side
-    // and bottom edges are drawn past the widget bounds so they stay crisp; only
-    // the horizontal surface moves (antialiased for smooth sub-pixel motion).
-    const double level = height() * remaining;
-    if (level > 0.0) {
-        painter.setRenderHint(QPainter::Antialiasing, true);
-        painter.setPen(Qt::NoPen);
-        // Translucent so the icon (snapshot) shows through the red tint.
-        painter.setBrush(QColor(0xee, 0x22, 0x22, 190));
-        painter.drawRect(QRectF(-1.0, height() - level, width() + 2.0, level + 1.0));
+    // The liquid is the host in its "on" state, filling the bottom; its surface
+    // (top edge) falls from full to empty as the time runs out, like a leaking
+    // container. Only that horizontal surface moves.
+    const int level = static_cast<int>(height() * remaining + 0.5);
+    if (level > 0 && !m_fullSnapshot.isNull()) {
+        const qreal ratio = m_fullSnapshot.devicePixelRatio();
+        const int top = height() - level;
+        painter.drawPixmap(QRectF(0, top, width(), level),
+                m_fullSnapshot,
+                QRectF(0, top * ratio, width() * ratio, level * ratio));
     }
 }

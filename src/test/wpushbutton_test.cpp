@@ -1,13 +1,15 @@
+#include "widget/wpushbutton.h"
+
 #include <gtest/gtest.h>
 
-#include <QTestEventList>
+#include <QImage>
 #include <QScopedPointer>
+#include <QTestEventList>
 
-#include "mixxxtest.h"
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "control/controlpushbutton.h"
-#include "widget/wpushbutton.h"
+#include "mixxxtest.h"
 #include "widget/controlwidgetconnection.h"
 
 class WPushButtonTest : public MixxxTest {
@@ -144,4 +146,34 @@ TEST_F(WPushButtonTest, LiveModeRequiresSecondPressAndAllowsImmediateRecovery) {
     inactiveRecoveryClick.addMouseClick(Qt::LeftButton);
     inactiveRecoveryClick.simulate(pInactiveButton.data());
     EXPECT_EQ(0.0, pInactivePlayControl->get());
+}
+
+TEST_F(WPushButtonTest, GrabDisplayStateRendersAnotherStateAndRestores) {
+    // The LIVE stop guard drains from the playing look to the paused look, both
+    // grabbed from the button itself. The [displayValue] QSS selectors are only
+    // re-read on polish, so check the off-state grab really shows state 0 and
+    // that the button returns to its real state afterwards.
+    ControlObject control(ConfigKey("[Test]", "display_state"));
+    control.set(1.0);
+    auto* pConnection = new ControlParameterWidgetConnection(m_pButton.data(),
+            control.getKey(),
+            nullptr,
+            ControlParameterWidgetConnection::DIR_TO_WIDGET,
+            ControlParameterWidgetConnection::EMIT_NEVER);
+    m_pButton->addConnection(pConnection);
+    m_pButton->setDisplayConnection(pConnection);
+    pConnection->Init();
+    m_pButton->resize(20, 20);
+    m_pButton->setStyleSheet(QStringLiteral(
+            "WPushButton[displayValue=\"0\"] { background-color: #000000; }"
+            "WPushButton[displayValue=\"1\"] { background-color: #b24c12; }"));
+    m_pButton->ensurePolished();
+    ASSERT_EQ(1, m_pButton->readDisplayValue());
+
+    const QImage off = m_pButton->grabDisplayState(0).toImage();
+    EXPECT_EQ(QColor(QStringLiteral("#000000")), off.pixelColor(10, 10));
+
+    EXPECT_EQ(1, m_pButton->readDisplayValue());
+    const QImage on = m_pButton->grab().toImage();
+    EXPECT_EQ(QColor(QStringLiteral("#b24c12")), on.pixelColor(10, 10));
 }
