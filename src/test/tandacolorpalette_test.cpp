@@ -22,17 +22,17 @@ TEST_F(TandaColorPaletteTest, ShippedDefaultsCoverAllCategories) {
     const TandaColorPalette palette(config());
 
     EXPECT_TRUE(palette.colorCodingEnabled());
-    EXPECT_EQ(QColor(QStringLiteral("#3d6fb0")),
+    EXPECT_EQ(QColor(QStringLiteral("#35507a")),
             palette.base(TandaColorCategory::Tango));
-    EXPECT_EQ(QColor(QStringLiteral("#3f9d55")),
+    EXPECT_EQ(QColor(QStringLiteral("#3d6b4c")),
             palette.base(TandaColorCategory::Vals));
-    EXPECT_EQ(QColor(QStringLiteral("#c08a2e")),
+    EXPECT_EQ(QColor(QStringLiteral("#856a35")),
             palette.base(TandaColorCategory::Milonga));
-    EXPECT_EQ(QColor(QStringLiteral("#8a5cc0")),
+    EXPECT_EQ(QColor(QStringLiteral("#5f4d80")),
             palette.base(TandaColorCategory::NuevoAlternative));
-    EXPECT_EQ(QColor(QStringLiteral("#6a7480")),
+    EXPECT_EQ(QColor(QStringLiteral("#4c535b")),
             palette.base(TandaColorCategory::Cortina));
-    EXPECT_EQ(QColor(QStringLiteral("#c85a9a")),
+    EXPECT_EQ(QColor(QStringLiteral("#7d4866")),
             palette.base(TandaColorCategory::Performance));
     EXPECT_EQ(QColor(QStringLiteral("#4a5058")),
             palette.base(TandaColorCategory::Regular));
@@ -85,6 +85,36 @@ TEST_F(TandaColorPaletteTest, InvalidConfigFallsBackToDefault) {
 
     EXPECT_EQ(TandaColorPalette::defaultBase(TandaColorCategory::Milonga),
             palette.base(TandaColorCategory::Milonga));
+}
+
+TEST_F(TandaColorPaletteTest, StoredLegacyDefaultReadsAsCurrentDefault) {
+    // "Reset to defaults" in 1.0.2 stored the old default explicitly.
+    config()->set(ConfigKey(QStringLiteral("[TangoColors]"),
+                          QStringLiteral("Tango")),
+            ConfigValue(QStringLiteral("#3d6fb0")));
+    const TandaColorPalette palette(config());
+
+    EXPECT_EQ(TandaColorPalette::defaultBase(TandaColorCategory::Tango),
+            palette.base(TandaColorCategory::Tango));
+}
+
+TEST_F(TandaColorPaletteTest, ChoosingTheDefaultClearsTheStoredColor) {
+    TandaColorPalette palette(config());
+    QSignalSpy changedSpy(&palette, &TandaColorPalette::changed);
+    const ConfigKey key(QStringLiteral("[TangoColors]"), QStringLiteral("Vals"));
+
+    palette.setBase(TandaColorCategory::Vals, QColor(QStringLiteral("#123456")));
+    EXPECT_TRUE(config()->exists(key));
+
+    palette.setBase(TandaColorCategory::Vals,
+            TandaColorPalette::defaultBase(TandaColorCategory::Vals));
+    EXPECT_FALSE(config()->exists(key));
+    EXPECT_EQ(2, changedSpy.count());
+
+    saveAndReloadConfig();
+    const TandaColorPalette restored(config());
+    EXPECT_EQ(TandaColorPalette::defaultBase(TandaColorCategory::Vals),
+            restored.base(TandaColorCategory::Vals));
 }
 
 TEST_F(TandaColorPaletteTest, AutoTextSelectsTheHigherContrastPolarity) {
