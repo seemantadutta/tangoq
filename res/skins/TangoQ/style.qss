@@ -882,6 +882,15 @@ WEffectChainPresetButton::menu-indicator {
     QPushButton#pushButtonAutoDJ {
       min-width: 40px;
     }
+    /* Fade Now reads like the "Tanda Transition" label beside it rather than
+       as an all-caps button caption (#59). */
+    #LibraryFeatureControls QPushButton#pushButtonFadeNow {
+      font-family: "Open Sans Semibold", "Open Sans";
+      font-weight: 500;
+      font-size: 13px;
+      text-transform: none;
+      padding: 0px 8px;
+    }
 
 /* Extra declaration for QRadioButton otherwise it shows up with wrong colors in
    Linux with Gnome */
