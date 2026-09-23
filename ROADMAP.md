@@ -245,3 +245,20 @@ default for a DJ. If built, they should be opt-in via a Preferences checkbox to
 ## Long-term
 
 - Detect tracks with large gaps or audio dropouts.
+- **Per-song tone presets (#55, shelved).** A DJ asked to bring over the EQ
+  presets they built in Mixxx, and to switch between them per song. Bright,
+  "crispy" transfers such as Tango Tunes often need taming, so this is a real
+  tango need. Shelved because it needs more design thought first.
+  - The presets are effect chain presets built from Mixxx's own Graphic EQ and
+    Parametric EQ effects, saved to `effects/chains/*.xml` in the settings
+    folder. TangoQ uses the same format and loads every file in that folder at
+    startup, so importing them is mostly a file copy.
+  - Using them is the open question. TangoQ hides the effect units at startup
+    (`res/skins/TangoQ/skin.xml`) and has no control to show them, so a DJ can
+    neither create nor switch these presets today.
+  - Open questions: whether presets are switched before a track loads or while it
+    plays; per deck or on the main output; and whether TangoQ should remember a
+    preset per track.
+  - Until this is decided, keep the Effects and Mixer Preferences pages when
+    cleaning up Preferences (#47). The Effects page manages the Quick Effect
+    preset list, which is one possible way to choose a preset per deck.
