@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <QColor>
 #include <QTimer>
 
 #include "widget/wwidget.h"
@@ -22,8 +23,20 @@ class ControlProxy;
 // large time so it is hard to miss - with the current tanda's track pips beside
 // it. Reads live state from the [AutoDJ],hud_* controls published by
 // AutoDJProcessor and TandaQueueModel.
+//
+// Text colors are skin properties, so each color scheme's stylesheet can set
+// them, e.g. #TangoHud { qproperty-textColor: #111; }. The defaults suit the
+// dark Default scheme.
 class WTangoHud : public WWidget {
     Q_OBJECT
+    // The countdown and its label.
+    Q_PROPERTY(QColor textColor MEMBER m_textColor DESIGNABLE true)
+    // Timing column captions ("Set length", "Ends at") and their values.
+    Q_PROPERTY(QColor columnLabelColor MEMBER m_columnLabelColor DESIGNABLE true)
+    Q_PROPERTY(QColor columnValueColor MEMBER m_columnValueColor DESIGNABLE true)
+    // The over/under line: running over, and on time or early.
+    Q_PROPERTY(QColor overColor MEMBER m_overColor DESIGNABLE true)
+    Q_PROPERTY(QColor underColor MEMBER m_underColor DESIGNABLE true)
   public:
     explicit WTangoHud(QWidget* pParent = nullptr);
 
@@ -54,6 +67,11 @@ class WTangoHud : public WWidget {
     bool inFlashWindow() const;
 
     // Drives the final-30 s red "breathe" of the time value.
+    QColor m_textColor;
+    QColor m_columnLabelColor;
+    QColor m_columnValueColor;
+    QColor m_overColor;
+    QColor m_underColor;
     QTimer m_flashTimer;
     // Breath phase in [0, 1); advanced by the timer while inside the window.
     double m_breathPhase{0.0};

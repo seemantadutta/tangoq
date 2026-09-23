@@ -21,6 +21,8 @@
 
 namespace {
 // Brand palette, matching the TangoQ logo and the rest of the HUD.
+// Default text colors, for the dark Default scheme. Schemes can override them
+// through the skin properties declared in wtangohud.h.
 const QColor kColorText(0xe8, 0xec, 0xf6);           // white: countdown
 const QColor kColorAccent(0xe6, 0x31, 0x4e);         // red: pips
 const QColor kColorAccentDim(0xe6, 0x31, 0x4e, 110); // dimmed red: previewed pips
@@ -183,7 +185,12 @@ QString widestClockTime() {
 } // namespace
 
 WTangoHud::WTangoHud(QWidget* pParent)
-        : WWidget(pParent) {
+        : WWidget(pParent),
+          m_textColor(kColorText),
+          m_columnLabelColor(kColorColumnLabel),
+          m_columnValueColor(kColorColumnValue),
+          m_overColor(kColorOver),
+          m_underColor(kColorUnder) {
     const auto makeProxy = [this](const QString& key) {
         auto* pProxy = new ControlProxy(ConfigKey(kGroup, key), this);
         pProxy->connectValueChanged(this, &WTangoHud::slotControlChanged);
@@ -313,12 +320,12 @@ void WTangoHud::paintTimingColumns(
     const int leftX = centerX - stackWidth / 2 - kColumnGap - leftWidth;
     if (lengthSeconds >= 0.0 && fits(leftX, leftWidth)) {
         p->setFont(lf);
-        p->setPen(kColorColumnLabel);
+        p->setPen(m_columnLabelColor);
         p->drawText(QRect(leftX, stackTop, leftWidth, labelH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 kSetLengthLabel);
         p->setFont(vf);
-        p->setPen(kColorColumnValue);
+        p->setPen(m_columnValueColor);
         p->drawText(QRect(leftX, stackTop + labelH, leftWidth, valueH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 formatHms(static_cast<qint64>(lengthSeconds)));
@@ -334,12 +341,12 @@ void WTangoHud::paintTimingColumns(
     const QDateTime end = QDateTime::fromMSecsSinceEpoch(
             static_cast<qint64>(endEpochSeconds * 1000.0));
     p->setFont(lf);
-    p->setPen(kColorColumnLabel);
+    p->setPen(m_columnLabelColor);
     p->drawText(QRect(rightX, stackTop, rightWidth, labelH),
             Qt::AlignHCenter | Qt::AlignVCenter,
             kEndsAtLabel);
     p->setFont(vf);
-    p->setPen(kColorColumnValue);
+    p->setPen(m_columnValueColor);
     p->drawText(QRect(rightX, stackTop + labelH, rightWidth, valueH),
             Qt::AlignHCenter | Qt::AlignVCenter,
             formatClockTime(end.time()));
@@ -347,7 +354,7 @@ void WTangoHud::paintTimingColumns(
         const auto delta = static_cast<qint64>(m_pSetEndDeltaSeconds->get());
         // The over/under line keeps the bold caption font: it is a value.
         p->setFont(df);
-        p->setPen(delta > 0 ? kColorOver : kColorUnder);
+        p->setPen(delta > 0 ? m_overColor : m_underColor);
         p->drawText(QRect(rightX, stackTop + labelH + valueH, rightWidth, labelH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 formatEndDelta(delta));
@@ -451,7 +458,7 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
     if (showTimer) {
         // --- Label line, centered ----------------------------------------
         p.setFont(lf);
-        p.setPen(kColorText);
+        p.setPen(m_textColor);
         p.drawText(QRect(centerX - stackWidth / 2, stackTop, stackWidth, labelH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 countdownLabel(nextKind));
@@ -459,7 +466,7 @@ void WTangoHud::paintEvent(QPaintEvent* pEvent) {
         // --- Time line (large, fixed-width so digits never jitter), centered -
         // In the final 30 s the whole time value breathes red (a smooth faint
         // <-> full pulse) to warn the DJ; otherwise it is the normal white.
-        QColor timeColor = kColorText;
+        QColor timeColor = m_textColor;
         if (inFlashWindow()) {
             const double factor = 0.5 - 0.5 * std::cos(kTwoPi * m_breathPhase);
             const int alpha = kBreathMinAlpha +

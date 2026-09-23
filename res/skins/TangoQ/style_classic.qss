@@ -241,6 +241,16 @@ WSearchLineEdit,
   padding: 0px 2px 0px 2px;
   }
   #ToolBarSeparator {}
+
+/* Tango HUD: the default light text washes out on this light toolbar, so use
+   near-black text, with darker reds and greens for over/under. */
+#TangoHud {
+  qproperty-textColor: #111111;
+  qproperty-columnLabelColor: #4d4d40;
+  qproperty-columnValueColor: #1a1a1a;
+  qproperty-overColor: #a01010;
+  qproperty-underColor: #155a24;
+}
   #BatteryBox {
     margin-bottom: 1px;
   }
