@@ -37,6 +37,9 @@ class WTandaQueueView final : public WTrackTableView {
             double backgroundColorOpacity,
             AutoDJFeature* pAutoDJFeature);
 
+    void scrollTo(const QModelIndex& index,
+            ScrollHint hint = EnsureVisible) override;
+
   protected:
     void contextMenuEvent(QContextMenuEvent* pEvent) override;
     void mousePressEvent(QMouseEvent* pEvent) override;

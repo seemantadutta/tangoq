@@ -24,6 +24,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QScrollBar>
 #include <QSet>
 #include <algorithm>
 #include <utility>
@@ -170,6 +171,16 @@ WTandaQueueView::WTandaQueueView(QWidget* pParent,
     connect(m_pMoveDownAction, &QAction::triggered, this, [this] {
         moveContextTanda(false);
     });
+}
+
+void WTandaQueueView::scrollTo(const QModelIndex& index, ScrollHint hint) {
+    // The Title column is usually wider than the docked panel. Qt then aligns
+    // the current cell's left edge with the viewport, which pushes the #,
+    // Preview and Item Type columns out of sight on every click. The queue is
+    // navigated by row, so scroll vertically only and keep the column offset.
+    const int horizontalPosition = horizontalScrollBar()->value();
+    WTrackTableView::scrollTo(index, hint);
+    horizontalScrollBar()->setValue(horizontalPosition);
 }
 
 void WTandaQueueView::contextMenuEvent(QContextMenuEvent* pEvent) {
