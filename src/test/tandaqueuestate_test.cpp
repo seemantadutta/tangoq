@@ -276,6 +276,23 @@ class TandaQueueDaoTest : public LibraryTest {
     ControlObject m_numPreviewDecks;
 };
 
+TEST_F(TandaQueueDaoTest, MembershipListsEveryPlaylistContainingTrack) {
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const TrackId track = addTrack(QStringLiteral("artist.mp3"));
+    ASSERT_TRUE(track.isValid());
+
+    const int appended = dao.createPlaylist(QStringLiteral("Membership append"));
+    const int bulk = dao.createPlaylist(QStringLiteral("Membership bulk"));
+    const int inserted = dao.createPlaylist(QStringLiteral("Membership insert"));
+    ASSERT_TRUE(dao.appendTrackToPlaylist(track, appended));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({track}, bulk));
+    ASSERT_TRUE(dao.insertTrackIntoPlaylist(track, inserted, 1));
+
+    QSet<int> playlists;
+    dao.getPlaylistsTrackIsIn(track, &playlists);
+    EXPECT_EQ((QSet<int>{appended, bulk, inserted}), playlists);
+}
+
 TEST_F(TandaQueueDaoTest, AtomicRangeMoveHandlesBoundsAndDuplicateOccurrences) {
     PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
     const int playlistId =
