@@ -2139,8 +2139,11 @@ QPushButton#pushButtonAutoDJ:!checked {
 QPushButton#pushButtonFadeNow:!enabled {
   image: url(skins:TangoQ/classic/buttons/btn__autodj_fade_disabled.svg) no-repeat center center;
   }
+  /* Fade Cortina is only enabled while a cortina plays. Give that moment the
+     "active" color so the button stands out when it can be used (#59). */
   QPushButton#pushButtonFadeNow:enabled {
-    image: url(skins:TangoQ/classic/buttons/btn__autodj_fade.svg) no-repeat center center;
+    image: url(skins:TangoQ/classic/buttons/btn__autodj_fade_armed.svg) no-repeat center center;
+    background-color: #d09300;
   }
 
 QPushButton#pushButtonSkipNext:!enabled {
