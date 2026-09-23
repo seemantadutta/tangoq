@@ -9,6 +9,7 @@
 
 #include <QDateTime>
 #include <QFontMetrics>
+#include <QLocale>
 #include <QMainWindow>
 #include <QPainter>
 #include <QString>
@@ -150,6 +151,23 @@ const QString kSetLengthLabel = QStringLiteral("Set length");
 const QString kEndsAtLabel = QStringLiteral("Ends at");
 const QString kWidestValue = QStringLiteral("88:88:88");
 const QString kWidestDelta = QStringLiteral("88:88:88 under");
+
+// A clock time in the operating system's short format, the same format the
+// toolbar clock (WTime) uses, e.g. "11:47 PM" or "23:47".
+QString formatClockTime(const QTime& time) {
+    return QLocale().toString(time, QLocale::ShortFormat);
+}
+
+// The widest clock text the locale can produce, for a stable column width.
+QString widestClockTime() {
+    QString text = formatClockTime(QTime(23, 58));
+    for (QChar& c : text) {
+        if (c.isDigit()) {
+            c = QLatin1Char('8');
+        }
+    }
+    return text;
+}
 } // namespace
 
 WTangoHud::WTangoHud(QWidget* pParent)
@@ -248,7 +266,8 @@ int WTangoHud::leftColumnWidth() const {
 int WTangoHud::rightColumnWidth() const {
     const QFontMetrics lm(labelFont(font()));
     const QFontMetrics vm(valueFont(font()));
-    return qMax(qMax(lm.horizontalAdvance(kEndsAtLabel), vm.horizontalAdvance(kWidestValue)),
+    return qMax(qMax(lm.horizontalAdvance(kEndsAtLabel),
+                        vm.horizontalAdvance(widestClockTime())),
             lm.horizontalAdvance(kWidestDelta));
 }
 
@@ -308,7 +327,7 @@ void WTangoHud::paintTimingColumns(
     p->setFont(vf);
     p->drawText(QRect(rightX, stackTop + labelH, rightWidth, valueH),
             Qt::AlignHCenter | Qt::AlignVCenter,
-            end.toString(QStringLiteral("HH:mm:ss")));
+            formatClockTime(end.time()));
     if (showEndTime) {
         const auto delta = static_cast<qint64>(m_pSetEndDeltaSeconds->get());
         p->setFont(lf);
