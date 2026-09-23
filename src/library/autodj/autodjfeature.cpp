@@ -350,6 +350,12 @@ QDockWidget* AutoDJFeature::createAutoDJDockWidget(QWidget* parent) {
             &WTrackTableView::loadTrackToPlayer,
             this,
             &LibraryFeature::loadTrackToPlayer);
+    // Like the main Auto DJ view, report the selection so the sidebar bolds
+    // the playlists and crates that contain the selected track.
+    connect(pTrackTableView,
+            &WTrackTableView::trackSelected,
+            this,
+            &AutoDJFeature::trackSelected);
     pDock->setWidget(pTrackTableView);
 
     // Right-clicking the dock title bar offers an explicit Float/Dock toggle,
