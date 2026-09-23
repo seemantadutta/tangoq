@@ -24,10 +24,14 @@ namespace {
 const QColor kColorText(0xe8, 0xec, 0xf6);           // white: countdown
 const QColor kColorAccent(0xe6, 0x31, 0x4e);         // red: pips
 const QColor kColorAccentDim(0xe6, 0x31, 0x4e, 110); // dimmed red: previewed pips
-// Over/under the target end time, as the Auto DJ toolbar showed it before the
-// readouts moved into the HUD.
-const QColor kColorOver(0xee, 0x44, 0x44);
-const QColor kColorUnder(0x55, 0xaa, 0x55);
+// Timing columns: muted captions, and warm values that tie in with the orange
+// TangoQ and Fade Now buttons while staying distinct from the white countdown.
+const QColor kColorColumnLabel(0x9a, 0xa3, 0xb5);
+const QColor kColorColumnValue(0xf2, 0xc3, 0x8b);
+// Over/under the target end time: coral when running over, mint when on time
+// or early. Brighter than plain red/green so they read on the dark toolbar.
+const QColor kColorOver(0xff, 0x6b, 0x6b);
+const QColor kColorUnder(0x6f, 0xd3, 0x9a);
 
 // The label rides above the time; the time is large so the countdown is hard to
 // miss across a dim room. The track pips sit centered below the time, so the
@@ -118,6 +122,14 @@ QFont timeFont(const QFont& base) {
     QFont f = base;
     f.setPixelSize(kTimePixelSize);
     f.setBold(true);
+    return f;
+}
+
+// Column captions are regular weight so they read as captions, not values.
+QFont columnLabelFont(const QFont& base) {
+    QFont f = base;
+    f.setPixelSize(kLabelPixelSize);
+    f.setBold(false);
     return f;
 }
 
@@ -258,17 +270,18 @@ int WTangoHud::contentWidth() const {
 }
 
 int WTangoHud::leftColumnWidth() const {
-    const QFontMetrics lm(labelFont(font()));
+    const QFontMetrics lm(columnLabelFont(font()));
     const QFontMetrics vm(valueFont(font()));
     return qMax(lm.horizontalAdvance(kSetLengthLabel), vm.horizontalAdvance(kWidestValue));
 }
 
 int WTangoHud::rightColumnWidth() const {
-    const QFontMetrics lm(labelFont(font()));
+    const QFontMetrics lm(columnLabelFont(font()));
+    const QFontMetrics dm(labelFont(font()));
     const QFontMetrics vm(valueFont(font()));
     return qMax(qMax(lm.horizontalAdvance(kEndsAtLabel),
                         vm.horizontalAdvance(widestClockTime())),
-            lm.horizontalAdvance(kWidestDelta));
+            dm.horizontalAdvance(kWidestDelta));
 }
 
 void WTangoHud::paintTimingColumns(
@@ -280,16 +293,16 @@ void WTangoHud::paintTimingColumns(
         // projected end, which rides with "Set time".
         return;
     }
-    const QFont lf = labelFont(font());
+    const QFont lf = columnLabelFont(font());
+    const QFont df = labelFont(font());
     const QFont vf = valueFont(font());
     const QFontMetrics lm(lf);
     const QFontMetrics vm(vf);
     const int labelH = lm.height();
     const int valueH = vm.height();
 
-    // Paints one column of centered lines at x, skipping it entirely if it
-    // would not fit inside the HUD (the countdown is off-center, so one side can
-    // run short on a narrow window).
+    // A column that would not fit inside the HUD is skipped entirely. The
+    // countdown is off-center, so one side can run short on a narrow window.
     const auto fits = [this](int x, int columnWidth) {
         return x >= 0 && x + columnWidth <= width();
     };
@@ -300,11 +313,12 @@ void WTangoHud::paintTimingColumns(
     const int leftX = centerX - stackWidth / 2 - kColumnGap - leftWidth;
     if (lengthSeconds >= 0.0 && fits(leftX, leftWidth)) {
         p->setFont(lf);
-        p->setPen(kColorText);
+        p->setPen(kColorColumnLabel);
         p->drawText(QRect(leftX, stackTop, leftWidth, labelH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 kSetLengthLabel);
         p->setFont(vf);
+        p->setPen(kColorColumnValue);
         p->drawText(QRect(leftX, stackTop + labelH, leftWidth, valueH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 formatHms(static_cast<qint64>(lengthSeconds)));
@@ -320,18 +334,20 @@ void WTangoHud::paintTimingColumns(
     const QDateTime end = QDateTime::fromMSecsSinceEpoch(
             static_cast<qint64>(endEpochSeconds * 1000.0));
     p->setFont(lf);
-    p->setPen(kColorText);
+    p->setPen(kColorColumnLabel);
     p->drawText(QRect(rightX, stackTop, rightWidth, labelH),
             Qt::AlignHCenter | Qt::AlignVCenter,
             kEndsAtLabel);
     p->setFont(vf);
+    p->setPen(kColorColumnValue);
     p->drawText(QRect(rightX, stackTop + labelH, rightWidth, valueH),
             Qt::AlignHCenter | Qt::AlignVCenter,
             formatClockTime(end.time()));
     if (showEndTime) {
         const auto delta = static_cast<qint64>(m_pSetEndDeltaSeconds->get());
-        p->setFont(lf);
-        p->setPen(delta > 0 ? kColorOver : (delta < 0 ? kColorUnder : kColorText));
+        // The over/under line keeps the bold caption font: it is a value.
+        p->setFont(df);
+        p->setPen(delta > 0 ? kColorOver : kColorUnder);
         p->drawText(QRect(rightX, stackTop + labelH + valueH, rightWidth, labelH),
                 Qt::AlignHCenter | Qt::AlignVCenter,
                 formatEndDelta(delta));
