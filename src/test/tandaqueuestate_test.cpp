@@ -558,6 +558,23 @@ TEST_F(TandaQueueDaoTest, HeadersAndSpecialTracksUseCategoryColors) {
     EXPECT_EQ(TandaColorPalette::autoTextColor(backgroundForRow(1)),
             foregroundForRow(1));
 
+    // A palette change repaints rows that are already drawn.
+    QSignalSpy dataChangedSpy(&model, &QAbstractItemModel::dataChanged);
+    const QColor custom(QStringLiteral("#123456"));
+    palette.setBase(TandaColorCategory::Vals, custom);
+    ASSERT_EQ(1, dataChangedSpy.count());
+    const QModelIndex topLeft =
+            dataChangedSpy.at(0).at(0).value<QModelIndex>();
+    const QModelIndex bottomRight =
+            dataChangedSpy.at(0).at(1).value<QModelIndex>();
+    EXPECT_LE(topLeft.row(), 1);
+    EXPECT_GE(bottomRight.row(), 1);
+    EXPECT_TRUE(dataChangedSpy.at(0).at(2).value<QList<int>>().contains(
+            Qt::BackgroundRole));
+    EXPECT_EQ(custom, backgroundForRow(1));
+    palette.setBase(TandaColorCategory::Vals,
+            TandaColorPalette::defaultBase(TandaColorCategory::Vals));
+
     PerformanceRegistry::instance().mark(special);
     EXPECT_EQ(palette.base(TandaColorCategory::Performance), backgroundForRow(4));
     // The model keeps a deterministic fallback if marks somehow coexist even

@@ -15,6 +15,28 @@ namespace {
 
 const QString kConfigGroup = QStringLiteral("[TangoColors]");
 
+// The 1.0.2 defaults. "Reset to defaults" used to store them explicitly, so a
+// stored copy means "use the default" rather than a deliberate choice.
+QColor legacyDefaultBase(TandaColorCategory category) {
+    switch (category) {
+    case TandaColorCategory::Tango:
+        return QColor(QStringLiteral("#3d6fb0"));
+    case TandaColorCategory::Vals:
+        return QColor(QStringLiteral("#3f9d55"));
+    case TandaColorCategory::Milonga:
+        return QColor(QStringLiteral("#c08a2e"));
+    case TandaColorCategory::NuevoAlternative:
+        return QColor(QStringLiteral("#8a5cc0"));
+    case TandaColorCategory::Cortina:
+        return QColor(QStringLiteral("#6a7480"));
+    case TandaColorCategory::Performance:
+        return QColor(QStringLiteral("#c85a9a"));
+    case TandaColorCategory::Regular:
+        return QColor(QStringLiteral("#4a5058"));
+    }
+    return QColor(QStringLiteral("#4a5058"));
+}
+
 qreal linearSrgb(qreal channel) {
     return channel <= 0.04045
             ? channel / 12.92
@@ -62,7 +84,10 @@ QColor TandaColorPalette::base(TandaColorCategory category) const {
     }
     const QColor configured(
             m_pConfig->getValueString(ConfigKey(kConfigGroup, configKey(category))));
-    return configured.isValid() ? configured : defaultBase(category);
+    if (!configured.isValid() || configured == legacyDefaultBase(category)) {
+        return defaultBase(category);
+    }
+    return configured;
 }
 
 void TandaColorPalette::setBase(
@@ -70,8 +95,13 @@ void TandaColorPalette::setBase(
     if (!m_pConfig || !color.isValid() || base(category) == color) {
         return;
     }
-    m_pConfig->set(ConfigKey(kConfigGroup, configKey(category)),
-            ConfigValue(color.name(QColor::HexRgb)));
+    const ConfigKey key(kConfigGroup, configKey(category));
+    if (color == defaultBase(category)) {
+        // Store only customizations, so future default changes still apply.
+        m_pConfig->remove(key);
+    } else {
+        m_pConfig->set(key, ConfigValue(color.name(QColor::HexRgb)));
+    }
     emit changed();
 }
 
@@ -79,17 +109,17 @@ void TandaColorPalette::setBase(
 QColor TandaColorPalette::defaultBase(TandaColorCategory category) {
     switch (category) {
     case TandaColorCategory::Tango:
-        return QColor(QStringLiteral("#3d6fb0"));
+        return QColor(QStringLiteral("#35507a"));
     case TandaColorCategory::Vals:
-        return QColor(QStringLiteral("#3f9d55"));
+        return QColor(QStringLiteral("#3d6b4c"));
     case TandaColorCategory::Milonga:
-        return QColor(QStringLiteral("#c08a2e"));
+        return QColor(QStringLiteral("#856a35"));
     case TandaColorCategory::NuevoAlternative:
-        return QColor(QStringLiteral("#8a5cc0"));
+        return QColor(QStringLiteral("#5f4d80"));
     case TandaColorCategory::Cortina:
-        return QColor(QStringLiteral("#6a7480"));
+        return QColor(QStringLiteral("#4c535b"));
     case TandaColorCategory::Performance:
-        return QColor(QStringLiteral("#c85a9a"));
+        return QColor(QStringLiteral("#7d4866"));
     case TandaColorCategory::Regular:
         return QColor(QStringLiteral("#4a5058"));
     }
