@@ -63,6 +63,13 @@ behavior separated even though users no longer switch between those modes.
   morning soundcheck now means the coming midnight (shown correctly as ~14 h
   *under*), instead of reading ~10 h *over* against a midnight already past. Stays
   correct across midnight and when a set runs past its target.
+- **Cortina level (#53).** A volume offset in whole dB for cortinas on the main
+  output, set in Preferences or live from the toolbar next to the cortina nudge.
+  It is its own per-deck engine gain (`autodj_level_gain`), multiplied with the
+  Auto DJ fade gain. So the cortina fade keeps its shape, hard cut and Fade Now
+  are covered, and headphone pre-listening is unaffected. The range lives in
+  `src/library/autodj/cortinalevel.h`. Boosting can clip a loud cortina, since
+  the main output has no limiter.
 
 ### Cockpit & HUD
 
@@ -72,11 +79,25 @@ behavior separated even though users no longer switch between those modes.
   faint to full red (a smooth sinusoid) to warn the DJ, then returns to steady
   white.
 - **Milonga Timing settings.** The Settings panel can show or hide each cockpit
-  readout independently — set time, end time, cortina nudge, the HUD countdown
-  timer, and the HUD progress pips. The HUD keeps its reserved size when a toggle
-  is off, so the toolbar never reflows.
-- **HUD hidden while Auto DJ is stopped.** With no set running there is no countdown
-  to show, so the HUD paints nothing rather than sitting at `--:--`.
+  readout independently — set time, end time, cortina nudge, cortina level, the
+  HUD countdown timer, and the HUD progress pips. The HUD keeps its reserved size
+  when a toggle is off, so the toolbar never reflows.
+- **Countdown hidden while Auto DJ is stopped.** With no set running there is no
+  countdown to show, so the HUD shows only the set length rather than sitting at
+  `--:--`.
+- **Set timing moved into the HUD (#54).** The set length sits in a column left
+  of the countdown. The projected end time and the over/under the target sit in
+  a column on its right, labelled in full words ("Set length", "Ends at"). The
+  countdown is centered above the playheads. LIVE, the cortina controls and the
+  target end input stay in the toolbar. Clock times follow the system's short
+  time format everywhere, so AM/PM shows in all places or none. The column
+  colors are skin properties, and High Contrast uses near-black text.
+- **Fade Now button (#59).** The arrow icon is now a "Fade Now" text button in
+  the TangoQ button's orange, set in the same font as "Tanda Transition". The
+  target end input's "T:" label now reads "Target Time".
+- **LIVE stop guard shows "Tap again".** While the guard is armed, the Auto DJ
+  and play buttons show "Tap again" with a bar that shrinks over the 3-second
+  window. This replaced a draining fill that was hard to see on orange buttons.
 - **Cortina tagging in the deck area**, not just in the Auto DJ list.
 - **Dancer icon** identifies the dedicated tango workflow in TangoQ without
   changing the corresponding inherited Mixxx skin behavior.
@@ -141,6 +162,20 @@ what actually plays.
 - Reuse `keepQueueAudibleSeconds` / `keepQueueTrackPlaySeconds` so the selection line
   and the set calculation agree on what a queued track costs.
 
+### Cortina level follow-ups
+
+- **ReplayGain integration.** Mixxx's ReplayGain analyzes each track once (EBU
+  R128 loudness against a −18 LUFS reference), stores a gain in the library, and
+  applies it at the deck's pregain. It already multiplies with the cortina level
+  when enabled. Without it, the cortina level is relative to each file's own
+  loudness, so one setting can suit one cortina and not another. With it, the
+  level would mean "cortinas sit N dB below the tandas". Open questions: whether
+  TangoQ should turn ReplayGain on by default, and how noisy old transfers
+  measure (surface noise counts as loudness).
+- **Waveform fade envelope ignores the level.** The envelope overlay on a
+  cortina's waveform keeps its 0 dB shape at any cortina level. Scale it if the
+  DJ needs to see the level there.
+
 ### Cockpit & UI
 
 - Curated right-click menu in the toolbar area (`QMainWindow`-based).
@@ -201,6 +236,8 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
+- The toolbar clock ignores the Windows 12/24-hour setting (#64). Possibly a
+  named locale set in Preferences, or the clock reading its format only once.
 - **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
   tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
   span could then be created by classifying as Vals and changing the type to Tango
