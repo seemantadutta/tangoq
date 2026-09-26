@@ -83,7 +83,9 @@ behavior separated even though users no longer switch between those modes.
   a column on its right, labelled in full words ("Set length", "Ends at"). The
   countdown is centered above the playheads. LIVE, the cortina controls and the
   target end input stay in the toolbar. Clock times follow the system's short
-  time format everywhere, so AM/PM shows in all places or none. The column
+  time format everywhere, so AM/PM shows in all places or none. The toolbar
+  clock and the target end input also switch live when the system's
+  12/24-hour setting changes, instead of after a restart (#64). The column
   colors are skin properties, and High Contrast uses near-black text.
 - **Fade Now button (#59).** The arrow icon is now a "Fade Now" text button in
   the TangoQ button's orange, set in the same font as "Tanda Transition". The
@@ -237,8 +239,6 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
-- The toolbar clock ignores the Windows 12/24-hour setting (#64). Possibly a
-  named locale set in Preferences, or the clock reading its format only once.
 - **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
   tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
   span could then be created by classifying as Vals and changing the type to Tango
