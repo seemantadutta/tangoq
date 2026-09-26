@@ -21,6 +21,9 @@ class WTime: public WLabel {
 
     QTimer* m_pTimer;
     QString m_sTimeFormat;
+    // True when m_sTimeFormat comes from the locale rather than the skin, so
+    // it is re-read on refresh to follow a system 12/24-hour change.
+    bool m_useLocaleFormat;
     // m_interval defines how often the time will be updated
     short m_interval;
 };

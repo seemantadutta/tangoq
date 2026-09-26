@@ -15,6 +15,7 @@ static constexpr short s_iMinuteInterval = 1000;
 WTime::WTime(QWidget* parent)
         : WLabel(parent),
           m_sTimeFormat("h:mm AP"),
+          m_useLocaleFormat(false),
           m_interval(s_iMinuteInterval) {
     m_pTimer = new QTimer(this);
 }
@@ -53,12 +54,18 @@ void WTime::setTimeFormat(const QDomNode& node, const SkinContext& context) {
             m_sTimeFormat = QStringLiteral("h:mm:ss");
         } else {
             m_interval = s_iMinuteInterval;
+            m_useLocaleFormat = true;
             m_sTimeFormat = QLocale().timeFormat(QLocale::ShortFormat);
         }
     }
 }
 
 void WTime::refreshTime() {
+    if (m_useLocaleFormat) {
+        // Re-read the locale's format so a change to the system's 12/24-hour
+        // setting shows without a restart. The lookup is cheap.
+        m_sTimeFormat = QLocale().timeFormat(QLocale::ShortFormat);
+    }
     QTime time = QTime::currentTime();
     QString timeString = time.toString(m_sTimeFormat);
     if (text() != timeString) {

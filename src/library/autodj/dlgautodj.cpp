@@ -669,6 +669,12 @@ void DlgAutoDJ::updateSetEndTime() {
     if (!m_pKeepQueueControl || !m_pKeepQueueControl->toBool()) {
         return;
     }
+    // Follow a change to the system's 12/24-hour setting while running. The
+    // lookup is cheap, and the edit is only touched when the format changes.
+    const QString timeFormat = QLocale().timeFormat(QLocale::ShortFormat);
+    if (endTimeEdit->displayFormat() != timeFormat) {
+        endTimeEdit->setDisplayFormat(timeFormat);
+    }
     setEnabledIfChanged(pushButtonFadeNow,
             m_pAutoDJProcessor->canFadePlayingCortinaNow());
     // The HUD paints the set length, projected end and over/under from these
