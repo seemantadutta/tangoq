@@ -75,8 +75,24 @@ behavior separated even though users no longer switch between those modes.
   readout independently — set time, end time, cortina nudge, the HUD countdown
   timer, and the HUD progress pips. The HUD keeps its reserved size when a toggle
   is off, so the toolbar never reflows.
-- **HUD hidden while Auto DJ is stopped.** With no set running there is no countdown
-  to show, so the HUD paints nothing rather than sitting at `--:--`.
+- **Countdown hidden while Auto DJ is stopped.** With no set running there is no
+  countdown to show, so the HUD shows only the set length rather than sitting at
+  `--:--`.
+- **Set timing moved into the HUD (#54).** The set length sits in a column left
+  of the countdown. The projected end time and the over/under the target sit in
+  a column on its right, labelled in full words ("Set length", "Ends at"). The
+  countdown is centered above the playheads. LIVE, the cortina controls and the
+  target end input stay in the toolbar. Clock times follow the system's short
+  time format everywhere, so AM/PM shows in all places or none. The toolbar
+  clock and the target end input also switch live when the system's
+  12/24-hour setting changes, instead of after a restart (#64). The column
+  colors are skin properties, and High Contrast uses near-black text.
+- **Fade Now button (#59).** The arrow icon is now a "Fade Now" text button in
+  the TangoQ button's orange, set in the same font as "Tanda Transition". The
+  target end input's "T:" label now reads "Target Time".
+- **LIVE stop guard shows "Tap again".** While the guard is armed, the Auto DJ
+  and play buttons show "Tap again" with a bar that shrinks over the 3-second
+  window. This replaced a draining fill that was hard to see on orange buttons.
 - **Cortina tagging in the deck area**, not just in the Auto DJ list.
 - **Dancer icon** identifies the dedicated tango workflow in TangoQ without
   changing the corresponding inherited Mixxx skin behavior.
@@ -141,6 +157,28 @@ what actually plays.
 - Reuse `keepQueueAudibleSeconds` / `keepQueueTrackPlaySeconds` so the selection line
   and the set calculation agree on what a queued track costs.
 
+### Loudness: cortina level and ReplayGain (1.0.4)
+
+- **Cortina level (#53).** A volume offset in whole dB for cortinas on the main
+  output, set in Preferences or live from the toolbar next to the cortina nudge.
+  Built and parked on the `tango/53-cortina-level` branch, pending a listening
+  test to settle the range. It is its own per-deck engine gain
+  (`autodj_level_gain`), multiplied with the Auto DJ fade gain. So the cortina
+  fade keeps its shape, hard cut and Fade Now are covered, and headphone
+  pre-listening is unaffected. Boosting can clip a loud cortina, since the main
+  output has no limiter.
+- **ReplayGain integration.** Mixxx's ReplayGain analyzes each track once (EBU
+  R128 loudness against a −18 LUFS reference), stores a gain in the library, and
+  applies it at the deck's pregain, where it multiplies with the cortina level.
+  Without it, the cortina level is relative to each file's own loudness, so one
+  setting can suit one cortina and not another. With it, the level would mean
+  "cortinas sit N dB below the tandas". Open questions: whether TangoQ should
+  turn ReplayGain on by default, and how noisy old transfers measure (surface
+  noise counts as loudness).
+- **Waveform fade envelope ignores the level.** The envelope overlay on a
+  cortina's waveform keeps its 0 dB shape at any cortina level. Scale it if the
+  DJ needs to see the level there.
+
 ### Cockpit & UI
 
 - Curated right-click menu in the toolbar area (`QMainWindow`-based).
@@ -201,8 +239,6 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
-- The countdown sits slightly left of center; it should render centered over the
-  playheads.
 - **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
   tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
   span could then be created by classifying as Vals and changing the type to Tango
@@ -245,3 +281,20 @@ default for a DJ. If built, they should be opt-in via a Preferences checkbox to
 ## Long-term
 
 - Detect tracks with large gaps or audio dropouts.
+- **Per-song tone presets (#55, shelved).** A DJ asked to bring over the EQ
+  presets they built in Mixxx, and to switch between them per song. Bright,
+  "crispy" transfers such as Tango Tunes often need taming, so this is a real
+  tango need. Shelved because it needs more design thought first.
+  - The presets are effect chain presets built from Mixxx's own Graphic EQ and
+    Parametric EQ effects, saved to `effects/chains/*.xml` in the settings
+    folder. TangoQ uses the same format and loads every file in that folder at
+    startup, so importing them is mostly a file copy.
+  - Using them is the open question. TangoQ hides the effect units at startup
+    (`res/skins/TangoQ/skin.xml`) and has no control to show them, so a DJ can
+    neither create nor switch these presets today.
+  - Open questions: whether presets are switched before a track loads or while it
+    plays; per deck or on the main output; and whether TangoQ should remember a
+    preset per track.
+  - Until this is decided, keep the Effects and Mixer Preferences pages when
+    cleaning up Preferences (#47). The Effects page manages the Quick Effect
+    preset list, which is one possible way to choose a preset per deck.

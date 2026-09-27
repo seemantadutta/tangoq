@@ -611,9 +611,16 @@ void WPushButton::armLiveStopGuard() {
     if (!m_pLiveStopCountdown) {
         m_pLiveStopCountdown = new WCountdownOverlay(this);
     }
-    const QPixmap background = grab(rect());
-    m_pLiveStopCountdown->setGeometry(rect());
-    m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval(), background);
+    // Cover only the inside of the button, so its border stays visible. The
+    // style sheet's box model (border and padding) defines where that is.
+    QStyleOption option;
+    option.initFrom(this);
+    QRect inner = style()->subElementRect(QStyle::SE_PushButtonContents, &option, this);
+    if (!inner.isValid() || inner.isEmpty()) {
+        inner = rect();
+    }
+    m_pLiveStopCountdown->setGeometry(inner);
+    m_pLiveStopCountdown->start(m_liveStopGuardTimer.interval());
 }
 
 void WPushButton::disarmLiveStopGuard() {

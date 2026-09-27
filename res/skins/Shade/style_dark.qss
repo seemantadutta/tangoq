@@ -27,10 +27,7 @@ WCoverArtMenu::item,
 WEffectSelector,
 WEffectSelector QAbstractScrollArea,
 WEffectSelector::down-arrow,
-WEffectSelector::indicator:unchecked,
-#fadeModeCombobox QAbstractScrollArea,
-#fadeModeCombobox::item,
-#fadeModeCombobox::indicator:unchecked {
+WEffectSelector::indicator:unchecked {
   color: #000;
   background-color: #717171;
   }
@@ -38,9 +35,7 @@ WEffectSelector::indicator:unchecked,
   #MainMenu::item,
   WBeatSpinBox,
   #spinBoxTransition::up-button,
-  #spinBoxTransition::down-button,
-  #fadeModeCombobox,
-  #fadeModeCombobox::down-arrow {
+  #spinBoxTransition::down-button {
     color: #000;
     background-color: #5C5B5D;
   }
@@ -68,9 +63,7 @@ QLineEdit QMenu::item:selected,
 QPlainTextEdit QMenu::item:selected,
 WCoverArtMenu::item:selected,
 WEffectSelector::item:selected,
-WEffectSelector::indicator:unchecked:selected,
-#fadeModeCombobox::item:selected,
-#fadeModeCombobox::indicator:unchecked:selected {
+WEffectSelector::indicator:unchecked:selected {
   background-color: #999;
   }
   /* required on Windows since the QAbstractItemViews don't inherit styles from
@@ -80,13 +73,11 @@ WEffectSelector::indicator:unchecked:selected,
   WSearchLineEdit QAbstractItemView {
     selection-background-color: #999;
   }
-  WEffectSelector::indicator:unchecked:selected,
-  #fadeModeCombobox::indicator:unchecked:selected {
+  WEffectSelector::indicator:unchecked:selected {
     border-color: #999;
   }
   /* hover over checked effect */
-  WEffectSelector::item:checked:selected,
-  #fadeModeCombobox::item:checked:selected {
+  WEffectSelector::item:checked:selected {
     background-color: #555;
   }
 
@@ -105,8 +96,7 @@ WEffectSelector::indicator:unchecked:selected,
   WLibrarySidebar QMenu::indicator:checked,
   WTrackTableViewHeader QMenu QCheckBox::indicator:checked,
   WTrackMenu QMenu QCheckBox::indicator:checked,
-  WEffectSelector::indicator:checked,
-  #fadeModeCombobox::indicator:checked {
+  WEffectSelector::indicator:checked {
     border-color: #111;
     background-color: #B79E00;
   }
@@ -246,9 +236,7 @@ WTrackTableView {
 #LibraryContainer QScrollBar::add-page,
 #LibraryContainer QScrollBar::sub-page,
 WEffectSelector QAbstractScrollArea QScrollBar::add-page,
-WEffectSelector QAbstractScrollArea QScrollBar::sub-page,
-#fadeModeCombobox QAbstractScrollArea QScrollBar::add-page,
-#fadeModeCombobox QAbstractScrollArea QScrollBar::sub-page {
+WEffectSelector QAbstractScrollArea QScrollBar::sub-page {
   background-color: #000;
 }
 WTrackTableViewHeader,
@@ -256,9 +244,7 @@ WTrackTableViewHeader::section,
 #LibraryContainer QScrollBar::handle:vertical,
 #LibraryContainer QScrollBar::handle:horizontal,
 WEffectSelector QAbstractScrollArea QScrollBar::handle:vertical,
-WEffectSelector QAbstractScrollArea QScrollBar::handle:horizontal,
-#fadeModeCombobox QAbstractScrollArea QScrollBar::handle:vertical,
-#fadeModeCombobox QAbstractScrollArea QScrollBar::handle:horizontal {
+WEffectSelector QAbstractScrollArea QScrollBar::handle:horizontal {
   background: #3f3041;
   color: #999;
 }
