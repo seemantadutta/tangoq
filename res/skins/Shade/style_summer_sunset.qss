@@ -27,10 +27,7 @@ WCoverArtMenu::item,
 WEffectSelector,
 WEffectSelector QAbstractScrollArea,
 WEffectSelector::down-arrow,
-WEffectSelector::indicator:unchecked,
-#fadeModeCombobox QAbstractScrollArea,
-#fadeModeCombobox::item,
-#fadeModeCombobox::indicator:unchecked {
+WEffectSelector::indicator:unchecked {
   color: #101307;
   background-color: #ad9e4f;
 }
@@ -38,9 +35,7 @@ WEffectSelector::indicator:unchecked,
 #MainMenu::item,
 WBeatSpinBox,
 #spinBoxTransition::up-button,
-#spinBoxTransition::down-button,
-#fadeModeCombobox,
-#fadeModeCombobox::down-arrow {
+#spinBoxTransition::down-button {
   color: #060613;
   background-color: #998A3C;
 }
@@ -78,9 +73,7 @@ QLineEdit QMenu::item:selected,
 QPlainTextEdit QMenu::item:selected,
 WCoverArtMenu::item:selected,
 WEffectSelector::item:selected,
-WEffectSelector::indicator:unchecked:selected,
-#fadeModeCombobox::item:selected,
-#fadeModeCombobox::indicator:unchecked:selected {
+WEffectSelector::indicator:unchecked:selected {
   background-color: #d9c663;
   }
   /* required on Windows since the QAbstractItemViews don't inherit styles from
@@ -90,13 +83,11 @@ WEffectSelector::indicator:unchecked:selected,
   WSearchLineEdit QAbstractItemView {
     selection-background-color: #d9c663;
   }
-  WEffectSelector::indicator:unchecked:selected,
-  #fadeModeCombobox::indicator:unchecked:selected {
+  WEffectSelector::indicator:unchecked:selected {
     border-color: #d9c663;
   }
   /* hover over checked effect */
-  WEffectSelector::item:checked:selected,
-  #fadeModeCombobox::item:checked:selected {
+  WEffectSelector::item:checked:selected {
     background-color: #887a35;
   }
   /* unchecked menu checkbox */
@@ -111,8 +102,7 @@ WEffectSelector::indicator:unchecked:selected,
   WLibrarySidebar QMenu::indicator:checked,
   WTrackTableViewHeader QMenu QCheckBox::indicator:checked,
   WTrackMenu QMenu QCheckBox::indicator:checked,
-  WEffectSelector::indicator:checked,
-  #fadeModeCombobox::indicator:checked {
+  WEffectSelector::indicator:checked {
     border-color: #222;
     background-color: #4bcf09;
   }

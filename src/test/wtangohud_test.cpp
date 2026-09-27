@@ -11,12 +11,41 @@
 
 #include <QColor>
 #include <QFile>
+#include <memory>
+#include <vector>
 
+#include "control/controlobject.h"
 #include "test/mixxxtest.h"
 
 namespace {
 
 class WTangoHudTest : public MixxxTest {
+  protected:
+    void SetUp() override {
+        // The HUD reads these controls, which Auto DJ and the skin create in
+        // the app. A missing one fails a debug assertion (as on CI), so create
+        // them all here.
+        const QList<ConfigKey> keys = {
+                ConfigKey(QStringLiteral("[Controls]"), QStringLiteral("touch_shift")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_countdown_seconds")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_next_kind")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_tanda_track_count")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_tanda_playing_index")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("enabled")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_set_length_seconds")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_set_end_epoch_seconds")),
+                ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("hud_set_end_delta_seconds")),
+                ConfigKey(QStringLiteral("[TangoQ]"), QStringLiteral("show_countdown_timer")),
+                ConfigKey(QStringLiteral("[TangoQ]"), QStringLiteral("show_progress_pips")),
+                ConfigKey(QStringLiteral("[TangoQ]"), QStringLiteral("show_adj_set_time")),
+                ConfigKey(QStringLiteral("[TangoQ]"), QStringLiteral("show_adj_end_time")),
+        };
+        for (const ConfigKey& key : keys) {
+            m_controls.push_back(std::make_unique<ControlObject>(key));
+        }
+    }
+
+    std::vector<std::unique_ptr<ControlObject>> m_controls;
 };
 
 TEST_F(WTangoHudTest, HighContrastStyleSheetSetsTextColors) {
