@@ -18,10 +18,6 @@ constexpr int INITIAL_VERSION = 0;
 // be reapplied without any data loss.
 constexpr int MIN_REAPPLY_VERSION = 35;
 
-const QString SETTINGS_VERSION_KEY = QStringLiteral("mixxx.schema.version");
-const QString SETTINGS_LASTUSED_VERSION_KEY = QStringLiteral("mixxx.schema.last_used_version");
-const QString SETTINGS_MINCOMPATIBLE_KEY = QStringLiteral("mixxx.schema.min_compatible_version");
-
 std::optional<int> readSchemaVersion(
         const SettingsDAO& settings,
         const QString& key) {
@@ -43,21 +39,24 @@ std::optional<int> readSchemaVersion(
 
 } // namespace
 
-SchemaManager::SchemaManager(const QSqlDatabase& database)
-        : m_settingsDao(database) {
+SchemaManager::SchemaManager(const QSqlDatabase& database, const QString& keyPrefix)
+        : m_settingsDao(database),
+          m_versionKey(keyPrefix + QStringLiteral(".version")),
+          m_lastUsedVersionKey(keyPrefix + QStringLiteral(".last_used_version")),
+          m_minCompatibleVersionKey(keyPrefix + QStringLiteral(".min_compatible_version")) {
 }
 
 int SchemaManager::readCurrentVersion() const {
     return readSchemaVersion(
             m_settingsDao,
-            SETTINGS_VERSION_KEY)
+            m_versionKey)
             .value_or(INITIAL_VERSION);
 }
 
 int SchemaManager::readLastUsedVersion() const {
     const auto lastUsedVersion = readSchemaVersion(
             m_settingsDao,
-            SETTINGS_LASTUSED_VERSION_KEY);
+            m_lastUsedVersionKey);
     if (lastUsedVersion) {
         return *lastUsedVersion;
     }
@@ -68,7 +67,7 @@ int SchemaManager::readLastUsedVersion() const {
 int SchemaManager::readMinBackwardsCompatibleVersion() const {
     const auto minBackwardsCompatibleVersion = readSchemaVersion(
             m_settingsDao,
-            SETTINGS_MINCOMPATIBLE_KEY);
+            m_minCompatibleVersionKey);
     if (minBackwardsCompatibleVersion) {
         return *minBackwardsCompatibleVersion;
     }
@@ -101,7 +100,7 @@ SchemaManager::Result SchemaManager::upgradeToSchemaVersion(
     VERIFY_OR_DEBUG_ASSERT(lastUsedVersion <= currentVersion) {
         // Fix inconsistent value
         m_settingsDao.setValue(
-                SETTINGS_LASTUSED_VERSION_KEY,
+                m_lastUsedVersionKey,
                 currentVersion);
     }
 
@@ -109,7 +108,7 @@ SchemaManager::Result SchemaManager::upgradeToSchemaVersion(
         if (lastUsedVersion >= targetVersion) {
             if (lastUsedVersion > targetVersion) {
                 m_settingsDao.setValue(
-                        SETTINGS_LASTUSED_VERSION_KEY,
+                        m_lastUsedVersionKey,
                         targetVersion);
             }
             kLogger.info()
@@ -259,13 +258,13 @@ SchemaManager::Result SchemaManager::upgradeToSchemaVersion(
             if (nextVersion > currentVersion) {
                 currentVersion = nextVersion;
                 m_settingsDao.setValue(
-                        SETTINGS_VERSION_KEY,
+                        m_versionKey,
                         currentVersion);
                 m_settingsDao.setValue(
-                        SETTINGS_LASTUSED_VERSION_KEY,
+                        m_lastUsedVersionKey,
                         currentVersion);
                 m_settingsDao.setValue(
-                        SETTINGS_MINCOMPATIBLE_KEY,
+                        m_minCompatibleVersionKey,
                         minCompatibleVersion);
                 kLogger.info()
                         << "Upgraded database schema"
@@ -287,7 +286,7 @@ SchemaManager::Result SchemaManager::upgradeToSchemaVersion(
 
     if (targetVersion != lastUsedVersion) {
         m_settingsDao.setValue(
-                SETTINGS_LASTUSED_VERSION_KEY,
+                m_lastUsedVersionKey,
                 targetVersion);
     }
     if (targetVersion < currentVersion) {

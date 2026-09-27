@@ -21,7 +21,11 @@ class SchemaManager {
         SchemaError
     };
 
-    explicit SchemaManager(const QSqlDatabase& database);
+    /// The versions are stored in the settings table under keyPrefix, e.g.
+    /// "mixxx.schema.version". TangoQ versions its own tables separately,
+    /// under "tangoq.schema".
+    explicit SchemaManager(const QSqlDatabase& database,
+            const QString& keyPrefix = QStringLiteral("mixxx.schema"));
 
     int readCurrentVersion() const;
     int readLastUsedVersion() const;
@@ -34,4 +38,7 @@ class SchemaManager {
 
   private:
     const SettingsDAO m_settingsDao;
+    const QString m_versionKey;
+    const QString m_lastUsedVersionKey;
+    const QString m_minCompatibleVersionKey;
 };

@@ -2297,6 +2297,7 @@ if(BUILD_TESTING)
     src/test/tandacolorpalette_test.cpp
     src/test/tandaqueuestate_test.cpp
     src/test/taglibtest.cpp
+    src/test/tangoqschema_test.cpp
     src/test/trackdao_test.cpp
     src/test/trackexport_test.cpp
     src/test/trackmetadata_test.cpp

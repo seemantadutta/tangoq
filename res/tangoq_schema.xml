@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+TangoQ's own tables in tangoq.db, versioned separately from the stock Mixxx
+schema (res/schema.xml) under the "tangoq.schema.*" settings keys.
+
+Keeping them apart means the stock "mixxx.schema.version" never changes, so an
+older TangoQ (which only checks the stock schema) can still open a database a
+newer TangoQ has used. The tables are all prefixed "tangoq_" so they cannot
+clash with a future stock migration.
+
+Rules, as for res/schema.xml: never edit a released revision, only add new
+ones. A revision that only adds tables or columns is backwards compatible and
+keeps min_compatible at the oldest version that can still use the database.
+Statements are split on semicolons, so do not use them anywhere else.
+-->
+<schema>
+  <revision version="1" min_compatible="1">
+    <description>
+      Cortina marks that belong to the track, and a record of each play
+      TangoQ logs to history: the history session (playlist_id), the track,
+      when it started, its role at the time (0 regular, 1 cortina,
+      2 performance) and whether LIVE mode was on.
+    </description>
+    <sql>
+      CREATE TABLE IF NOT EXISTS tangoq_cortina (
+        track_id INTEGER PRIMARY KEY,
+        marked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS tangoq_play (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        playlist_id INTEGER NOT NULL,
+        track_id INTEGER NOT NULL,
+        played_at TEXT NOT NULL,
+        role INTEGER NOT NULL DEFAULT 0,
+        live INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_tangoq_play_playlist_id
+        ON tangoq_play (playlist_id);
+      CREATE INDEX IF NOT EXISTS idx_tangoq_play_track_id
+        ON tangoq_play (track_id);
+    </sql>
+  </revision>
+</schema>
