@@ -111,13 +111,36 @@ TEST_F(TangoQSchemaTest, ReopeningIsANoOpAndKeepsTheFirstBackup) {
     ASSERT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), backupPath()));
     ASSERT_TRUE(QFile::exists(backupPath()));
     const QDateTime backupTime = QFileInfo(backupPath()).lastModified();
-    QSqlQuery(dbConnection()).exec(QStringLiteral(
-            "INSERT INTO tangoq_cortina (track_id) VALUES (7)"));
+    QSqlQuery(dbConnection()).exec(QStringLiteral("INSERT INTO tangoq_cortina (track_id) VALUES (7)"));
 
     EXPECT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), backupPath()));
 
     EXPECT_EQ(1, count(dbConnection(), QStringLiteral("SELECT COUNT(*) FROM tangoq_cortina")));
     EXPECT_EQ(backupTime, QFileInfo(backupPath()).lastModified());
+}
+
+TEST_F(TangoQSchemaTest, UpgradesFromTheFirstRevisionKeepingItsRows) {
+    // A database a stage-one build already upgraded to revision 1 moves on to
+    // the current revision, keeping what was saved and backing up again.
+    const QString firstBackup = m_backupDir.filePath(QStringLiteral("before-1.db"));
+    ASSERT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), firstBackup, 1));
+    QSqlQuery(dbConnection())
+            .exec(QStringLiteral(
+                    "INSERT INTO tangoq_cortina (track_id) VALUES (7)"));
+    QSqlQuery(dbConnection()).exec(QStringLiteral(
+            "INSERT INTO tangoq_play (playlist_id, track_id, played_at) "
+            "VALUES (3, 7, '2026-09-27 20:15:00')"));
+
+    EXPECT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), backupPath()));
+
+    EXPECT_EQ(QString::number(MixxxDb::kRequiredTangoQSchemaVersion),
+            SettingsDAO(dbConnection()).getValue(kVersionKey));
+    EXPECT_EQ(1, count(dbConnection(), QStringLiteral("SELECT COUNT(*) FROM tangoq_cortina")));
+    EXPECT_EQ(1,
+            count(dbConnection(),
+                    QStringLiteral("SELECT COUNT(*) FROM tangoq_play "
+                                   "WHERE track_id = 7 AND tanda_id IS NULL")));
+    EXPECT_TRUE(QFile::exists(backupPath()));
 }
 
 TEST_F(TangoQSchemaTest, AnOlderTangoQCanStillOpenTheDatabase) {

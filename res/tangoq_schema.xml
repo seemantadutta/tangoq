@@ -40,4 +40,18 @@ Statements are split on semicolons, so do not use them anywhere else.
         ON tangoq_play (track_id);
     </sql>
   </revision>
+  <revision version="2" min_compatible="1">
+    <description>
+      The tanda each play was part of: its id, type (0 tango, 1 vals,
+      2 milonga, 3 nuevo or alternative), name, and the track position in it
+      out of its size. Empty for a track outside a tanda.
+    </description>
+    <sql>
+      ALTER TABLE tangoq_play ADD COLUMN tanda_id TEXT;
+      ALTER TABLE tangoq_play ADD COLUMN tanda_type INTEGER;
+      ALTER TABLE tangoq_play ADD COLUMN tanda_name TEXT;
+      ALTER TABLE tangoq_play ADD COLUMN tanda_position INTEGER;
+      ALTER TABLE tangoq_play ADD COLUMN tanda_size INTEGER;
+    </sql>
+  </revision>
 </schema>

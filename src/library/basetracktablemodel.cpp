@@ -7,6 +7,7 @@
 
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/performanceregistry.h"
+#include "library/autodj/tangoplay.h"
 #include "library/autodj/tracklabelregistry.h"
 #include "library/coverartcache.h"
 #include "library/dao/trackschema.h"
@@ -768,6 +769,16 @@ QVariant BaseTrackTableModel::data(
                 return QVariant::fromValue(QColor(0xee, 0x44, 0x44));
             }
         }
+        // History recorded by TangoQ: a row played as a cortina or a
+        // performance keeps that colour, whatever its marks are now.
+        if (const auto playedRole = playedTangoRole(index)) {
+            if (*playedRole == TangoPlayRole::Cortina) {
+                return QVariant::fromValue(QColor(0x33, 0x88, 0xff));
+            }
+            if (*playedRole == TangoPlayRole::Performance) {
+                return QVariant::fromValue(QColor(0x44, 0xcc, 0x88));
+            }
+        }
         // Auto DJ Tango mode: cortinas blue, tracks queued more than once amber.
         // Order is deliberate - the red now-playing colour above wins over both,
         // and blue wins over amber, so a repeated cortina still reads as a
@@ -833,6 +844,22 @@ QVariant BaseTrackTableModel::data(
             role != kDataExportRole &&
             role != Qt::TextAlignmentRole) {
         return QVariant();
+    }
+
+    // Tag a History row played as a cortina or a performance, as the Auto DJ
+    // list does (display only; the stored title is untouched).
+    if (role == Qt::DisplayRole &&
+            mapColumn(index.column()) == ColumnCache::COLUMN_LIBRARYTABLE_TITLE) {
+        if (const auto playedRole = playedTangoRole(index)) {
+            if (*playedRole == TangoPlayRole::Cortina ||
+                    *playedRole == TangoPlayRole::Performance) {
+                return QStringLiteral("[-- %1 --] %2")
+                        .arg(*playedRole == TangoPlayRole::Cortina
+                                        ? QStringLiteral("CORTINA")
+                                        : QStringLiteral("PERFORMANCE"),
+                                roleValue(index, rawValue(index), role).toString());
+            }
+        }
     }
 
     // Tag the Auto DJ list title (display only; the stored title is untouched).

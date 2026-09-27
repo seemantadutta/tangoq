@@ -4,10 +4,13 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <optional>
 
 #include "library/columncache.h"
 #include "library/trackmodel.h"
 #include "track/track_decl.h"
+
+enum class TangoPlayRole;
 
 class TrackCollectionManager;
 
@@ -173,6 +176,14 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     double durationSecondsForRow(int row) const;
 
   protected:
+    /// How the track on this row was played, when the model knows it: the
+    /// History recorded by TangoQ. Shown instead of the current marks, so a
+    /// cortina or performance reads as one there for good.
+    virtual std::optional<TangoPlayRole> playedTangoRole(const QModelIndex& index) const {
+        Q_UNUSED(index);
+        return std::nullopt;
+    }
+
     // Build a map from the column names to their indices
     // used by fieldIndex().
     void initTableColumnsAndHeaderProperties(

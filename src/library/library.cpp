@@ -148,8 +148,8 @@ Library::Library(
     SetlogFeature* pSetlogFeature = new SetlogFeature(this, UserSettingsPointer(m_pConfig));
     // TangoQ history: one session per TangoQ run, logging every track TangoQ
     // starts, until the queue is reset.
-    connect(m_pAutoDJFeature->autoDJProcessor(),
-            &AutoDJProcessor::keepQueueTrackStarted,
+    connect(m_pAutoDJFeature,
+            &AutoDJFeature::tangoTrackStarted,
             pSetlogFeature,
             &SetlogFeature::slotTangoTrackStarted);
     connect(m_pAutoDJFeature->autoDJProcessor(),

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "library/autodj/tangoplay.h"
 #include "library/trackset/tracksettablemodel.h"
 #include "util/duration.h"
 
@@ -46,6 +47,13 @@ class PlaylistTableModel final : public TrackSetTableModel {
 
     QString modelKey(bool noSearch) const override;
 
+    /// History: re-reads how each row was played, e.g. after TangoQ saved the
+    /// play for a row it just logged.
+    void reloadTangoPlays();
+
+  protected:
+    std::optional<TangoPlayRole> playedTangoRole(const QModelIndex& index) const override;
+
   private slots:
     void playlistsChanged(const QSet<int>& playlistIds);
 
@@ -54,10 +62,14 @@ class PlaylistTableModel final : public TrackSetTableModel {
 
   private:
     void initSortColumnMapping() override;
+    void loadTangoPlays();
 
     int m_iPlaylistId;
     bool m_keepHiddenTracks;
     QHash<int, QString> m_searchTexts;
     // Non-owning; AutoDJFeature owns this and clears it after the processor.
     TandaQueueState* m_pTandaQueueState{nullptr};
+    // History only: how each row was played, by 1-based position.
+    bool m_isHistory{false};
+    QHash<int, TangoPlay> m_tangoPlays;
 };

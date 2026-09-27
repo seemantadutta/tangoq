@@ -159,6 +159,10 @@ void PlaylistTableModel::selectPlaylist(int playlistId) {
     // playlistsChanged() which would call select() -- which is simply not required
     // because we'll trigger that ourselves later on.
     m_iPlaylistId = playlistId;
+    m_isHistory = m_pTrackCollectionManager->internalCollection()
+                          ->getPlaylistDAO()
+                          .getHiddenType(m_iPlaylistId) == PlaylistDAO::PLHT_SET_LOG;
+    loadTangoPlays();
 
     QString playlistTableName = "playlist_" + QString::number(m_iPlaylistId);
     QSqlQuery query(m_database);
@@ -456,6 +460,40 @@ QString PlaylistTableModel::modelKey(bool noSearch) const {
 
 void PlaylistTableModel::playlistsChanged(const QSet<int>& playlistIds) {
     if (playlistIds.contains(m_iPlaylistId)) {
+        loadTangoPlays();
         select(); // Repopulate the data model.
     }
+}
+
+void PlaylistTableModel::loadTangoPlays() {
+    m_tangoPlays.clear();
+    if (m_isHistory) {
+        m_tangoPlays = tangoplay::load(m_database, m_iPlaylistId);
+    }
+}
+
+void PlaylistTableModel::reloadTangoPlays() {
+    if (!m_isHistory) {
+        return;
+    }
+    loadTangoPlays();
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1));
+    }
+}
+
+std::optional<TangoPlayRole> PlaylistTableModel::playedTangoRole(
+        const QModelIndex& index) const {
+    if (!m_isHistory || m_tangoPlays.isEmpty()) {
+        return std::nullopt;
+    }
+    const int position =
+            rawValue(index.sibling(index.row(),
+                             fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION)))
+                    .toInt();
+    const auto it = m_tangoPlays.constFind(position);
+    if (it == m_tangoPlays.constEnd()) {
+        return std::nullopt;
+    }
+    return it->role;
 }

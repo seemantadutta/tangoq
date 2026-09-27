@@ -710,7 +710,8 @@ int SetlogFeature::createTangoSessionPlaylist(
     return pPlaylistDao->createPlaylist(name, PlaylistDAO::PLHT_SET_LOG);
 }
 
-void SetlogFeature::slotTangoTrackStarted(TrackPointer pTrack) {
+void SetlogFeature::slotTangoTrackStarted(const TangoPlay& play) {
+    const TrackPointer& pTrack = play.track;
     if (!pTrack || !isTangoHistory()) {
         return;
     }
@@ -732,6 +733,17 @@ void SetlogFeature::slotTangoTrackStarted(TrackPointer pTrack) {
     // Every play is logged, repeats included: the processor reports each
     // track once, when it starts.
     logPlayedTrack(pTrack);
+    // Save how it was played next to its row, so the history keeps its role
+    // and tanda even after the marks or tandas change.
+    if (pTrack->getId().isValid()) {
+        tangoplay::save(m_pLibrary->trackCollectionManager()->internalCollection()->database(),
+                m_currentPlaylistId,
+                play);
+        // The row may already be on screen: show how it was played.
+        if (m_pPlaylistTableModel->getPlaylist() == m_currentPlaylistId) {
+            m_pPlaylistTableModel->reloadTangoPlays();
+        }
+    }
 }
 
 void SetlogFeature::slotTangoSetReset() {
