@@ -9,14 +9,19 @@
 
 #include <QObject>
 #include <QSet>
+#include <QSqlDatabase>
 
 #include "track/trackid.h"
 
-/// Session-only registry of tracks the DJ has tagged as "cortinas" for the
-/// Auto DJ (Tango) queue. A cortina is a short non-tango track played between
-/// tandas; tagged tracks render with a "[--CORTINA--]" title prefix and blue
-/// text in the Auto DJ list. The marks are intentionally NOT persisted: they
-/// live for the current Mixxx session only and are cleared on restart.
+/// Registry of tracks the DJ has tagged as "cortinas" for the Auto DJ (Tango)
+/// queue. A cortina is a short non-tango track played between tandas; tagged
+/// tracks render with a "[--CORTINA--]" title prefix and blue text in the Auto
+/// DJ list.
+///
+/// A mark belongs to the track: while a database is attached, marks are saved
+/// in its tangoq_cortina table and loaded again on the next start, until the
+/// DJ unmarks the track. Without the table (e.g. the TangoQ tables could not
+/// be created) the marks last for the session only.
 class CortinaRegistry : public QObject {
     Q_OBJECT
   public:
@@ -29,6 +34,13 @@ class CortinaRegistry : public QObject {
     void mark(TrackId trackId);
     void unmark(TrackId trackId);
 
+    /// Replaces the marks in memory with the ones saved in the database, and
+    /// saves every change from now on.
+    void attachDatabase(const QSqlDatabase& database);
+    /// Stops saving changes, e.g. before the database closes. The marks in
+    /// memory are kept.
+    void detachDatabase();
+
   signals:
     // Emitted whenever the set of tagged tracks changes, so views showing the
     // cortina styling can repaint.
@@ -37,5 +49,8 @@ class CortinaRegistry : public QObject {
   private:
     CortinaRegistry() = default;
 
+    void save(TrackId trackId, bool marked);
+
     QSet<TrackId> m_trackIds;
+    QSqlDatabase m_database;
 };

@@ -2226,6 +2226,7 @@ if(BUILD_TESTING)
     src/test/coverartutils_test.cpp
     src/test/cratestorage_test.cpp
     src/test/cue_test.cpp
+    src/test/cortinaregistry_test.cpp
     src/test/cuecontrol_test.cpp
     src/test/dbconnectionpool_test.cpp
     src/test/dbidtest.cpp
