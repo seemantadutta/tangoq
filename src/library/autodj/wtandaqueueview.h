@@ -63,6 +63,9 @@ class WTandaQueueView final : public WTrackTableView {
     QVector<int> selectedQueuePositions(bool* pAllLeaves = nullptr) const;
     bool canClassifySelection() const;
     bool selectionContainsTandaLeaves() const;
+    // The selected tracks marked as cortinas, and whether that is all of them.
+    QList<TrackPointer> selectedCortinas() const;
+    bool selectionIsAllCortinas() const;
     void classifySelection(TandaType type);
     void setContextTanda(const QUuid& id);
     void toggleTanda(const QUuid& id);

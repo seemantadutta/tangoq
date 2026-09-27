@@ -98,6 +98,7 @@ class TandaItemTypeDelegate final : public QStyledItemDelegate {
                 fontMetrics.horizontalAdvance(QStringLiteral("N")),
                 fontMetrics.horizontalAdvance(QStringLiteral("c")),
                 fontMetrics.horizontalAdvance(QStringLiteral("p")),
+                fontMetrics.horizontalAdvance(QStringLiteral("!")),
         });
         constexpr int kSlotGap = 4;
         const int contentWidth = markerWidth + kSlotGap + typeWidth;
@@ -119,6 +120,13 @@ class TandaItemTypeDelegate final : public QStyledItemDelegate {
                         : QPalette::Text));
         if (isCurrent) {
             pPainter->drawText(markerRect, Qt::AlignCenter, QStringLiteral("▶"));
+        }
+        if (index.data(TandaQueueModel::ProblemRole).toBool()) {
+            // A failed queue check: a red "!" in place of the type letter.
+            QFont font = itemOption.font;
+            font.setBold(true);
+            pPainter->setFont(font);
+            pPainter->setPen(QColor(0xff, 0x44, 0x44));
         }
         pPainter->drawText(typeRect, Qt::AlignCenter, typeMark);
         pPainter->restore();
@@ -169,6 +177,7 @@ TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
     // Cortina and performance marks select the whole row's category color as
     // well as its type-column label, so refresh every role across the row.
     const auto refreshTrackCategories = [this]() {
+        recomputeChecks();
         if (rowCount() > 0) {
             emit dataChanged(index(0, 0),
                     index(rowCount() - 1, columnCount() - 1),
@@ -283,6 +292,16 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
             if (role == Qt::TextAlignmentRole) {
                 return QVariant::fromValue(Qt::AlignCenter);
             }
+            const auto problems = m_checks.rows.value(pRow->sourceRow);
+            if (role == ProblemRole) {
+                return !problems.isEmpty();
+            }
+            if (role == Qt::ToolTipRole && !problems.isEmpty()) {
+                return problemsText(problems, pRow->tandaId, pRow->sourceRow);
+            }
+            if (role == Qt::DisplayRole && !problems.isEmpty()) {
+                return QStringLiteral("!");
+            }
             if (role == Qt::DisplayRole) {
                 if (m_pPlaylistModel->showCortinaMarks()) {
                     if (CortinaRegistry::instance().contains(trackId)) {
@@ -331,6 +350,18 @@ QVariant TandaQueueModel::data(const QModelIndex& proxyIndex, int role) const {
     }
     if (role == DisclosureActionRole) {
         return pSpan->collapsed ? tr("Expand tanda") : tr("Collapse tanda");
+    }
+    const auto problems = m_checks.tandas.value(pRow->tandaId);
+    if (proxyIndex.column() == tandaTypeColumn() && !problems.isEmpty()) {
+        if (role == ProblemRole) {
+            return true;
+        }
+        if (role == Qt::ToolTipRole) {
+            return problemsText(problems, pRow->tandaId, -1);
+        }
+        if (role == Qt::DisplayRole) {
+            return QStringLiteral("!");
+        }
     }
     if (role == Qt::AccessibleTextRole) {
         return QStringLiteral("%1, %2")
@@ -797,8 +828,77 @@ void TandaQueueModel::rebuild() {
         m_visibleRows.append({RowKind::Track, sourceRow, {}});
         ++sourceRow;
     }
+    recomputeChecks();
     endResetModel();
     publishHudTandaState();
+}
+
+QString TandaQueueModel::genreForSourceRow(int sourceRow) const {
+    const int genreColumn = m_pPlaylistModel->fieldIndex(
+            ColumnCache::COLUMN_LIBRARYTABLE_GENRE);
+    if (genreColumn < 0) {
+        return {};
+    }
+    return m_pPlaylistModel->index(sourceRow, genreColumn).data().toString();
+}
+
+void TandaQueueModel::recomputeChecks() {
+    QVector<tandaqueuechecks::Row> rows;
+    rows.reserve(m_pPlaylistModel->rowCount());
+    for (int sourceRow = 0; sourceRow < m_pPlaylistModel->rowCount(); ++sourceRow) {
+        tandaqueuechecks::Row row;
+        row.cortina = CortinaRegistry::instance().contains(m_pPlaylistModel->getTrackId(
+                m_pPlaylistModel->index(sourceRow, 0)));
+        if (row.cortina) {
+            row.genre = genreForSourceRow(sourceRow);
+        }
+        if (const TandaSpan* pSpan = m_pState->spanAtPosition(sourceRow + 1)) {
+            row.tandaId = pSpan->id;
+        }
+        rows.append(row);
+    }
+    m_checks = tandaqueuechecks::check(rows);
+}
+
+void TandaQueueModel::refreshCheckMarks() {
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, tandaTypeColumn()),
+                index(rowCount() - 1, tandaTypeColumn()),
+                {Qt::DisplayRole, Qt::ToolTipRole, ProblemRole});
+    }
+}
+
+QString TandaQueueModel::problemText(tandaqueuechecks::Problem problem,
+        const QUuid& tandaId,
+        int sourceRow) const {
+    using tandaqueuechecks::Problem;
+    switch (problem) {
+    case Problem::CortinaInsideTanda:
+        return sourceRow >= 0 ? tr("This cortina is inside a tanda.")
+                              : tr("A cortina is inside this tanda.");
+    case Problem::CortinaWithTandaGenre:
+        return tr("This cortina's genre is \"%1\", a tanda genre.")
+                .arg(genreForSourceRow(sourceRow));
+    case Problem::CortinaAfterCortina:
+        return tr("Two cortinas in a row.");
+    case Problem::NoCortinaBeforeTanda:
+        return tr("%1: no cortina before it.").arg(tandaTypeLabel(tandaId));
+    }
+    return {};
+}
+
+QString TandaQueueModel::problemsText(const QList<tandaqueuechecks::Problem>& problems,
+        const QUuid& tandaId,
+        int sourceRow) const {
+    QStringList lines;
+    for (const auto problem : problems) {
+        lines << problemText(problem, tandaId, sourceRow);
+    }
+    if (sourceRow >= 0) {
+        // Every row problem is about a cortina mark.
+        lines << tr("If it is not a cortina, right-click it and choose \"Set as Track\".");
+    }
+    return lines.join(QChar('\n'));
 }
 
 void TandaQueueModel::publishHudTandaState() {
@@ -850,6 +950,9 @@ void TandaQueueModel::publishHudTandaState() {
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
         const QModelIndex& bottomRight,
         const QVector<int>& roles) {
+    // A genre edit can add or clear a cortina check.
+    recomputeChecks();
+    refreshCheckMarks();
     QSet<QUuid> changedTandas;
     for (int sourceRow = topLeft.row(); sourceRow <= bottomRight.row(); ++sourceRow) {
         if (const TandaSpan* pSpan = m_pState->spanAtPosition(sourceRow + 1)) {

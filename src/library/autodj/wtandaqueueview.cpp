@@ -24,6 +24,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPushButton>
 #include <QScrollBar>
 #include <QSet>
 #include <algorithm>
@@ -36,6 +37,7 @@
 #include "library/autodj/tandaqueuestate.h"
 #include "library/playlisttablemodel.h"
 #include "moc_wtandaqueueview.cpp"
+#include "track/track.h"
 #include "util/defs.h"
 #include "util/dnd.h"
 #include "widget/wtrackmenu.h"
@@ -450,7 +452,10 @@ void WTandaQueueView::prepareTrackMenu(
     for (QAction* pAction : std::as_const(m_classifyActions)) {
         pAction->setVisible(canClassify);
     }
-    pTrackMenu->setCortinaToggleAllowed(!selectionContainsTandaLeaves());
+    // "Set as Track" stays available for cortinas inside a tanda, the fix for
+    // the red "!" the queue checks put on them.
+    pTrackMenu->setCortinaToggleAllowed(
+            !selectionContainsTandaLeaves() || selectionIsAllCortinas());
 
     m_pTandaSeparator->setVisible(canClassify);
 }
@@ -549,14 +554,41 @@ bool WTandaQueueView::canClassifySelection() const {
         const int position = positions.at(index);
         const QModelIndex sourceIndex =
                 pModel->playlistModel()->index(position - 1, 0);
+        Q_UNUSED(sourceIndex);
+        // A cortina in the selection does not hide the action: making the
+        // tanda explains the mark and offers to clear it (classifySelection).
         if ((index > 0 && position != positions.at(index - 1) + 1) ||
-                m_pAutoDJFeature->tandaQueueState()->spanAtPosition(position) ||
-                CortinaRegistry::instance().contains(
-                        pModel->playlistModel()->getTrackId(sourceIndex))) {
+                m_pAutoDJFeature->tandaQueueState()->spanAtPosition(position)) {
             return false;
         }
     }
     return true;
+}
+
+QList<TrackPointer> WTandaQueueView::selectedCortinas() const {
+    QList<TrackPointer> cortinas;
+    TandaQueueModel* pModel = tandaModel();
+    if (!pModel) {
+        return cortinas;
+    }
+    for (int position : selectedQueuePositions()) {
+        const QModelIndex sourceIndex =
+                pModel->playlistModel()->index(position - 1, 0);
+        if (CortinaRegistry::instance().contains(
+                    pModel->playlistModel()->getTrackId(sourceIndex))) {
+            if (TrackPointer pTrack = pModel->playlistModel()->getTrack(sourceIndex)) {
+                cortinas.append(pTrack);
+            }
+        }
+    }
+    return cortinas;
+}
+
+bool WTandaQueueView::selectionIsAllCortinas() const {
+    bool allLeaves = false;
+    const QVector<int> positions = selectedQueuePositions(&allLeaves);
+    return allLeaves && !positions.isEmpty() &&
+            selectedCortinas().size() == positions.size();
 }
 
 bool WTandaQueueView::selectionContainsTandaLeaves() const {
@@ -579,6 +611,32 @@ bool WTandaQueueView::selectionContainsTandaLeaves() const {
 void WTandaQueueView::classifySelection(TandaType type) {
     if (!canClassifySelection()) {
         return;
+    }
+    // A tanda cannot contain a cortina. Cortina marks are remembered, so a
+    // track marked by mistake shows up here: say so, and offer to clear it.
+    const QList<TrackPointer> cortinas = selectedCortinas();
+    if (!cortinas.isEmpty()) {
+        const QString what = cortinas.size() == 1
+                ? tr("\"%1\" is marked as a cortina.").arg(cortinas.first()->getTitle())
+                : tr("%n of the selected tracks are marked as cortinas.",
+                          nullptr,
+                          static_cast<int>(cortinas.size()));
+        QMessageBox box(QMessageBox::Question,
+                tr("TangoQ"),
+                what + QChar('\n') + tr("A tanda cannot contain a cortina."),
+                QMessageBox::NoButton,
+                this);
+        QPushButton* pUnmark = box.addButton(
+                tr("Unmark and make tanda"), QMessageBox::AcceptRole);
+        box.addButton(QMessageBox::Cancel);
+        box.setDefaultButton(pUnmark);
+        box.exec();
+        if (box.clickedButton() != pUnmark) {
+            return;
+        }
+        for (const TrackPointer& pTrack : cortinas) {
+            CortinaRegistry::instance().unmark(pTrack->getId());
+        }
     }
     QString error;
     if (m_pAutoDJFeature->makeTanda(

@@ -692,3 +692,62 @@ TEST_F(TandaQueueDaoTest, RemoveHeaderExpandsToTandaMembers) {
             dao.getTrackIdsInPlaylistOrder(expandedPlaylistId));
     EXPECT_TRUE(expandedState.spans().isEmpty());
 }
+
+TEST_F(TandaQueueDaoTest, TypeColumnFlagsASetThatDoesNotReadLikeAMilonga) {
+    // Cortina marks are remembered, so a mistaken one follows the track into
+    // every set. The queue flags anything that does not read like a milonga
+    // with a red "!" in place of the type letter, and says why.
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda checks test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId c = addTrack(QStringLiteral("cover-test-png.mp3"));
+    const TrackId d = addTrack(QStringLiteral("cover-test-vbr.mp3"));
+    const TrackId e = addTrack(QStringLiteral("cover-test.flac"));
+    const TrackId f = addTrack(QStringLiteral("cover-test.ogg"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c, d, e, f}, playlistId));
+
+    PlaylistTableModel source(nullptr, trackCollectionManager(), "tanda_checks_test");
+    source.selectPlaylist(playlistId);
+    source.select();
+    source.setShowCortinaMarks(true);
+    ASSERT_EQ(6, source.rowCount());
+
+    // A tango tanda directly followed by a vals tanda, then two tracks.
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({a, b, c, d, e, f});
+    ASSERT_FALSE(state.classify({1, 2}, TandaType::Tango).isNull());
+    const QUuid vals = state.classify({3, 4}, TandaType::Vals);
+    ASSERT_FALSE(vals.isNull());
+
+    TandaQueueModel model(&source, &state);
+    // Rows: tango header, vals header (both collapsed), e, f.
+    ASSERT_EQ(4, model.rowCount());
+    const int typeCol = model.columnCount() - 1;
+
+    // The first tanda is fine; the second has no cortina before it.
+    EXPECT_EQ(QStringLiteral("T"), model.data(model.index(0, typeCol)).toString());
+    EXPECT_FALSE(model.data(model.index(0, typeCol), TandaQueueModel::ProblemRole).toBool());
+    EXPECT_EQ(QStringLiteral("!"), model.data(model.index(1, typeCol)).toString());
+    EXPECT_TRUE(model.data(model.index(1, typeCol), TandaQueueModel::ProblemRole).toBool());
+    EXPECT_EQ(QStringLiteral("Vals tanda: no cortina before it."),
+            model.data(model.index(1, typeCol), Qt::ToolTipRole).toString());
+
+    // Marking the last two tracks as cortinas flags the second of the pair,
+    // as soon as the mark changes.
+    CortinaRegistry::instance().mark(e);
+    CortinaRegistry::instance().mark(f);
+    EXPECT_EQ(QStringLiteral("c"), model.data(model.index(2, typeCol)).toString());
+    EXPECT_EQ(QStringLiteral("!"), model.data(model.index(3, typeCol)).toString());
+    EXPECT_TRUE(model.data(model.index(3, typeCol), Qt::ToolTipRole)
+                    .toString()
+                    .startsWith(QStringLiteral("Two cortinas in a row.")));
+
+    // Unmarking clears it.
+    CortinaRegistry::instance().unmark(f);
+    EXPECT_FALSE(model.data(model.index(3, typeCol), TandaQueueModel::ProblemRole).toBool());
+    CortinaRegistry::instance().unmark(e);
+}
