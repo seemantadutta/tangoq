@@ -2279,6 +2279,7 @@ if(BUILD_TESTING)
     src/test/sandbox_test.cpp
     src/test/schemamanager_test.cpp
     src/test/searchqueryparsertest.cpp
+    src/test/setlogfeature_test.cpp
     src/test/seratobeatgridtest.cpp
     src/test/seratomarkerstest.cpp
     src/test/seratomarkers2test.cpp
