@@ -177,7 +177,9 @@ TandaQueueModel::TandaQueueModel(PlaylistTableModel* pSourceModel,
     // Cortina and performance marks select the whole row's category color as
     // well as its type-column label, so refresh every role across the row.
     const auto refreshTrackCategories = [this]() {
-        recomputeChecks();
+        if (recomputeChecks()) {
+            refreshCheckMarks();
+        }
         if (rowCount() > 0) {
             emit dataChanged(index(0, 0),
                     index(rowCount() - 1, columnCount() - 1),
@@ -842,7 +844,7 @@ QString TandaQueueModel::genreForSourceRow(int sourceRow) const {
     return m_pPlaylistModel->index(sourceRow, genreColumn).data().toString();
 }
 
-void TandaQueueModel::recomputeChecks() {
+bool TandaQueueModel::recomputeChecks() {
     QVector<tandaqueuechecks::Row> rows;
     rows.reserve(m_pPlaylistModel->rowCount());
     for (int sourceRow = 0; sourceRow < m_pPlaylistModel->rowCount(); ++sourceRow) {
@@ -857,7 +859,12 @@ void TandaQueueModel::recomputeChecks() {
         }
         rows.append(row);
     }
-    m_checks = tandaqueuechecks::check(rows);
+    tandaqueuechecks::Result checks = tandaqueuechecks::check(rows);
+    if (checks == m_checks) {
+        return false;
+    }
+    m_checks = std::move(checks);
+    return true;
 }
 
 void TandaQueueModel::refreshCheckMarks() {
@@ -950,9 +957,11 @@ void TandaQueueModel::publishHudTandaState() {
 void TandaQueueModel::sourceDataChanged(const QModelIndex& topLeft,
         const QModelIndex& bottomRight,
         const QVector<int>& roles) {
-    // A genre edit can add or clear a cortina check.
-    recomputeChecks();
-    refreshCheckMarks();
+    // A genre edit can add or clear a cortina check. Most updates change
+    // none, so only repaint the "!" column when one did.
+    if (recomputeChecks()) {
+        refreshCheckMarks();
+    }
     QSet<QUuid> changedTandas;
     for (int sourceRow = topLeft.row(); sourceRow <= bottomRight.row(); ++sourceRow) {
         if (const TandaSpan* pSpan = m_pState->spanAtPosition(sourceRow + 1)) {

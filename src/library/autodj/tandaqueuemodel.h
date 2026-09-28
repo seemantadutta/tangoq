@@ -169,8 +169,9 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     // the set) and pushes it to the processor for the toolbar HUD.
     void publishHudTandaState();
     QString tandaDuration(const QUuid& id) const;
-    // Re-runs the queue checks, e.g. after an edit or a mark changed.
-    void recomputeChecks();
+    // Re-runs the queue checks, e.g. after an edit or a mark changed. Returns
+    // whether any result changed.
+    bool recomputeChecks();
     // Repaints the Item Type column after recomputeChecks() outside a rebuild.
     void refreshCheckMarks();
     QString problemText(tandaqueuechecks::Problem problem,

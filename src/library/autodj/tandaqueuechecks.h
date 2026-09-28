@@ -47,6 +47,9 @@ struct Result {
     bool isEmpty() const {
         return rows.isEmpty() && tandas.isEmpty();
     }
+    bool operator==(const Result& other) const {
+        return rows == other.rows && tandas == other.tandas;
+    }
 };
 
 Result check(const QVector<Row>& rows);

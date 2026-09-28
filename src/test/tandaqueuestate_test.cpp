@@ -750,4 +750,13 @@ TEST_F(TandaQueueDaoTest, TypeColumnFlagsASetThatDoesNotReadLikeAMilonga) {
     CortinaRegistry::instance().unmark(f);
     EXPECT_FALSE(model.data(model.index(3, typeCol), TandaQueueModel::ProblemRole).toBool());
     CortinaRegistry::instance().unmark(e);
+
+    // A queue update that changes no check leaves the "!" column alone,
+    // rather than refreshing it on every update.
+    QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
+    emit source.dataChanged(source.index(4, 0), source.index(4, 0));
+    for (const QList<QVariant>& arguments : std::as_const(changed)) {
+        EXPECT_FALSE(arguments.at(2).value<QList<int>>().contains(
+                TandaQueueModel::ProblemRole));
+    }
 }
