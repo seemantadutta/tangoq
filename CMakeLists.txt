@@ -1656,6 +1656,7 @@ if(APPLE)
   else()
     target_sources(mixxx-lib PRIVATE
       src/util/darkappearance.mm
+      src/util/macosfullscreen.mm
     )
 
     option(MACOS_ITUNES_LIBRARY "Native macOS iTunes/Music.app library integration" ON)

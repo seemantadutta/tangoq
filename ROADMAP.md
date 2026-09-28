@@ -122,6 +122,19 @@ behavior separated even though users no longer switch between those modes.
 - **Duplicate detection** on add, with a warning, while ignoring cortinas (which are
   legitimately reused across a set).
 - Drag-and-drop support into the Auto DJ docking / floating window.
+- **Track menu's first item unclickable in macOS full screen.** "Make Tango
+  tanda" sometimes did nothing on the top rows of the queue while "Make Vals"
+  and the rest worked, and the menu closed. It was never about Tango: that
+  item is first in the track menu. In full screen macOS hides the menu bar but
+  keeps its strip at the top of the screen, sliding the bar in when the pointer
+  gets there, and a click in the strip goes to the menu bar even over a popup
+  menu. Qt counted the strip as free space, so the tall track menu, opened
+  upward from the top rows, could put its first item in it. Confirmed with a
+  debugger (no mouse press reached the menu) and window-server snapshots (the
+  menu at the very top of the screen). The track menu is now kept below the
+  strip, using the menu bar height macOS reports, or the notch area on newer
+  MacBook Pros if taller (untested on a notched display). It only happened while the bar was hidden when the
+  menu opened, which is why it seemed to come and go.
 - **Lean logs by default; verbose logging is opt-in.** Stock Mixxx wrote every
   `qDebug` message to the log file regardless of log level, so a single session
   ballooned the log to tens of MB (track-cache reindex and KeyMap/Beats
@@ -239,20 +252,6 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
-- **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
-  tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
-  span could then be created by classifying as Vals and changing the type to Tango
-  afterwards. Not reproducible on retry. The state layer is not the cause —
-  `TandaQueueState::classify(..., TandaType::Tango)` is exercised and passing in
-  `tandaqueuestate_test.cpp`, so any real fault is above it in the GUI path
-  (`WTandaQueueView::classifySelection` → `AutoDJFeature::makeTanda`). Most likely
-  a transient: the Auto DJ model fully rebuilds on every edit (a brief
-  `rowCount == 0` window), so a click landing mid-rebuild reads an empty selection
-  and silently no-ops. The type correlation is probably an artifact of attempt
-  order. If it recurs, instrument `classifySelection` to log the selected
-  positions and model `rowCount` at click time — one run should catch it. Optional
-  hardening: have `classifySelection` bail with a visible message on an empty
-  selection so a mid-rebuild click never no-ops silently.
 
 ---
 

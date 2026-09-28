@@ -1,8 +1,10 @@
 #include "widget/wtracktableview.h"
 
 #include <QDrag>
+#include <QGuiApplication>
 #include <QModelIndex>
 #include <QPainter>
+#include <QScreen>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QUrl>
@@ -23,6 +25,9 @@
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "track/trackref.h"
+#ifdef Q_OS_MACOS
+#include "util/macosfullscreen.h"
+#endif
 #include "util/assert.h"
 #include "util/defs.h"
 #include "util/dnd.h"
@@ -588,7 +593,31 @@ void WTrackTableView::showTrackMenu(const QPoint pos, const QModelIndex& index) 
 
     saveCurrentIndex();
 
+#ifdef Q_OS_MACOS
+    // In full screen, macOS slides the hidden menu bar in when the pointer
+    // reaches the top of the screen, and a click in that strip goes to the
+    // menu bar, not to this menu. Qt counts the strip as free space, so this
+    // tall menu, opened upward from the top rows of a list, could be placed
+    // with its first item in it: the item highlighted, but its click lost
+    // and the menu closed ("Make Tango tanda" doing nothing). Keep the menu
+    // below the strip, capped so it still fits (Qt then scrolls it).
+    const int menuBarHeight = mixxx::fullScreenMenuBarHeight(this);
+    const QScreen* pScreen = QGuiApplication::screenAt(pos);
+    if (menuBarHeight > 0 && pScreen) {
+        m_pTrackMenu->setMaximumHeight(pScreen->geometry().height() - menuBarHeight);
+    } else {
+        m_pTrackMenu->setMaximumHeight(QWIDGETSIZE_MAX);
+    }
+#endif
     m_pTrackMenu->popup(pos);
+#ifdef Q_OS_MACOS
+    if (menuBarHeight > 0 && pScreen) {
+        const int minimumTop = pScreen->geometry().top() + menuBarHeight;
+        if (m_pTrackMenu->y() < minimumTop) {
+            m_pTrackMenu->move(m_pTrackMenu->x(), minimumTop);
+        }
+    }
+#endif
     // WTrackmenu emits restoreCurrentViewStateOrIndex() on hide if required
 }
 
