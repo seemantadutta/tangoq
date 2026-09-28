@@ -5,12 +5,13 @@
 // License, version 2 or later. TangoQ is based on Mixxx (Copyright © 2001-2026
 // the Mixxx Development Team); see the LICENSE file for the full text.
 
+#include "library/trackset/setlogfeature.h"
+
 #include <gtest/gtest.h>
 
 #include <QSignalSpy>
 
 #include "library/dao/playlistdao.h"
-#include "library/trackset/setlogfeature.h"
 #include "test/librarytest.h"
 #include "track/track.h"
 

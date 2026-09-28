@@ -196,11 +196,11 @@ what actually plays.
   than greying them out.
 - Rename "Set DJ Start" / "Set DJ Start here" to **"Set Start"** / **"Set Start here"**.
 - Show the now-playing track (the queue cursor) in red rather than white in the
-  TangoQ queue, so it stands out.
+  TangoQ queue, so it stands out (#75).
 - Give moving a single track the same rule as moving a tanda: while a set is
   running, it cannot move to before the queue cursor. Today only whole tandas
   are refused; a single track moved there silently drops out of the set, since
-  the queue plays from the cursor onward.
+  the queue plays from the cursor onward (#76).
 
 ### macOS packaging follow-ups (require a Mac)
 
