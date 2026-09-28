@@ -239,20 +239,19 @@ ported upstream revisions. Do not bundle database changes with the config fix.
   breathe, so the DJ can tell they paused inside the final window.
 - Make the breathe timing and duration configurable in Settings, with the cortina
   breathe time set separately from the track breathe time.
-- **Unconfirmed:** "Make Tango tanda" once failed to group the first four Auto DJ
-  tracks while "Make Vals"/"Make Milonga" on the same selection worked, and the
-  span could then be created by classifying as Vals and changing the type to Tango
-  afterwards. Not reproducible on retry. The state layer is not the cause —
-  `TandaQueueState::classify(..., TandaType::Tango)` is exercised and passing in
-  `tandaqueuestate_test.cpp`, so any real fault is above it in the GUI path
-  (`WTandaQueueView::classifySelection` → `AutoDJFeature::makeTanda`). Most likely
-  a transient: the Auto DJ model fully rebuilds on every edit (a brief
-  `rowCount == 0` window), so a click landing mid-rebuild reads an empty selection
-  and silently no-ops. The type correlation is probably an artifact of attempt
-  order. If it recurs, instrument `classifySelection` to log the selected
-  positions and model `rowCount` at click time — one run should catch it. Optional
-  hardening: have `classifySelection` bail with a visible message on an empty
-  selection so a mid-rebuild click never no-ops silently.
+- **Clicks on the track menu's first item not reaching it (macOS, stuck
+  state).** "Make Tango tanda" did nothing on the first four queue tracks while
+  "Make Vals", "Make Milonga" and "Make Nuevo" worked on the same selection. It
+  happened twice, the second time on 2026-09-27, and a restart cleared it both
+  times. It is not about Tango: that item is simply first in the menu, which
+  opens upward from the top rows. A debugger attached to the stuck session
+  showed the clicks on it never reached Qt at all (no mouse press on the menu),
+  while hover over it and clicks on the other items did. So something in front
+  of the menu, outside Qt, took them, drawing nothing. A leftover tooltip and the
+  full-screen menu bar reveal were both ruled out. The track menu now logs any
+  window of any app in front of it to `tangoq.log` ("Track menu ... is covered
+  by the window of ..."), which should name it next time. If it recurs, leave
+  TangoQ running and check `tangoq.log` before restarting.
 
 ---
 

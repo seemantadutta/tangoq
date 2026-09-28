@@ -4,7 +4,9 @@
 #include <QModelIndex>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSet>
 #include <QShortcut>
+#include <QTimer>
 #include <QUrl>
 #include <QWheelEvent>
 
@@ -23,6 +25,9 @@
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "track/trackref.h"
+#ifdef Q_OS_MACOS
+#include "util/windowsinfront.h"
+#endif
 #include "util/assert.h"
 #include "util/defs.h"
 #include "util/dnd.h"
@@ -589,6 +594,24 @@ void WTrackTableView::showTrackMenu(const QPoint pos, const QModelIndex& index) 
     saveCurrentIndex();
 
     m_pTrackMenu->popup(pos);
+#ifdef Q_OS_MACOS
+    // Diagnostic. Twice, in a stuck state, clicks on this menu's first item
+    // never reached it (no mouse press at all) while clicks on the other
+    // items did, and a restart cleared it. Something outside Qt took them,
+    // perhaps a window in front of the menu. Log any such window so the next
+    // occurrence can name it. Each distinct window is logged once per session,
+    // and normally there is none.
+    QTimer::singleShot(250, m_pTrackMenu.get(), [pMenu = m_pTrackMenu.get()]() {
+        static QSet<QString> s_logged;
+        for (const QString& window : mixxx::windowsInFrontOf(pMenu)) {
+            if (!s_logged.contains(window)) {
+                s_logged.insert(window);
+                qInfo() << "Track menu at" << pMenu->frameGeometry()
+                        << "is covered by the window of" << window;
+            }
+        }
+    });
+#endif
     // WTrackmenu emits restoreCurrentViewStateOrIndex() on hide if required
 }
 
