@@ -107,7 +107,11 @@ SetlogFeature::SetlogFeature(
             &SetlogFeature::slotDeleteAllUnlockedChildPlaylists);
 
     // initialized in a new generic slot(get new history playlist purpose)
-    slotGetNewPlaylist();
+    // TangoQ opens its session when it first plays a track instead, so a
+    // launch without a set leaves no empty session behind.
+    if (!isTangoHistory()) {
+        slotGetNewPlaylist();
+    }
 }
 
 SetlogFeature::~SetlogFeature() {
@@ -367,6 +371,13 @@ void SetlogFeature::decorateChild(TreeItem* item, int playlistId) {
 void SetlogFeature::slotGetNewPlaylist() {
     //qDebug() << "slotGetNewPlaylist() successfully triggered !";
 
+    if (isTangoHistory()) {
+        // The next track TangoQ plays opens the new session, named after the
+        // time it starts.
+        closeTangoSession();
+        return;
+    }
+
     // create a new playlist for today
     QString set_log_name_format;
     QString set_log_name;
@@ -597,6 +608,12 @@ void SetlogFeature::slotPlayingTrackChanged(TrackPointer currentPlayingTrack) {
     if (!currentPlayingTrack) {
         return;
     }
+    // TangoQ logs the tracks it starts itself (slotTangoTrackStarted), so the
+    // stock "loudest deck" rule, which also logs tracks played by hand and
+    // drops a track repeated within a few plays, stays out of it.
+    if (isTangoHistory()) {
+        return;
+    }
 
     TrackId currentPlayingTrackId(currentPlayingTrack->getId());
     bool track_played_recently = false;
@@ -632,10 +649,15 @@ void SetlogFeature::slotPlayingTrackChanged(TrackPointer currentPlayingTrack) {
 
     // If the track is not present in the recent tracks list, mark it
     // played and update its playcount.
-    currentPlayingTrack->updatePlayCounter();
+    logPlayedTrack(currentPlayingTrack);
+}
+
+void SetlogFeature::logPlayedTrack(const TrackPointer& pTrack) {
+    pTrack->updatePlayCounter();
 
     // We can only add tracks that are Mixxx library tracks, not external
     // sources.
+    const TrackId currentPlayingTrackId = pTrack->getId();
     if (!currentPlayingTrackId.isValid()) {
         return;
     }
@@ -667,6 +689,66 @@ void SetlogFeature::slotPlayingTrackChanged(TrackPointer currentPlayingTrack) {
         m_playlistDao.appendTrackToPlaylist(
                 currentPlayingTrackId, m_currentPlaylistId);
     }
+}
+
+bool SetlogFeature::isTangoHistory() const {
+    return ControlObject::get(ConfigKey(QStringLiteral("[AutoDJ]"),
+                   QStringLiteral("keep_queue"))) > 0.0;
+}
+
+// static
+int SetlogFeature::createTangoSessionPlaylist(
+        PlaylistDAO* pPlaylistDao, const QDateTime& startTime) {
+    // Named after the minute the set started, e.g. "2026-09-26 15:16". A
+    // second session in the same minute gets a number, as stock history does.
+    const QString baseName = startTime.toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+    QString name = baseName;
+    int i = 1;
+    while (pPlaylistDao->getPlaylistIdFromName(name) != kInvalidPlaylistId) {
+        name = QStringLiteral("%1 #%2").arg(baseName, QString::number(++i));
+    }
+    return pPlaylistDao->createPlaylist(name, PlaylistDAO::PLHT_SET_LOG);
+}
+
+void SetlogFeature::slotTangoTrackStarted(TrackPointer pTrack) {
+    if (!pTrack || !isTangoHistory()) {
+        return;
+    }
+    // One session per TangoQ run: it opens with the first track TangoQ plays
+    // and stays open through stops and pause marks until the queue is reset.
+    if (m_currentPlaylistId == kInvalidPlaylistId) {
+        const int playlistId = createTangoSessionPlaylist(
+                &m_playlistDao, QDateTime::currentDateTime());
+        if (playlistId == kInvalidPlaylistId) {
+            qWarning() << "Could not create the TangoQ history session";
+            return;
+        }
+        m_currentPlaylistId = playlistId;
+        m_playlistDao.setCurrentHistoryPlaylistId(m_currentPlaylistId);
+        // Refresh after setting the id, so the new session is decorated as
+        // current (see slotGetNewPlaylist()).
+        slotPlaylistTableChanged(m_currentPlaylistId);
+    }
+    // Every play is logged, repeats included: the processor reports each
+    // track once, when it starts.
+    logPlayedTrack(pTrack);
+}
+
+void SetlogFeature::slotTangoSetReset() {
+    if (isTangoHistory()) {
+        closeTangoSession();
+    }
+}
+
+void SetlogFeature::closeTangoSession() {
+    const int closedPlaylistId = m_currentPlaylistId;
+    if (closedPlaylistId == kInvalidPlaylistId) {
+        return;
+    }
+    m_currentPlaylistId = kInvalidPlaylistId;
+    m_playlistDao.setCurrentHistoryPlaylistId(kInvalidPlaylistId);
+    // Redraw the closed session, which is no longer marked as current.
+    updateChildModel(QSet<int>{closedPlaylistId});
 }
 
 void SetlogFeature::slotPlaylistTableChanged(int playlistId) {
@@ -755,6 +837,17 @@ void SetlogFeature::activate() {
     // The root item was clicked, so activate the current playlist.
     m_lastClickedIndex = m_pSidebarModel->getRootIndex();
     m_lastRightClickedIndex = QModelIndex();
+    if (m_currentPlaylistId == kInvalidPlaylistId) {
+        // No TangoQ session is open yet: show the most recent one instead.
+        int latestId = kInvalidPlaylistId;
+        const QList<QPair<int, QString>> sessions =
+                m_playlistDao.getPlaylists(PlaylistDAO::PLHT_SET_LOG);
+        for (const QPair<int, QString>& session : sessions) {
+            latestId = std::max(latestId, session.first);
+        }
+        activatePlaylist(latestId);
+        return;
+    }
     activatePlaylist(m_currentPlaylistId);
 }
 

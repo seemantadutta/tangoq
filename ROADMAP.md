@@ -34,6 +34,16 @@ behavior separated even though users no longer switch between those modes.
   longer replaces tracks on any deck.
 - **Reset action ejects the decks.** "Eject decks and reset Auto DJ queue state"
   clears the decks as well as the queue state, for a truly clean slate.
+- **One history session per TangoQ run (#65).** Stock history logged the
+  loudest deck every 2 s, skipped a track seen in the last 6 plays, and started
+  a session at every launch. So a cortina reused after every tanda was dropped,
+  tracks played by hand were logged, and every launch left an empty session
+  named only by its date. Now a session opens when TangoQ first plays a track,
+  named by its start time (`2026-09-26 15:16`), logs every track TangoQ starts
+  (repeats included, however briefly played), and stays open through stops and
+  pause marks until the queue is reset. Tracks played by hand are not logged.
+  Deleting several sessions at once now recalculates play counts, as deleting
+  one did. The Preferences duplicate-distance setting no longer applies here.
 
 ### Auto DJ transitions & timing
 
@@ -198,6 +208,12 @@ what actually plays.
 - Remove the disabled "Add to Auto DJ (bottom / replace)" entries entirely rather
   than greying them out.
 - Rename "Set DJ Start" / "Set DJ Start here" to **"Set Start"** / **"Set Start here"**.
+- Show the now-playing track (the queue cursor) in red rather than white in the
+  TangoQ queue, so it stands out (#75).
+- Give moving a single track the same rule as moving a tanda: while a set is
+  running, it cannot move to before the queue cursor. Today only whole tandas
+  are refused; a single track moved there silently drops out of the set, since
+  the queue plays from the cursor onward (#76).
 
 ### macOS packaging follow-ups (require a Mac)
 

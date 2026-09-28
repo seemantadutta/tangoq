@@ -253,6 +253,22 @@ bool PlaylistDAO::deletePlaylists(const QStringList& idStringList) {
 
     qInfo() << "Deleting" << idStringList.size() << "playlists";
 
+    // Like deletePlaylist(), collect the tracks of any history playlists
+    // first, so their play counts can be recalculated from the history left.
+    QSet<TrackId> playedTrackIds;
+    auto selectPlayed = FwdSqlQuery(m_database,
+            QString("SELECT DISTINCT PlaylistTracks.track_id FROM PlaylistTracks "
+                    "INNER JOIN Playlists "
+                    "ON PlaylistTracks.playlist_id = Playlists.id "
+                    "WHERE Playlists.hidden = %1 AND Playlists.id IN (%2)")
+                    .arg(QString::number(PLHT_SET_LOG), idString));
+    if (!selectPlayed.execPrepared()) {
+        return false;
+    }
+    while (selectPlayed.next()) {
+        playedTrackIds.insert(TrackId(selectPlayed.fieldValue(0)));
+    }
+
     // delete tracks assigned to these playlists
     auto deleteTracks = FwdSqlQuery(m_database,
             QString("DELETE FROM PlaylistTracks WHERE playlist_id IN (%1)")
@@ -269,6 +285,9 @@ bool PlaylistDAO::deletePlaylists(const QStringList& idStringList) {
     }
 
     emit deleted(kInvalidPlaylistId);
+    if (!playedTrackIds.isEmpty()) {
+        emit tracksRemovedFromPlayedHistory(playedTrackIds);
+    }
     return true;
 }
 

@@ -5,6 +5,7 @@
 
 #include <QMetaObject>
 #include <QScopedPointer>
+#include <QSignalSpy>
 #include <QString>
 
 #include "control/controllinpotmeter.h"
@@ -1443,6 +1444,141 @@ TEST_F(AutoDJProcessorTest, EndOfQueue_EnablingWithAnEmptyQueueStillRefuses) {
     EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
     EXPECT_EQ(AutoDJProcessor::ADJ_QUEUE_EMPTY, pProcessor->toggleAutoDJ(true));
     EXPECT_EQ(AutoDJProcessor::ADJ_DISABLED, pProcessor->getState());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, History_EachTrackTangoQStartsIsReportedOnce) {
+    // The history logs every track TangoQ starts, so the processor reports
+    // each one exactly once: when it starts, and not again when the DJ stops
+    // and resumes the set while it keeps playing.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    const TrackId firstId = addTrackToCollection(kTrackLocationTest);
+    const TrackId secondId = addTrackToCollection(
+            QStringLiteral("id3-test-data/cover-test-jpg.mp3"));
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_NE(firstId, secondId);
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+
+    // The first track is cued on deck 2, as the queue leaves it.
+    mixer.crossfader.set(-1.0);
+    TrackPointer pFirst = newTestTrack(firstId);
+    pFirst->setDuration(100);
+    deck2.slotLoadTrack(pFirst, false);
+    deck2.fakeTrackLoadedEvent(pFirst);
+
+    QSignalSpy started(pProcessor.data(), &AutoDJProcessor::keepQueueTrackStarted);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    ASSERT_TRUE(deck2.play.toBool());
+
+    ASSERT_EQ(1, started.count());
+    EXPECT_EQ(firstId, started.at(0).at(0).value<TrackPointer>()->getId());
+
+    // Stopping and resuming while the track plays on is the same play.
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(false));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    EXPECT_EQ(1, started.count());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, History_ARepeatedTrackIsReportedEachTime) {
+    // A cortina reused after every tanda is played again and again. Each play
+    // is reported, unlike the stock history, which drops a track it logged
+    // within the last few tracks.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+
+    const TrackId repeatedId = addTrackToCollection(kTrackLocationTest);
+    const TrackId otherId = addTrackToCollection(
+            QStringLiteral("id3-test-data/cover-test-jpg.mp3"));
+    ASSERT_TRUE(repeatedId.isValid());
+    ASSERT_TRUE(otherId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(repeatedId);
+    pAutoDJTableModel->appendTrack(otherId);
+    pAutoDJTableModel->appendTrack(repeatedId);
+
+    mixer.crossfader.set(-1.0);
+    TrackPointer pRepeated = newTestTrack(repeatedId);
+    pRepeated->setDuration(100);
+    TrackPointer pOther = newTestTrack(otherId);
+    pOther->setDuration(100);
+    const double kSamplesPerSecond = kChannelCount * pRepeated->getSampleRate();
+
+    // Start the repeated track on deck 1.
+    deck1.slotLoadTrack(pRepeated, false);
+    deck1.fakeTrackLoadedEvent(pRepeated);
+
+    QSignalSpy started(pProcessor.data(), &AutoDJProcessor::keepQueueTrackStarted);
+
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    ASSERT_TRUE(deck1.play.toBool());
+
+    // The other track arrives on deck 2 and is faded in.
+    deck2.slotLoadTrack(pOther, false);
+    deck1.outroStartPos.set(60 * kSamplesPerSecond);
+    deck1.outroEndPos.set(70 * kSamplesPerSecond);
+    deck2.introStartPos.set(10 * kSamplesPerSecond);
+    deck2.introEndPos.set(40 * kSamplesPerSecond);
+    deck2.fakeTrackLoadedEvent(pOther);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_LEFT_FADING));
+    deck1.playposition.set(0.6);
+    ASSERT_EQ(AutoDJProcessor::ADJ_LEFT_FADING, pProcessor->getState());
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck1.playposition.set(0.7);
+    deck1.play.set(0.0);
+    deck2.playposition.set(0.2);
+    ASSERT_EQ(AutoDJProcessor::ADJ_IDLE, pProcessor->getState());
+
+    // The repeated track comes back on deck 1 and is faded in again.
+    deck1.slotLoadTrack(pRepeated, false);
+    deck2.outroStartPos.set(60 * kSamplesPerSecond);
+    deck2.outroEndPos.set(70 * kSamplesPerSecond);
+    deck1.introStartPos.set(10 * kSamplesPerSecond);
+    deck1.introEndPos.set(40 * kSamplesPerSecond);
+    deck1.fakeTrackLoadedEvent(pRepeated);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_RIGHT_FADING));
+    deck2.playposition.set(0.6);
+    ASSERT_EQ(AutoDJProcessor::ADJ_RIGHT_FADING, pProcessor->getState());
+
+    ASSERT_EQ(3, started.count());
+    EXPECT_EQ(repeatedId, started.at(0).at(0).value<TrackPointer>()->getId());
+    EXPECT_EQ(otherId, started.at(1).at(0).value<TrackPointer>()->getId());
+    EXPECT_EQ(repeatedId, started.at(2).at(0).value<TrackPointer>()->getId());
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, History_ResettingTheSetIsReported) {
+    // The history session lasts until the DJ resets the queue, so the reset
+    // is reported. It only applies to a stopped Tango set.
+    QSignalSpy reset(pProcessor.data(), &AutoDJProcessor::keepQueueSetReset);
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "reset_queue_state"), 1.0);
+    EXPECT_EQ(0, reset.count()) << "not in Tango mode";
+
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    ControlObject::set(ConfigKey("[AutoDJ]", "reset_queue_state"), 1.0);
+    EXPECT_EQ(1, reset.count());
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }

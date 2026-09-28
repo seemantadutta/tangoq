@@ -2926,6 +2926,7 @@ void AutoDJProcessor::resetKeepQueueSet() {
     m_keepQueueRow = 0;
     m_keepQueueAnchorId = TrackId();
     invalidateRemainingSetDuration();
+    emit keepQueueSetReset();
 }
 
 bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
@@ -2951,6 +2952,7 @@ bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
     // Remember the just-played track; it now sits at cursor-1 and is used to
     // re-anchor the cursor across model rebuilds while Auto DJ is stopped.
     m_keepQueueAnchorId = trackId;
+    emit keepQueueTrackStarted(pTrack);
     return true;
 }
 

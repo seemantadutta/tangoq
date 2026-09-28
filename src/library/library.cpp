@@ -8,6 +8,7 @@
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/analysis/analysisfeature.h"
 #include "library/autodj/autodjfeature.h"
+#include "library/autodj/autodjprocessor.h"
 #include "library/banshee/bansheefeature.h"
 #include "library/browse/browsefeature.h"
 #ifdef __ENGINEPRIME__
@@ -138,7 +139,18 @@ Library::Library(
 
     addFeature(new RecordingFeature(this, m_pConfig, pRecordingManager));
 
-    addFeature(new SetlogFeature(this, UserSettingsPointer(m_pConfig)));
+    SetlogFeature* pSetlogFeature = new SetlogFeature(this, UserSettingsPointer(m_pConfig));
+    // TangoQ history: one session per TangoQ run, logging every track TangoQ
+    // starts, until the queue is reset.
+    connect(m_pAutoDJFeature->autoDJProcessor(),
+            &AutoDJProcessor::keepQueueTrackStarted,
+            pSetlogFeature,
+            &SetlogFeature::slotTangoTrackStarted);
+    connect(m_pAutoDJFeature->autoDJProcessor(),
+            &AutoDJProcessor::keepQueueSetReset,
+            pSetlogFeature,
+            &SetlogFeature::slotTangoSetReset);
+    addFeature(pSetlogFeature);
 
     m_pAnalysisFeature = new AnalysisFeature(this, m_pConfig);
     connect(m_pPlaylistFeature,

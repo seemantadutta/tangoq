@@ -62,6 +62,9 @@ class AutoDJFeature : public LibraryFeature {
     TandaQueueState* tandaQueueState() const {
         return m_pTandaQueueState.get();
     }
+    AutoDJProcessor* autoDJProcessor() const {
+        return m_pAutoDJProcessor;
+    }
     QUuid makeTanda(const QVector<int>& oneBasedPositions,
             TandaType type,
             QString* pError = nullptr);
