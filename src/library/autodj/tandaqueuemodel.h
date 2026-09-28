@@ -12,6 +12,7 @@
 #include <QUuid>
 #include <QVector>
 
+#include "library/autodj/tandaqueuechecks.h"
 #include "library/trackmodel.h"
 
 class PlaylistTableModel;
@@ -34,6 +35,9 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
         TandaIdRole,
         DisclosureActionRole,
         CurrentItemRole,
+        // True on the Item Type cell of a row or tanda that fails a queue
+        // check (see tandaqueuechecks.h); the cell then shows a red "!".
+        ProblemRole,
     };
     enum class RowKind {
         Track,
@@ -165,6 +169,18 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     // the set) and pushes it to the processor for the toolbar HUD.
     void publishHudTandaState();
     QString tandaDuration(const QUuid& id) const;
+    // Re-runs the queue checks, e.g. after an edit or a mark changed. Returns
+    // whether any result changed.
+    bool recomputeChecks();
+    // Repaints the Item Type column after recomputeChecks() outside a rebuild.
+    void refreshCheckMarks();
+    QString problemText(tandaqueuechecks::Problem problem,
+            const QUuid& tandaId,
+            int sourceRow) const;
+    QString problemsText(const QList<tandaqueuechecks::Problem>& problems,
+            const QUuid& tandaId,
+            int sourceRow) const;
+    QString genreForSourceRow(int sourceRow) const;
 
     PlaylistTableModel* const m_pPlaylistModel;
     TandaQueueState* const m_pState;
@@ -172,4 +188,5 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     TandaColorPalette* const m_pColorPalette;
     QVector<VisibleRow> m_visibleRows;
     QVector<int> m_proxyRowBySourceRow;
+    tandaqueuechecks::Result m_checks;
 };

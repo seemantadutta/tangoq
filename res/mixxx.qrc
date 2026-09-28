@@ -96,6 +96,7 @@
       <!-- skin oversize warning -->
         <file>images/preferences/ic_preferences_warning.svg</file>
         <file>schema.xml</file>
+        <file>tangoq_schema.xml</file>
         <file>shaders/filteredsignal.frag</file>
         <file>shaders/passthrough.vert</file>
         <file>shaders/rgbsignal.frag</file>

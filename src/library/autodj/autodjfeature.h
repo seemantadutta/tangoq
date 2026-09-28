@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "control/controlpushbutton.h"
+#include "library/autodj/tangoplay.h"
 #include "library/dao/autodjcratesdao.h"
 #include "library/libraryfeature.h"
 #include "library/trackset/crate/crate.h"
@@ -65,6 +66,13 @@ class AutoDJFeature : public LibraryFeature {
     AutoDJProcessor* autoDJProcessor() const {
         return m_pAutoDJProcessor;
     }
+
+  signals:
+    // Tango mode: TangoQ started a queued track, described as it was played
+    // (its role, LIVE, and its tanda) for the history.
+    void tangoTrackStarted(const TangoPlay& play);
+
+  public:
     QUuid makeTanda(const QVector<int>& oneBasedPositions,
             TandaType type,
             QString* pError = nullptr);

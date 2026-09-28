@@ -4,6 +4,7 @@
 #include <QMenu>
 #include <QtDebug>
 
+#include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "library/autodj/autodjprocessor.h"
 #include "library/autodj/dlgautodj.h"
@@ -92,6 +93,20 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
             m_playlistDao.getTrackIdsInPlaylistOrder(m_iAutoDJPlaylistId));
     m_pAutoDJProcessor->getTableModel()->setTandaQueueState(
             m_pTandaQueueState.get());
+    // Describe each play as it happens, while the marks and the tanda at its
+    // queue position are those it was played with.
+    connect(m_pAutoDJProcessor,
+            &AutoDJProcessor::keepQueueTrackStarted,
+            this,
+            [this](TrackPointer pTrack, int oneBasedQueuePosition) {
+                const bool live = ControlObject::get(ConfigKey(
+                                          QStringLiteral("[AutoDJ]"),
+                                          QStringLiteral("live_mode"))) > 0.0;
+                emit tangoTrackStarted(tangoplay::describe(pTrack,
+                        oneBasedQueuePosition,
+                        m_pTandaQueueState.get(),
+                        live));
+            });
     const auto reconcileTandas = [this](const QSet<int>& playlistIds) {
         if (!m_tandaMoveInProgress && playlistIds.contains(m_iAutoDJPlaylistId)) {
             m_pTandaQueueState->reconcileQueue(

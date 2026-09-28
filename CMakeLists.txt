@@ -951,6 +951,8 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/autodj/tandacolorpalette.cpp
   src/library/autodj/tandaqueuemodel.cpp
   src/library/autodj/tandaqueuestate.cpp
+  src/library/autodj/tangoplay.cpp
+  src/library/autodj/tandaqueuechecks.cpp
   src/library/autodj/wtandaqueueview.cpp
   src/library/autodj/autodjqueuereset.cpp
   src/library/autodj/cortinaregistry.cpp
@@ -2226,6 +2228,7 @@ if(BUILD_TESTING)
     src/test/coverartutils_test.cpp
     src/test/cratestorage_test.cpp
     src/test/cue_test.cpp
+    src/test/cortinaregistry_test.cpp
     src/test/cuecontrol_test.cpp
     src/test/dbconnectionpool_test.cpp
     src/test/dbidtest.cpp
@@ -2295,8 +2298,11 @@ if(BUILD_TESTING)
     src/test/synctrackmetadatatest.cpp
     src/test/tableview_test.cpp
     src/test/tandacolorpalette_test.cpp
+    src/test/tandaqueuechecks_test.cpp
     src/test/tandaqueuestate_test.cpp
     src/test/taglibtest.cpp
+    src/test/tangoplay_test.cpp
+    src/test/tangoqschema_test.cpp
     src/test/trackdao_test.cpp
     src/test/trackexport_test.cpp
     src/test/trackmetadata_test.cpp

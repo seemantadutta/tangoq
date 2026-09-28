@@ -44,6 +44,20 @@ behavior separated even though users no longer switch between those modes.
   pause marks until the queue is reset. Tracks played by hand are not logged.
   Deleting several sessions at once now recalculates play counts, as deleting
   one did. The Preferences duplicate-distance setting no longer applies here.
+- **Cortina marks are saved, and History records how each track played (#69).**
+  A cortina mark now belongs to the track and survives restarts, until the DJ
+  unmarks it. It lives in TangoQ's own versioned tables (`tangoq_cortina`),
+  applied by the stock schema manager with a backup of the database taken
+  first, so 1.0.2 can still open the file. Each logged play also records its
+  role (regular, cortina or performance), whether LIVE was on, and its tanda.
+  History shows the recorded cortinas and performances in their queue colours
+  with a `[-- CORTINA --]` or `[-- PERFORMANCE --]` tag, so a later mark or unmark
+  does not rewrite a past session.
+- **Queue checks.** A red **!** replaces the T/V/M/c type mark where the queue
+  does not read like a milonga: a cortina inside a tanda, a cortina with a
+  Tango, Vals or Milonga genre, two cortinas in a row, or two tandas with no
+  cortina between them. The tooltip names the problem. "Make … tanda" on a
+  selection of cortinas explains why and offers "Unmark and make tanda".
 
 ### Auto DJ transitions & timing
 
@@ -214,6 +228,8 @@ what actually plays.
   running, it cannot move to before the queue cursor. Today only whole tandas
   are refused; a single track moved there silently drops out of the set, since
   the queue plays from the cursor onward (#76).
+- Show History sessions grouped by tanda, like the TangoQ queue. The tanda of
+  each play is already recorded (#78).
 
 ### macOS packaging follow-ups (require a Mac)
 
@@ -277,17 +293,14 @@ These are intentionally shelved because a clean slate each launch is the right
 default for a DJ. If built, they should be opt-in via a Preferences checkbox to
 *retain* state, leaving clean-slate as the default.
 
-- **Persisting session annotations across launches.** Cortina designations, pause
-  marks and display names are session-only and cleared on every launch. Persisting
-  a cortina tag risks mistakenly branding a normal track (and applying a fade by
-  mistake) unless the fade controls between two cortinas are locked. The Auto DJ
-  queue itself already persists (it is a real database playlist), so this is only
-  annotations on top: a JSON sidecar in the settings directory is enough (~a day's
-  work). The one hazard is **load ordering** — pause marks are positional and must
-  load *after* the Auto DJ model has rows, while the track-id-keyed annotations
-  (cortinas, display names) can load any time. Scope them to the existing "Eject
-  decks and reset Auto DJ queue state" action so marks live with the queue rather
-  than branding a track forever.
+- **Persisting session annotations across launches.** Pause marks and display
+  names are session-only and cleared on every launch. (Cortina marks are now
+  saved per track; see #69 under Completed.) The Auto DJ queue itself already
+  persists (it is a real database playlist), so this is only annotations on
+  top. The one hazard is **load ordering**: pause marks are positional and must
+  load *after* the Auto DJ model has rows, while display names are keyed by
+  track id and can load any time. Scope them to the existing "Eject decks and
+  reset Auto DJ queue state" action so marks live with the queue.
 - **Inline preview at the cue end point** via a single button in the track / Auto DJ
   list. Low priority — Mixxx already supports track preview.
 

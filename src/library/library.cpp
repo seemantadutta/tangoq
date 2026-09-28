@@ -9,6 +9,7 @@
 #include "library/analysis/analysisfeature.h"
 #include "library/autodj/autodjfeature.h"
 #include "library/autodj/autodjprocessor.h"
+#include "library/autodj/cortinaregistry.h"
 #include "library/banshee/bansheefeature.h"
 #include "library/browse/browsefeature.h"
 #ifdef __ENGINEPRIME__
@@ -86,6 +87,11 @@ Library::Library(
             this,
             &Library::slotRefreshLibraryModels);
 
+    // Load the saved cortina marks before the Auto DJ queue shows them, and
+    // save changes from now on.
+    CortinaRegistry::instance().attachDatabase(
+            m_pTrackCollectionManager->internalCollection()->database());
+
     // TODO(rryan) -- turn this construction / adding of features into a static
     // method or something -- CreateDefaultLibrary
     m_pMixxxLibraryFeature = new MixxxLibraryFeature(
@@ -142,8 +148,8 @@ Library::Library(
     SetlogFeature* pSetlogFeature = new SetlogFeature(this, UserSettingsPointer(m_pConfig));
     // TangoQ history: one session per TangoQ run, logging every track TangoQ
     // starts, until the queue is reset.
-    connect(m_pAutoDJFeature->autoDJProcessor(),
-            &AutoDJProcessor::keepQueueTrackStarted,
+    connect(m_pAutoDJFeature,
+            &AutoDJFeature::tangoTrackStarted,
             pSetlogFeature,
             &SetlogFeature::slotTangoTrackStarted);
     connect(m_pAutoDJFeature->autoDJProcessor(),
@@ -273,7 +279,10 @@ Library::Library(
             kEditMetadataSelectedClickDefault);
 }
 
-Library::~Library() = default;
+Library::~Library() {
+    // The database closes after the library: stop saving cortina marks.
+    CortinaRegistry::instance().detachDatabase();
+}
 
 TrackCollectionManager* Library::trackCollectionManager() const {
     // Cannot be implemented inline due to forward declarations

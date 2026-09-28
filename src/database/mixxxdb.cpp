@@ -1,6 +1,9 @@
 #include "database/mixxxdb.h"
 
 #include <QDir>
+#include <QFile>
+#include <QSqlError>
+#include <QSqlQuery>
 
 #include "database/schemamanager.h"
 #include "moc_mixxxdb.cpp"
@@ -16,6 +19,12 @@ const int MixxxDb::kRequiredSchemaVersion = 39;
 
 // static
 const QString MixxxDb::kDefaultFileName("tangoq.db");
+
+// static
+const QString MixxxDb::kTangoQSchemaFile(":/tangoq_schema.xml");
+
+// static
+const int MixxxDb::kRequiredTangoQSchemaVersion = 2;
 
 namespace {
 
@@ -115,6 +124,46 @@ bool MixxxDb::initDatabaseSchema(
         return false; // abort
     }
     // Suppress compiler warning
+    DEBUG_ASSERT(!"unhandled switch/case");
+    return false;
+}
+
+// static
+bool MixxxDb::initTangoQSchema(
+        const QSqlDatabase& database,
+        const QString& backupFilePath,
+        int schemaVersion,
+        const QString& schemaFile) {
+    SchemaManager schemaManager(database, QStringLiteral("tangoq.schema"));
+    if (schemaManager.readCurrentVersion() < schemaVersion &&
+            !backupFilePath.isEmpty() && !QFile::exists(backupFilePath)) {
+        // VACUUM INTO writes a consistent copy through this connection, which
+        // is safer than copying the file while it is open.
+        QSqlQuery backup(database);
+        backup.prepare(QStringLiteral("VACUUM INTO :path"));
+        backup.bindValue(QStringLiteral(":path"), backupFilePath);
+        if (!backup.exec()) {
+            kLogger.critical()
+                    << "Not upgrading the TangoQ tables: could not back up"
+                    << "the database to" << backupFilePath
+                    << backup.lastError().text();
+            return false;
+        }
+        kLogger.info() << "Backed up the database to" << backupFilePath;
+    }
+    switch (schemaManager.upgradeToSchemaVersion(schemaVersion, schemaFile)) {
+    case SchemaManager::Result::CurrentVersion:
+    case SchemaManager::Result::UpgradeSucceeded:
+    case SchemaManager::Result::NewerVersionBackwardsCompatible:
+        return true;
+    case SchemaManager::Result::UpgradeFailed:
+    case SchemaManager::Result::NewerVersionIncompatible:
+    case SchemaManager::Result::SchemaError:
+        kLogger.critical()
+                << "The TangoQ tables are not usable at version" << schemaVersion
+                << "- continuing without the features that need them";
+        return false;
+    }
     DEBUG_ASSERT(!"unhandled switch/case");
     return false;
 }

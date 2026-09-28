@@ -1564,6 +1564,11 @@ TEST_F(AutoDJProcessorTest, History_ARepeatedTrackIsReportedEachTime) {
     EXPECT_EQ(repeatedId, started.at(0).at(0).value<TrackPointer>()->getId());
     EXPECT_EQ(otherId, started.at(1).at(0).value<TrackPointer>()->getId());
     EXPECT_EQ(repeatedId, started.at(2).at(0).value<TrackPointer>()->getId());
+    // Each play carries its own queue position, so a repeated track is
+    // described with the tanda it was played in each time.
+    EXPECT_EQ(1, started.at(0).at(1).toInt());
+    EXPECT_EQ(2, started.at(1).at(1).toInt());
+    EXPECT_EQ(3, started.at(2).at(1).toInt());
 
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }

@@ -352,10 +352,11 @@ class AutoDJProcessor : public QObject {
     // Emitted when the LIVE-mode accidental-stop guard arms/disarms so the toolbar
     // can show a "Confirm Stop?" prompt on the Auto DJ button.
     void stopGuardArmedChanged(bool armed);
-    // Tango mode: TangoQ started playing a queued track. Emitted once per play,
-    // when the queue cursor moves past it, so a track repeated in the set (e.g.
-    // a reused cortina) is reported every time. The history logs from this.
-    void keepQueueTrackStarted(TrackPointer pTrack);
+    // Tango mode: TangoQ started playing the queued track at
+    // oneBasedQueuePosition. Emitted once per play, when the queue cursor moves
+    // past it, so a track repeated in the set (e.g. a reused cortina) is
+    // reported every time. The history logs from this.
+    void keepQueueTrackStarted(TrackPointer pTrack, int oneBasedQueuePosition);
     // Tango mode: the DJ reset the queue state, which ends the history session.
     void keepQueueSetReset();
 

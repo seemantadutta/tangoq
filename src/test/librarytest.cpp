@@ -21,6 +21,10 @@ std::unique_ptr<TrackCollectionManager> newTrackCollectionManager(
     if (!MixxxDb::initDatabaseSchema(dbConnection)) {
         return nullptr;
     }
+    // TangoQ's own tables. The test database is in memory: no backup.
+    if (!MixxxDb::initTangoQSchema(dbConnection, QString())) {
+        return nullptr;
+    }
     return std::make_unique<TrackCollectionManager>(
             nullptr,
             std::move(userSettings),

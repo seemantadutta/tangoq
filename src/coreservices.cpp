@@ -929,7 +929,20 @@ bool CoreServices::initializeDatabase() {
     }
 
     kLogger.info() << "Initializing or upgrading database schema";
-    return MixxxDb::initDatabaseSchema(dbConnection);
+    if (!MixxxDb::initDatabaseSchema(dbConnection)) {
+        return false;
+    }
+    // TangoQ's own tables. The database is backed up next to it before the
+    // first upgrade to each version. A failure here is logged and TangoQ
+    // carries on without the features that need these tables, rather than
+    // refusing to start.
+    const QString backupFilePath =
+            QDir(m_cmdlineArgs.getSettingsPath())
+                    .filePath(
+                            QStringLiteral("tangoq.db.pre-tangoq-schema-%1.bak")
+                                    .arg(MixxxDb::kRequiredTangoQSchemaVersion));
+    MixxxDb::initTangoQSchema(dbConnection, backupFilePath);
+    return true;
 }
 
 std::shared_ptr<QDialog> CoreServices::makeDlgPreferences() const {

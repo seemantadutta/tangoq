@@ -2952,7 +2952,8 @@ bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
     // Remember the just-played track; it now sits at cursor-1 and is used to
     // re-anchor the cursor across model rebuilds while Auto DJ is stopped.
     m_keepQueueAnchorId = trackId;
-    emit keepQueueTrackStarted(pTrack);
+    // The cursor now sits just after the track, i.e. on its 1-based position.
+    emit keepQueueTrackStarted(pTrack, m_keepQueueRow);
     return true;
 }
 

@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QPointer>
 
+#include "library/autodj/tangoplay.h"
 #include "library/trackset/baseplaylistfeature.h"
 #include "preferences/usersettings.h"
 
@@ -42,7 +43,7 @@ class SetlogFeature : public BasePlaylistFeature {
     void activateChild(const QModelIndex& index) override;
     // TangoQ history: log a track TangoQ started, opening a session if none
     // is open, and end the session when the queue is reset.
-    void slotTangoTrackStarted(TrackPointer pTrack);
+    void slotTangoTrackStarted(const TangoPlay& play);
     void slotTangoSetReset();
 
   protected:
