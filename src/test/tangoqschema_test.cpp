@@ -111,7 +111,9 @@ TEST_F(TangoQSchemaTest, ReopeningIsANoOpAndKeepsTheFirstBackup) {
     ASSERT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), backupPath()));
     ASSERT_TRUE(QFile::exists(backupPath()));
     const QDateTime backupTime = QFileInfo(backupPath()).lastModified();
-    QSqlQuery(dbConnection()).exec(QStringLiteral("INSERT INTO tangoq_cortina (track_id) VALUES (7)"));
+    QSqlQuery(dbConnection())
+            .exec(QStringLiteral(
+                    "INSERT INTO tangoq_cortina (track_id) VALUES (7)"));
 
     EXPECT_TRUE(MixxxDb::initTangoQSchema(dbConnection(), backupPath()));
 

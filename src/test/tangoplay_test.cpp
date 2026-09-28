@@ -11,12 +11,15 @@
 
 #include <QColor>
 
+#include "control/controlobject.h"
+#include "control/controlpotmeter.h"
 #include "library/autodj/cortinaregistry.h"
 #include "library/autodj/performanceregistry.h"
 #include "library/autodj/tandaqueuestate.h"
 #include "library/dao/playlistdao.h"
 #include "library/playlisttablemodel.h"
 #include "library/trackset/setlogfeature.h"
+#include "mixer/playerinfo.h"
 #include "test/librarytest.h"
 #include "track/track.h"
 
@@ -28,11 +31,32 @@ namespace {
 
 const QString kFirstTrack = QStringLiteral("id3-test-data/cover-test-png.mp3");
 const QString kSecondTrack = QStringLiteral("id3-test-data/cover-test-jpg.mp3");
+const QString kMasterGroup = QStringLiteral("[Master]");
+const QString kAppGroup = QStringLiteral("[App]");
 
 } // namespace
 
 class TangoPlayTest : public LibraryTest {
   protected:
+    // The history view test builds a PlaylistTableModel, which needs PlayerInfo
+    // and the controls its timer polls. Without them a Debug build trips a
+    // DEBUG_ASSERT (a ctest INTERRUPT in the coverage job). See
+    // TandaQueueDaoTest for the full explanation.
+    TangoPlayTest()
+            : m_crossfader(ConfigKey(kMasterGroup, QStringLiteral("crossfader")),
+                      -1.0,
+                      1.0),
+              m_numDecks(ConfigKey(kAppGroup, QStringLiteral("num_decks"))),
+              m_numSamplers(ConfigKey(kAppGroup, QStringLiteral("num_samplers"))),
+              m_numPreviewDecks(
+                      ConfigKey(kAppGroup, QStringLiteral("num_preview_decks"))) {
+        m_numDecks.set(0.0);
+        PlayerInfo::create();
+    }
+    ~TangoPlayTest() override {
+        PlayerInfo::destroy();
+    }
+
     void TearDown() override {
         // The registries are process-wide singletons: leave them as found.
         for (const TrackPointer& pTrack : {m_pFirst, m_pSecond}) {
@@ -67,6 +91,10 @@ class TangoPlayTest : public LibraryTest {
         ASSERT_TRUE(tangoplay::save(database(), playlistId, play));
     }
 
+    ControlPotmeter m_crossfader;
+    ControlObject m_numDecks;
+    ControlObject m_numSamplers;
+    ControlObject m_numPreviewDecks;
     TrackPointer m_pFirst;
     TrackPointer m_pSecond;
 };
