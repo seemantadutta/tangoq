@@ -195,6 +195,34 @@ TEST_F(TandaQueueStateTest, WholeBlockMovePreservesMetadataAroundDuplicateTracks
     EXPECT_EQ(2, state.spanById(otherTanda)->anchorPosition);
 }
 
+TEST_F(TandaQueueStateTest, ReorderingWithinATandaKeepsIt) {
+    // A B C D as one tanda at positions 2-5. With A playing, the DJ reorders
+    // B C D to C D B: still the same tanda, in its new order.
+    TandaQueueState state(config());
+    state.restore(queue({9, 1, 2, 3, 4, 8}));
+    const QUuid tanda = state.classify({2, 3, 4, 5}, TandaType::Tango);
+    ASSERT_FALSE(tanda.isNull());
+
+    EXPECT_EQ(0, state.dissolveForIndividualMove(3, 5)); // B to the end
+    EXPECT_EQ(queue({9, 1, 3, 4, 2, 8}), state.queueSnapshot());
+    const TandaSpan* pSpan = state.spanById(tanda);
+    ASSERT_NE(nullptr, pSpan);
+    EXPECT_EQ(2, pSpan->anchorPosition);
+    EXPECT_EQ(queue({1, 3, 4, 2}), pSpan->members);
+    EXPECT_EQ(TandaType::Tango, pSpan->type);
+
+    // Moving a track out of the tanda, or into its middle, still ungroups it.
+    TandaQueueState out(config());
+    out.restore(queue({9, 1, 2, 3, 4, 8}));
+    ASSERT_FALSE(out.classify({2, 3, 4, 5}, TandaType::Tango).isNull());
+    EXPECT_EQ(1, out.dissolveForIndividualMove(3, 6));
+
+    TandaQueueState in(config());
+    in.restore(queue({9, 1, 2, 3, 4, 8}));
+    ASSERT_FALSE(in.classify({2, 3, 4, 5}, TandaType::Tango).isNull());
+    EXPECT_EQ(1, in.dissolveForIndividualMove(6, 3));
+}
+
 TEST_F(TandaQueueStateTest, KnownEditsPreserveUnaffectedTandasAndShiftAnchors) {
     TandaQueueState removal{UserSettingsPointer()};
     removal.restore(queue({1, 2, 3, 4, 5, 6}));
@@ -323,6 +351,40 @@ TEST_F(TandaQueueDaoTest, AtomicRangeMoveHandlesBoundsAndDuplicateOccurrences) {
     EXPECT_FALSE(dao.moveTrackRange(playlistId, 0, 1, 2));
     EXPECT_FALSE(dao.moveTrackRange(playlistId, 1, 2, 5));
     EXPECT_EQ(2, movedSpy.count());
+}
+
+TEST_F(TandaQueueDaoTest, ReorderingInsideATandaThroughTheQueueKeepsIt) {
+    // The same path as a drag in the queue: the model move, the database,
+    // then the check against the saved order that Auto DJ runs afterwards.
+    PlaylistDAO& dao = internalCollection()->getPlaylistDAO();
+    const int playlistId =
+            dao.createPlaylist(QStringLiteral("Tanda reorder test"),
+                    PlaylistDAO::PLHT_NOT_HIDDEN);
+    ASSERT_GE(playlistId, 0);
+    const TrackId a = addTrack(QStringLiteral("artist.mp3"));
+    const TrackId b = addTrack(QStringLiteral("cover-test-jpg.mp3"));
+    const TrackId c = addTrack(QStringLiteral("cover-test-png.mp3"));
+    const TrackId d = addTrack(QStringLiteral("cover-test-vbr.mp3"));
+    ASSERT_TRUE(dao.appendTracksToPlaylist({a, b, c, d}, playlistId));
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "tanda_reorder_test");
+    model.selectPlaylist(playlistId);
+    model.select();
+    TandaQueueState state{UserSettingsPointer()};
+    state.restore({a, b, c, d});
+    const QUuid tanda = state.classify({1, 2, 3, 4}, TandaType::Tango);
+    ASSERT_FALSE(tanda.isNull());
+    model.setTandaQueueState(&state);
+
+    // B to the end of its own tanda: A C D B.
+    model.moveTrack(model.index(1, 0), QModelIndex());
+    ASSERT_EQ(QVector<TrackId>({a, c, d, b}), dao.getTrackIdsInPlaylistOrder(playlistId));
+    state.reconcileQueue(dao.getTrackIdsInPlaylistOrder(playlistId));
+
+    const TandaSpan* pSpan = state.spanById(tanda);
+    ASSERT_NE(nullptr, pSpan);
+    EXPECT_EQ(1, pSpan->anchorPosition);
+    EXPECT_EQ(QVector<TrackId>({a, c, d, b}), pSpan->members);
 }
 
 TEST_F(TandaQueueDaoTest, OutlineMapsHeadersLeavesAndSharedCollapseState) {

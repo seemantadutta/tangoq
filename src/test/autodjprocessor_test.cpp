@@ -537,36 +537,6 @@ TEST_F(AutoDJProcessorTest, TangoMode_LockRepairsPersistedStockTransitionMode) {
     config()->setValue(ConfigKey("[Auto DJ]", "KeepQueue"), false);
 }
 
-TEST_F(AutoDJProcessorTest, TandaMoveSafetyProtectsTheLoadedQueueRow) {
-    EXPECT_EQ(1, pProcessor->firstUnloadedQueuePosition());
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
-
-    TrackId testId = addTrackToCollection(kTrackLocationTest);
-    ASSERT_TRUE(testId.isValid());
-    TrackPointer pTrack = trackCollectionManager()->getTrackById(testId);
-    ASSERT_TRUE(pTrack);
-    pTrack->setDuration(100);
-    deck1.slotLoadTrack(pTrack, true);
-    deck1.fakeTrackLoadedEvent(pTrack);
-
-    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
-    pAutoDJTableModel->appendTrack(testId);
-    pAutoDJTableModel->appendTrack(testId);
-
-    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
-    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
-    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
-    // The playing row is before the cursor and is never movable.
-    EXPECT_EQ(2, pProcessor->firstUnloadedQueuePosition());
-
-    deck2.slotLoadTrack(pTrack, false);
-    deck2.fakeTrackLoadedEvent(pTrack);
-    // Once cued, moves must begin after that row.
-    EXPECT_EQ(3, pProcessor->firstUnloadedQueuePosition());
-
-    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
-}
-
 TEST_F(AutoDJProcessorTest, TandaTransition_ZeroGapStartsIncomingAtStartMarker) {
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::TandaTransition);
@@ -3191,4 +3161,150 @@ TEST_F(AutoDJProcessorTest, HudHasTandaGroupingsControlReflectsGroupingState) {
     // The last grouping is dissolved: the control goes false again.
     pProcessor->setHudHasTandaGroupings(false);
     EXPECT_DOUBLE_EQ(0.0, ControlObject::get(key));
+}
+
+// Moving tracks while a set runs (#76). The playing track is the one thing
+// that cannot move; everything else can, and the cursor and pause marks must
+// stay with the exact rows they belong to, even when a track is in the queue
+// more than once (a reused cortina).
+
+namespace {
+const QStringList kQueueEditFiles = {
+        QStringLiteral("id3-test-data/cover-test-png.mp3"),
+        QStringLiteral("id3-test-data/cover-test-jpg.mp3"),
+        QStringLiteral("id3-test-data/cover-test-vbr.mp3"),
+        QStringLiteral("id3-test-data/artist.mp3"),
+        QStringLiteral("id3-test-data/TOAL_TPE2.mp3"),
+};
+} // namespace
+
+class QueueEditTest : public AutoDJProcessorTest {
+  protected:
+    // Queues `layout` (one letter per track, A..E, repeats allowed), plays the
+    // first row on deck 1 and cues the second on deck 2.
+    void startSet(const QString& layout) {
+        ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+        pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+        for (int i = 0; i < kQueueEditFiles.size(); ++i) {
+            const TrackId id = addTrackToCollection(kQueueEditFiles[i]);
+            ASSERT_TRUE(id.isValid());
+            const QChar letter = QChar('A' + i);
+            m_ids[letter] = id;
+            m_names[id] = letter;
+            m_tracks[letter] = newTestTrack(id);
+            m_tracks[letter]->setDuration(100);
+        }
+        // As in TangoQ, where the queue shows its tango marks; pause marks
+        // follow their rows only then.
+        model()->setShowCortinaMarks(true);
+        for (QChar c : layout) {
+            model()->appendTrack(m_ids[c]);
+        }
+        EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(_)).Times(::testing::AnyNumber());
+        EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, _, _))
+                .Times(::testing::AnyNumber())
+                .WillRepeatedly([this](TrackPointer pTrack, const QString& group, bool) {
+                    if (pTrack) {
+                        m_loads << group + QStringLiteral(" <- ") +
+                                        m_names.value(pTrack->getId(), '?');
+                    }
+                });
+        mixer.crossfader.set(-1.0);
+        deck1.slotLoadTrack(m_tracks[layout[0]], false);
+        deck1.fakeTrackLoadedEvent(m_tracks[layout[0]]);
+        ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+        deck2.slotLoadTrack(m_tracks[layout[1]], false);
+        deck2.fakeTrackLoadedEvent(m_tracks[layout[1]]);
+        m_loads.clear();
+    }
+
+    void TearDown() override {
+        ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+    }
+
+    PlaylistTableModel* model() {
+        return pProcessor->getTableModel();
+    }
+
+    QString queue() {
+        QString letters;
+        for (int row = 0; row < model()->rowCount(); ++row) {
+            letters += m_names.value(model()->getTrackId(model()->index(row, 0)), '?');
+        }
+        return letters;
+    }
+
+    // Moves `fromRow` to just before `beforeRow`, or to the end for -1.
+    void move(int fromRow, int beforeRow) {
+        model()->moveTrack(model()->index(fromRow, 0),
+                beforeRow < 0 ? QModelIndex() : model()->index(beforeRow, 0));
+    }
+
+    // The deck-2 load TangoQ asked for last, e.g. "B"; empty for none.
+    QString lastCueRequest() const {
+        for (auto it = m_loads.crbegin(); it != m_loads.crend(); ++it) {
+            if (it->startsWith(QStringLiteral("[Channel2]"))) {
+                return it->right(1);
+            }
+        }
+        return {};
+    }
+
+    QHash<QChar, TrackId> m_ids;
+    QHash<TrackId, QChar> m_names;
+    QHash<QChar, TrackPointer> m_tracks;
+    QStringList m_loads;
+};
+
+TEST_F(QueueEditTest, ACopyOfThePlayingTrackMovedAboveItDoesNotTakeTheCursor) {
+    startSet(QStringLiteral("ABA"));
+    move(2, 0); // the second A to the top
+    ASSERT_EQ(QStringLiteral("AAB"), queue());
+    // The playing A is now the second row; B is still next.
+    EXPECT_EQ(2, pProcessor->activeKeepQueuePosition());
+    EXPECT_NE(QStringLiteral("A"), lastCueRequest()) << "the playing track would repeat";
+}
+
+TEST_F(QueueEditTest, ACopyOfThePlayingTrackAddedAboveItDoesNotTakeTheCursor) {
+    startSet(QStringLiteral("AB"));
+    int insertedAt = -1;
+    model()->addTracksWithTrackIds(model()->index(0, 0), {m_ids['A']}, &insertedAt);
+    ASSERT_EQ(QStringLiteral("AAB"), queue());
+    EXPECT_EQ(2, pProcessor->activeKeepQueuePosition());
+    EXPECT_NE(QStringLiteral("A"), lastCueRequest()) << "the playing track would repeat";
+}
+
+TEST_F(QueueEditTest, APauseMarkStaysOnItsRowWhenACopyMovesAboveIt) {
+    startSet(QStringLiteral("ABA"));
+    model()->togglePauseAfterRow(0); // pause after the playing A
+    move(2, 0);
+    ASSERT_EQ(QStringLiteral("AAB"), queue());
+    EXPECT_TRUE(model()->isPauseAfterRow(1));
+    EXPECT_FALSE(model()->isPauseAfterRow(0));
+}
+
+TEST_F(QueueEditTest, ATrackDroppedBetweenThePlayingAndCuedTrackIsCuedInstead) {
+    startSet(QStringLiteral("ABCD"));
+    move(3, 1); // D before B
+    ASSERT_EQ(QStringLiteral("ADBC"), queue());
+    EXPECT_EQ(1, pProcessor->activeKeepQueuePosition());
+    EXPECT_EQ(QStringLiteral("D"), lastCueRequest());
+}
+
+TEST_F(QueueEditTest, MovingTheCuedTrackCuesTheNewNextTrack) {
+    startSet(QStringLiteral("ABCD"));
+    move(1, -1); // B to the end
+    ASSERT_EQ(QStringLiteral("ACDB"), queue());
+    EXPECT_EQ(QStringLiteral("C"), lastCueRequest());
+}
+
+TEST_F(QueueEditTest, OnlyThePlayingRowIsFixed) {
+    startSet(QStringLiteral("ABCD"));
+    EXPECT_FALSE(pProcessor->canMoveQueueRow(0)) << "playing";
+    EXPECT_TRUE(pProcessor->canMoveQueueRow(1)) << "cued";
+    EXPECT_TRUE(pProcessor->canMoveQueueRow(3));
+
+    // A stopped set has nothing playing, so everything moves.
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(false));
+    EXPECT_TRUE(pProcessor->canMoveQueueRow(0));
 }

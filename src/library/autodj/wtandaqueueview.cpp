@@ -771,6 +771,19 @@ void WTandaQueueView::showTandaHeaderMenu(
     menu.exec(globalPos);
 }
 
+void WTandaQueueView::moveRows(QList<int> selectedRows, int destRow) {
+    TandaQueueModel* pModel = tandaModel();
+    if (pModel) {
+        for (int row : std::as_const(selectedRows)) {
+            if (!pModel->canMoveVisibleRow(row)) {
+                showError(AutoDJFeature::playingTrackIsFixedMessage());
+                return;
+            }
+        }
+    }
+    WTrackTableView::moveRows(std::move(selectedRows), destRow);
+}
+
 void WTandaQueueView::showError(const QString& message) {
     QMessageBox::information(this, tr("TangoQ"), message);
 }

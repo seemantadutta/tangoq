@@ -48,6 +48,9 @@ class WTandaQueueView final : public WTrackTableView {
     void dragEnterEvent(QDragEnterEvent* pEvent) override;
     void dragMoveEvent(QDragMoveEvent* pEvent) override;
     void dropEvent(QDropEvent* pEvent) override;
+    // Drag-and-drop and the keyboard both move tracks through here. A move
+    // that includes the playing track is refused as a whole.
+    void moveRows(QList<int> selectedRows, int destRow) override;
     void keyPressEvent(QKeyEvent* pEvent) override;
     void paintEvent(QPaintEvent* pEvent) override;
     // Tanda-specific wording for the hide/remove confirmation when the selection

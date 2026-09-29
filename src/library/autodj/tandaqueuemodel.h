@@ -72,6 +72,9 @@ class TandaQueueModel final : public QAbstractProxyModel, public TrackModel {
     QUuid tandaIdForRow(int proxyRow) const;
 
     int sourceRowForVisibleRow(int proxyRow) const;
+    /// Whether the track on this visible row may be moved (see
+    /// AutoDJProcessor::canMoveQueueRow). Tanda header rows answer true.
+    bool canMoveVisibleRow(int proxyRow) const;
     int disclosureColumn() const;
     int summaryColumn() const;
     QString tandaProgressStatesForRow(int proxyRow) const;

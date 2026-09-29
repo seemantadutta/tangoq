@@ -445,7 +445,7 @@ void BaseTrackTableModel::togglePauseAfterRow(int row) {
     if (!m_pauseAfterRows.remove(row)) {
         const TrackId trackId(
                 rawSiblingValue(index(row, 0), ColumnCache::COLUMN_LIBRARYTABLE_ID));
-        m_pauseAfterRows.insert(row, trackId);
+        m_pauseAfterRows.insert(row, PauseMark{trackId, stableRowId(row)});
     }
     emit pauseAfterRowsChanged();
     if (rowCount() > 0) {
@@ -473,6 +473,7 @@ void BaseTrackTableModel::setActivePauseAfterRow(int row) {
         return;
     }
     m_activePauseAfterRow = row;
+    m_activePauseAfterRowId = stableRowId(row);
     emit pauseAfterRowsChanged();
 }
 
@@ -481,16 +482,34 @@ void BaseTrackTableModel::clearActivePauseAfterRow() {
         return;
     }
     m_activePauseAfterRow = -1;
+    m_activePauseAfterRowId = -1;
     emit pauseAfterRowsChanged();
 }
 
-void BaseTrackTableModel::reanchorPauseAfterRows() {
-    if (m_pauseAfterRows.isEmpty()) {
-        if (m_activePauseAfterRow >= rowCount()) {
-            clearActivePauseAfterRow();
+int BaseTrackTableModel::reanchoredRow(int oldRow, TrackId trackId, int rowId) const {
+    if (rowId >= 0) {
+        const int row = rowForStableRowId(rowId);
+        if (row >= 0) {
+            return row;
         }
-        return;
     }
+    if (!trackId.isValid()) {
+        return -1;
+    }
+    const QVector<int> candidates = getTrackRows(trackId);
+    if (candidates.isEmpty()) {
+        return -1;
+    }
+    int bestRow = candidates.first();
+    for (int candidate : candidates) {
+        if (qAbs(candidate - oldRow) < qAbs(bestRow - oldRow)) {
+            bestRow = candidate;
+        }
+    }
+    return bestRow;
+}
+
+void BaseTrackTableModel::reanchorPauseAfterRows() {
     const int rows = rowCount();
     // The model goes momentarily empty in the middle of every rebuild: a
     // transient clear followed by a full insert. Re-anchoring against nothing
@@ -501,52 +520,52 @@ void BaseTrackTableModel::reanchorPauseAfterRows() {
     if (rows == 0) {
         return;
     }
-    QHash<int, TrackId> reanchored;
+    // Each mark follows its own queue entry. Only when that entry has no id
+    // does it fall back to the nearest copy of its track; a copy of the same
+    // cortina moved or added nearby must not take the mark.
+    QHash<int, PauseMark> reanchored;
     for (auto it = m_pauseAfterRows.constBegin();
             it != m_pauseAfterRows.constEnd();
             ++it) {
         const int oldRow = it.key();
-        const TrackId trackId = it.value();
-        if (!trackId.isValid()) {
+        const PauseMark& mark = it.value();
+        if (!mark.trackId.isValid() && mark.rowId < 0) {
             // Nothing to anchor to; keep the row if it still exists.
             if (oldRow < rows) {
-                reanchored.insert(oldRow, trackId);
+                reanchored.insert(oldRow, mark);
             }
             continue;
         }
-        const QVector<int> candidates = getTrackRows(trackId);
-        if (candidates.isEmpty()) {
+        const int row = reanchoredRow(oldRow, mark.trackId, mark.rowId);
+        if (row < 0) {
             // The marked track was removed from the queue, so the pause it
             // described no longer has a place to happen. Drop it rather than
             // stopping the set at some unrelated row.
             continue;
         }
-        int bestRow = candidates.first();
-        for (int candidate : candidates) {
-            if (qAbs(candidate - oldRow) < qAbs(bestRow - oldRow)) {
-                bestRow = candidate;
-            }
-        }
-        reanchored.insert(bestRow, trackId);
+        reanchored.insert(row, mark);
     }
-    if (reanchored == m_pauseAfterRows) {
-        if (m_activePauseAfterRow >= rowCount()) {
-            clearActivePauseAfterRow();
-        }
+    // The pause being held right now follows its queue entry too.
+    int activeRow = m_activePauseAfterRow;
+    if (activeRow >= 0) {
+        activeRow = m_activePauseAfterRowId >= 0
+                ? rowForStableRowId(m_activePauseAfterRowId)
+                : (activeRow < rows ? activeRow : -1);
+    }
+    if (reanchored == m_pauseAfterRows && activeRow == m_activePauseAfterRow) {
         return;
     }
     m_pauseAfterRows = reanchored;
-    if (m_activePauseAfterRow >= rowCount()) {
-        m_activePauseAfterRow = -1;
+    m_activePauseAfterRow = activeRow;
+    if (activeRow < 0) {
+        m_activePauseAfterRowId = -1;
     }
     emit pauseAfterRowsChanged();
     // The tag moved to a different row, and rows that did not otherwise change
     // are not repainted on their own.
-    if (rows > 0) {
-        emit dataChanged(index(0, 0),
-                index(rows - 1, columnCount() - 1),
-                {Qt::DisplayRole});
-    }
+    emit dataChanged(index(0, 0),
+            index(rows - 1, columnCount() - 1),
+            {Qt::DisplayRole});
 }
 
 void BaseTrackTableModel::setShowCortinaMarks(bool enable) {

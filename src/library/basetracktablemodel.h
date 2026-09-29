@@ -175,6 +175,20 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     /// Returns 0.0 when the row has no usable duration.
     double durationSecondsForRow(int row) const;
 
+    /// A lasting id for the queue entry on this row, or -1 when the model has
+    /// none. It survives moves, inserts and removals, so marks and the Auto DJ
+    /// cursor can find their exact row again when a track is in the queue more
+    /// than once (a reused cortina).
+    virtual int stableRowId(int row) const {
+        Q_UNUSED(row);
+        return -1;
+    }
+    /// The row now holding a stableRowId(), or -1 once it is gone.
+    virtual int rowForStableRowId(int rowId) const {
+        Q_UNUSED(rowId);
+        return -1;
+    }
+
   protected:
     /// How the track on this row was played, when the model knows it: the
     /// History recorded by TangoQ. Shown instead of the current marks, so a
@@ -385,11 +399,23 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     mutable bool m_duplicateTrackIdsDirty = true;
     mutable QSet<TrackId> m_duplicateTrackIds;
 
-    // Rows Auto DJ pauses after, each remembering the track that was on it so the
-    // mark can follow that track when the queue is edited (see
-    // reanchorPauseAfterRows).
-    QHash<int, TrackId> m_pauseAfterRows;
+    // A row Auto DJ pauses after remembers its queue entry (stableRowId) and
+    // its track, so the mark can follow that exact entry when the queue is
+    // edited (see reanchorPauseAfterRows).
+    struct PauseMark {
+        TrackId trackId;
+        int rowId{-1};
+        bool operator==(const PauseMark& other) const {
+            return trackId == other.trackId && rowId == other.rowId;
+        }
+    };
+    QHash<int, PauseMark> m_pauseAfterRows;
     int m_activePauseAfterRow{-1};
+    int m_activePauseAfterRowId{-1};
+    // The row a mark or the active pause belongs to after an edit: its queue
+    // entry when that is still there, else the copy of its track nearest to
+    // where it was, else -1.
+    int reanchoredRow(int oldRow, TrackId trackId, int rowId) const;
 
     mutable QModelIndex m_toolTipIndex;
 

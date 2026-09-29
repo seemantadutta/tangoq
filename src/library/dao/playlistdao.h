@@ -111,6 +111,13 @@ class PlaylistDAO : public QObject, public virtual DAO {
     bool copyPlaylistTracks(const int sourcePlaylistID, const int targetPlaylistID);
     // Returns the number of tracks in the given playlist.
     int tracksInPlaylist(const int playlistId) const;
+    // The id of the PlaylistTracks row at a one-based position, or -1. A row
+    // keeps its id when it moves, so it names one queue entry for good, even
+    // when the same track is in the playlist more than once.
+    int playlistTrackRowId(const int playlistId, const int position) const;
+    // The one-based position of a PlaylistTracks row in its playlist, or -1
+    // once the row is gone.
+    int positionOfPlaylistTrackRow(const int playlistId, const int rowId) const;
     // moved Track to a new position
     void moveTrack(const int playlistId,
             const int oldPosition, const int newPosition);

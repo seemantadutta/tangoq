@@ -322,6 +322,48 @@ void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
     }
 }
 
+int PlaylistTableModel::stableRowId(int row) const {
+    if (row < 0 || row >= rowCount()) {
+        return -1;
+    }
+    const int position = rawValue(
+            index(row,
+                    fieldIndex(
+                            ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION)))
+                                 .toInt();
+    return m_pTrackCollectionManager->internalCollection()
+            ->getPlaylistDAO()
+            .playlistTrackRowId(m_iPlaylistId, position);
+}
+
+int PlaylistTableModel::rowForStableRowId(int rowId) const {
+    if (rowId < 0) {
+        return -1;
+    }
+    const int position = m_pTrackCollectionManager->internalCollection()
+                                 ->getPlaylistDAO()
+                                 .positionOfPlaylistTrackRow(m_iPlaylistId, rowId);
+    if (position <= 0) {
+        return -1;
+    }
+    // Rows are normally in position order, so try the obvious row first.
+    const int guess = position - 1;
+    const int positionColumn =
+            fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION);
+    const auto positionAtRow = [this, positionColumn](int row) {
+        return rawValue(index(row, positionColumn)).toInt();
+    };
+    if (guess < rowCount() && positionAtRow(guess) == position) {
+        return guess;
+    }
+    for (int row = 0; row < rowCount(); ++row) {
+        if (positionAtRow(row) == position) {
+            return row;
+        }
+    }
+    return -1;
+}
+
 bool PlaylistTableModel::isLocked() {
     return m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId);
 }

@@ -83,6 +83,9 @@ class AutoDJFeature : public LibraryFeature {
             int newAnchorPosition,
             QString* pError = nullptr);
     bool moveTandaUp(const QUuid& id, QString* pError = nullptr);
+    /// Why a move was refused: the one thing that cannot move while a set
+    /// runs is the playing track, and with it its tanda as a whole.
+    static QString playingTrackIsFixedMessage();
     bool moveTandaDown(const QUuid& id, QString* pError = nullptr);
 
     bool hasTrackTable() override {

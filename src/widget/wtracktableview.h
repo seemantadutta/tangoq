@@ -63,7 +63,7 @@ class WTrackTableView : public WLibraryTableView {
     void pasteTracks(const QModelIndex& index);
 
     void moveSelection(int delta);
-    void moveRows(QList<int> selectedRows, int destRow);
+    virtual void moveRows(QList<int> selectedRows, int destRow);
     void moveSelectedTracks(QKeyEvent* event);
     void selectTracksById(const QList<TrackId>& tracks, int prevColumn);
     void selectTracksByPosition(const QList<int>& positions, int prevColum);

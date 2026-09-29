@@ -53,6 +53,14 @@ behavior separated even though users no longer switch between those modes.
   History shows the recorded cortinas and performances in their queue colours
   with a `[-- CORTINA --]` or `[-- PERFORMANCE --]` tag, so a later mark or unmark
   does not rewrite a past session.
+- **Moving tracks in a running set (#76).** Only the playing track, and its
+  tanda as a whole, stay put; one message explains a refused move for both.
+  Everything else moves freely, above or below, including within the playing
+  tanda. Reordering tracks inside a tanda keeps it grouped; moving a track in
+  or out still ungroups it. The cursor and pause marks now follow their exact
+  queue entry (the playlist row id) instead of the nearest copy of their
+  track, so moving or adding a copy of a reused cortina near the playing one
+  can no longer make the set repeat, or move a pause to the wrong copy.
 - **Queue checks.** A red **!** replaces the T/V/M/c type mark where the queue
   does not read like a milonga: a cortina inside a tanda, a cortina with a
   Tango, Vals or Milonga genre, two cortinas in a row, or two tandas with no
@@ -230,10 +238,6 @@ what actually plays.
 - Rename "Set DJ Start" / "Set DJ Start here" to **"Set Start"** / **"Set Start here"**.
 - Show the now-playing track (the queue cursor) in red rather than white in the
   TangoQ queue, so it stands out (#75).
-- Give moving a single track the same rule as moving a tanda: while a set is
-  running, it cannot move to before the queue cursor. Today only whole tandas
-  are refused; a single track moved there silently drops out of the set, since
-  the queue plays from the cursor onward (#76).
 - Show History sessions grouped by tanda, like the TangoQ queue. The tanda of
   each play is already recorded (#78).
 
