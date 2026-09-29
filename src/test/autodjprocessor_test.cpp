@@ -11,6 +11,7 @@
 #include "control/controllinpotmeter.h"
 #include "control/controlobject.h"
 #include "control/controlpotmeter.h"
+#include "control/controlproxy.h"
 #include "control/controlpushbutton.h"
 #include "engine/engine.h"
 #include "library/autodj/cortinaregistry.h"
@@ -398,6 +399,52 @@ TEST_F(AutoDJProcessorTest, PauseAfter_MarkAppliesToACortinaLikeAnyOtherRow) {
     EXPECT_FALSE(pProcessor->shouldStopAfterRowForTest(1));
 
     CortinaRegistry::instance().unmark(cortinaId);
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
+}
+
+TEST_F(AutoDJProcessorTest, PauseAfter_EveryDeckHoldingAMarkedRowIsNamed) {
+    // A performance track is marked with a pause before it (on the row before)
+    // and after it. Both tracks can be on the decks at once, and each deck's
+    // title shows PAUSE AFTER, so the control names every such deck, not the
+    // first one found.
+    ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 1.0);
+    pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FullIntroOutro);
+    ControlProxy pauseAfterDecks(ConfigKey("[AutoDJ]", "pause_after_decks"));
+
+    const TrackId beforeId = addTrackToCollection(kTrackLocationTest);
+    const TrackId performanceId = addTrackToCollection(
+            QStringLiteral("id3-test-data/cover-test-jpg.mp3"));
+    ASSERT_TRUE(beforeId.isValid());
+    ASSERT_TRUE(performanceId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(beforeId);
+    pAutoDJTableModel->appendTrack(performanceId);
+
+    // The track before plays on deck 1; the performance is cued on deck 2.
+    mixer.crossfader.set(-1.0);
+    TrackPointer pBefore = newTestTrack(beforeId);
+    pBefore->setDuration(100);
+    deck1.slotLoadTrack(pBefore, false);
+    deck1.fakeTrackLoadedEvent(pBefore);
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    ASSERT_EQ(AutoDJProcessor::ADJ_OK, pProcessor->toggleAutoDJ(true));
+    TrackPointer pPerformance = newTestTrack(performanceId);
+    pPerformance->setDuration(100);
+    deck2.slotLoadTrack(pPerformance, false);
+    deck2.fakeTrackLoadedEvent(pPerformance);
+
+    pAutoDJTableModel->togglePauseAfterRow(0);
+    pAutoDJTableModel->togglePauseAfterRow(1);
+    EXPECT_EQ(0b11, static_cast<int>(pauseAfterDecks.get()));
+
+    pAutoDJTableModel->clearPauseAfterRow(0);
+    EXPECT_EQ(0b10, static_cast<int>(pauseAfterDecks.get()));
+
+    pAutoDJTableModel->clearPauseAfterRow(1);
+    EXPECT_EQ(0, static_cast<int>(pauseAfterDecks.get()));
+
     ControlObject::set(ConfigKey("[AutoDJ]", "keep_queue"), 0.0);
 }
 

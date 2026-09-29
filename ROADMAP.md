@@ -118,6 +118,12 @@ behavior separated even though users no longer switch between those modes.
   and play buttons show "Tap again" with a bar that shrinks over the 3-second
   window. This replaced a draining fill that was hard to see on orange buttons.
 - **Cortina tagging in the deck area**, not just in the Auto DJ list.
+- **Coloured deck-title tags (#73).** A deck's title shows `[CORTINA]`,
+  `[PERFORMANCE]` and `[PAUSE AFTER]` in a tag colour set by each scheme's
+  stylesheet (red in Default, dark red in High Contrast), while the song name
+  keeps its own colour and only it is shortened. A cued performance shows
+  `[PERFORMANCE, PAUSE AFTER]` even while the track before it, which carries
+  the pause before it, is still playing.
 - **Dancer icon** identifies the dedicated tango workflow in TangoQ without
   changing the corresponding inherited Mixxx skin behavior.
 - **High Contrast daylight scheme.** TangoQ's simplified skin includes a

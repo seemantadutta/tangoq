@@ -58,6 +58,10 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     // shout about it. Missing this one costs silence in front of a floor.
     // Usage in css: WTrackProperty[pauseAfter="true"] { /* styles */ }
     Q_PROPERTY(bool pauseAfter READ isPauseAfter NOTIFY pauseAfterStateChanged);
+    // Colour of the [CORTINA] / [PERFORMANCE] / [PAUSE AFTER] tags ahead of the
+    // title. The title itself keeps its normal colour.
+    // Usage in css: WTrackProperty { qproperty-tagColor: #ee4444; }
+    Q_PROPERTY(QColor tagColor READ tagColor WRITE setTagColor);
 
     bool isSelected() const {
         return m_bSelected;
@@ -70,6 +74,11 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     bool isPauseAfter() const {
         return m_bPauseAfter;
     }
+
+    QColor tagColor() const {
+        return m_tagColor;
+    }
+    void setTagColor(const QColor& color);
 
     void setup(const QDomNode& node, const SkinContext& context) override;
 
@@ -107,6 +116,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     /// True when the loaded track should be shown as a cortina: a title-ish
     /// property, Tango mode on, and the track tagged in the cortina registry.
     bool showsCortinaMark() const;
+    bool showsPerformanceMark() const;
     /// True when this deck holds the track the set pauses after.
     bool showsPauseAfterMark() const;
     const QString getPropertyStringFromTrack(QString& property) const;
@@ -126,6 +136,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     bool m_bSelected;
     bool m_bCortina;
     bool m_bPauseAfter;
+    QColor m_tagColor;
     parented_ptr<WTrackPropertyEditor> m_pEditor;
 
     parented_ptr<WTrackMenu> m_pTrackMenu;
@@ -133,8 +144,8 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     /// Only created for title-ish properties, to refresh the cortina mark when
     /// Tango mode is toggled.
     parented_ptr<ControlProxy> m_pKeepQueue;
-    /// Which deck holds a pending announcement pause. Positional marks live in
+    /// Which decks hold a pending announcement pause. Positional marks live in
     /// the queue, so the processor has to tell the deck; comparing this against
     /// our own group is what makes the warning specific to the right deck.
-    parented_ptr<ControlProxy> m_pPauseAfterDeck;
+    parented_ptr<ControlProxy> m_pPauseAfterDecks;
 };

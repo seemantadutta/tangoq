@@ -695,10 +695,11 @@ class AutoDJProcessor : public QObject {
     // keep_queue off. Left false in the unit tests so the stock Auto DJ path stays
     // testable.
     bool m_tangoModeLocked = false;
-    // Index (1-based) of the deck holding a track marked "pause after", 0 for
-    // none. Read by the deck's title widget, which cannot resolve a positional
-    // mark by itself.
-    ControlObject m_pauseAfterDeck;
+    // The decks holding a track marked "pause after", one bit per deck (bit 0 is
+    // deck 1), 0 for none. Several decks can hold one at once: a performance
+    // track has a pause before it (on the track before) and after it. Read by
+    // the deck's title widget, which cannot resolve a positional mark by itself.
+    ControlObject m_pauseAfterDecks;
 
     // Live cortina-length budget (seconds). The single source of truth shared by
     // the Preferences field (stop-only) and the cockpit nudge buttons (live). On

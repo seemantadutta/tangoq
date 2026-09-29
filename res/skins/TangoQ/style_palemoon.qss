@@ -355,18 +355,11 @@ WTrackProperty[selected="true"],
 /*    border: 1px solid #888;*/
   }
 
-/* Tango mode: a cortina loaded on a deck. Same blue the Auto DJ list uses for
-   cortina rows, so the deck and the queue read as one thing. */
-WTrackProperty[cortina="true"] {
-  color: #3388ff;
-}
-
-/* Tango mode: this deck holds the track the set pauses after for an
-   announcement. Red rather than the cortina blue below it in priority: not
-   noticing this one means the music stops unexpectedly in front of a floor.
-   Placed after the cortina rule so it wins on a cortina that is also a pause. */
-WTrackProperty[pauseAfter="true"] {
-  color: #ee4444;
+/* Tango mode: the [CORTINA] / [PERFORMANCE] / [PAUSE AFTER] tags ahead of a
+   deck's title. Only the tags are coloured; the title keeps its own colour.
+   Red: missing a pause means the music stops unexpectedly in front of a floor. */
+WTrackProperty {
+  qproperty-tagColor: #ee4444;
 }
 
 /* Disabled for now since the hover effect is stuck as soon as the
