@@ -8,6 +8,7 @@
 #include "control/controlobject.h"
 #include "control/controlproxy.h"
 #include "library/autodj/cortinaregistry.h"
+#include "library/autodj/performanceregistry.h"
 #include "mixer/playermanager.h"
 #include "moc_wtrackproperty.cpp"
 #include "skin/legacy/skincontext.h"
@@ -71,17 +72,21 @@ void WTrackProperty::setup(const QDomNode& node, const SkinContext& context) {
                 &CortinaRegistry::cortinaMarksChanged,
                 this,
                 &WTrackProperty::updateLabel);
+        connect(&PerformanceRegistry::instance(),
+                &PerformanceRegistry::performanceMarksChanged,
+                this,
+                &WTrackProperty::updateLabel);
         m_pKeepQueue = make_parented<ControlProxy>(
                 ConfigKey(QStringLiteral("[AutoDJ]"), QStringLiteral("keep_queue")),
                 this);
         m_pKeepQueue->connectValueChanged(this, [this](double) {
             updateLabel();
         });
-        m_pPauseAfterDeck = make_parented<ControlProxy>(
+        m_pPauseAfterDecks = make_parented<ControlProxy>(
                 ConfigKey(QStringLiteral("[AutoDJ]"),
-                        QStringLiteral("pause_after_deck")),
+                        QStringLiteral("pause_after_decks")),
                 this);
-        m_pPauseAfterDeck->connectValueChanged(this, [this](double) {
+        m_pPauseAfterDecks->connectValueChanged(this, [this](double) {
             updateLabel();
         });
     }
@@ -152,30 +157,48 @@ void WTrackProperty::updateLabel() {
         if (cortina) {
             marks << QStringLiteral("CORTINA");
         }
+        if (showsPerformanceMark()) {
+            marks << QStringLiteral("PERFORMANCE");
+        }
         if (pauseAfter) {
             marks << QStringLiteral("PAUSE AFTER");
         }
         if (marks.isEmpty()) {
             setText(value);
         } else {
-            setText(QStringLiteral("[%1] %2")
-                            .arg(marks.join(QStringLiteral(", ")), value));
+            setTextWithPrefix(QStringLiteral("[%1]").arg(
+                                      marks.join(QStringLiteral(", "))),
+                    m_tagColor,
+                    value);
         }
         return;
     }
     setText("");
 }
 
+void WTrackProperty::setTagColor(const QColor& color) {
+    if (color == m_tagColor) {
+        return;
+    }
+    m_tagColor = color;
+    updateLabel();
+}
+
 bool WTrackProperty::showsPauseAfterMark() const {
     // The mark belongs to a queue row, not to a track, so the processor names
-    // the deck holding it and we only have to recognise ourselves.
-    if (!m_pCurrentTrack || !m_pPauseAfterDeck || !m_pKeepQueue ||
+    // the decks holding one and we only have to recognise ourselves.
+    if (!m_pCurrentTrack || !m_pPauseAfterDecks || !m_pKeepQueue ||
             !m_pKeepQueue->toBool()) {
         return false;
     }
-    const int deckIndex = static_cast<int>(m_pPauseAfterDeck->get());
-    return deckIndex > 0 &&
-            m_group == PlayerManager::groupForDeck(deckIndex - 1);
+    const qint64 deckBits = static_cast<qint64>(m_pPauseAfterDecks->get());
+    for (int deck = 0; (deckBits >> deck) != 0; ++deck) {
+        if (((deckBits >> deck) & 1) != 0 &&
+                m_group == PlayerManager::groupForDeck(deck)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WTrackProperty::showsCortinaMark() const {
@@ -185,6 +208,15 @@ bool WTrackProperty::showsCortinaMark() const {
         return false;
     }
     return CortinaRegistry::instance().contains(m_pCurrentTrack->getId());
+}
+
+bool WTrackProperty::showsPerformanceMark() const {
+    // Same gating as the cortina mark. The text is the only cue: the deck keeps
+    // its normal colours for a performance track.
+    if (!m_pCurrentTrack || !m_pKeepQueue || !m_pKeepQueue->toBool()) {
+        return false;
+    }
+    return PerformanceRegistry::instance().contains(m_pCurrentTrack->getId());
 }
 
 const QString WTrackProperty::getPropertyStringFromTrack(QString& property) const {

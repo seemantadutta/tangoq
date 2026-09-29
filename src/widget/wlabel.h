@@ -16,6 +16,11 @@ class WLabel : public QLabel, public WBaseWidget {
 
     QString text() const;
     void setText(const QString& text);
+    // Shows `prefix` in `prefixColor` ahead of `text`. When the label elides,
+    // only `text` is shortened, so the prefix always stays visible.
+    void setTextWithPrefix(const QString& prefix,
+            const QColor& prefixColor,
+            const QString& text);
 
     // The highlight property is used to restyle the widget with CSS.
     // The declaration #MyLabel[highlight="1"] { } will define the style
@@ -39,7 +44,12 @@ class WLabel : public QLabel, public WBaseWidget {
     QColor m_qFgColor;
     QColor m_qBgColor;
   private:
+    void updateText();
+
     QString m_longText;
+    QString m_prefix;
+    QColor m_prefixColor;
+    bool m_richTextShown;
     Qt::TextElideMode m_elideMode;
     double m_scaleFactor;
     int m_highlight;

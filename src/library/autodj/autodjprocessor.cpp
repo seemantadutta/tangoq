@@ -236,7 +236,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_enabledAutoDJ(ConfigKey(kControlGroup, QStringLiteral("enabled"))),
           m_keepQueue(ConfigKey(kControlGroup, QStringLiteral("keep_queue"))),
           m_keepQueueOff(ConfigKey(kControlGroup, QStringLiteral("keep_queue_off"))),
-          m_pauseAfterDeck(ConfigKey(kControlGroup, QStringLiteral("pause_after_deck"))),
+          m_pauseAfterDecks(ConfigKey(kControlGroup, QStringLiteral("pause_after_decks"))),
           m_cortinaLength(ConfigKey(kControlGroup, QStringLiteral("cortina_length"))),
           m_showAdjSetTime(ConfigKey(QStringLiteral("[TangoQ]"),
                                    QStringLiteral("show_adj_set_time")),
@@ -1728,7 +1728,7 @@ bool AutoDJProcessor::maybeHoldForAnnouncement(DeckAttributes* pDeck) {
 }
 
 void AutoDJProcessor::updatePauseAfterDeckControl() {
-    double deckIndex = 0.0;
+    qint64 deckBits = 0;
     // Deliberately not gated on Auto DJ running: marks are set while it is
     // stopped, which is exactly when the DJ is looking at the decks.
     if (keepQueueEnabled()) {
@@ -1740,13 +1740,13 @@ void AutoDJProcessor::updatePauseAfterDeckControl() {
             if (row >= 0 &&
                     (m_pAutoDJTableModel->isPauseAfterRow(row) ||
                             (m_bPauseAfterPending && pDeck->isPlaying()))) {
-                deckIndex = pDeck->index + 1;
-                break;
+                deckBits |= qint64{1} << pDeck->index;
             }
         }
     }
-    if (m_pauseAfterDeck.get() != deckIndex) {
-        m_pauseAfterDeck.set(deckIndex);
+    const double value = static_cast<double>(deckBits);
+    if (m_pauseAfterDecks.get() != value) {
+        m_pauseAfterDecks.set(value);
     }
 }
 

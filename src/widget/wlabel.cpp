@@ -12,6 +12,7 @@ WLabel::WLabel(QWidget* pParent)
           WBaseWidget(this),
           m_skinText(),
           m_longText(),
+          m_richTextShown(false),
           m_elideMode(Qt::ElideNone),
           m_scaleFactor(1.0),
           m_highlight(0),
@@ -90,23 +91,66 @@ void WLabel::setup(const QDomNode& node, const SkinContext& context) {
 }
 
 QString WLabel::text() const {
-    return m_longText;
+    if (m_prefix.isEmpty()) {
+        return m_longText;
+    }
+    return m_prefix + QChar(' ') + m_longText;
 }
 
 void WLabel::setText(const QString& text) {
+    m_prefix.clear();
     m_longText = text;
-    if (m_elideMode != Qt::ElideNone) {
-        QFontMetrics metrics(font());
-        // Measure the text for the optimum label width
-        // frameWidth() is the maximum of the sum of margin, border and padding
-        // width of the left and the right side.
-        m_widthHint = metrics.size(0, m_longText).width() + 2 * frameWidth();
-        QString elidedText = metrics.elidedText(
-                m_longText, m_elideMode, width() - 2 * frameWidth());
-        QLabel::setText(elidedText);
-    } else {
-        QLabel::setText(m_longText);
+    updateText();
+}
+
+void WLabel::setTextWithPrefix(const QString& prefix,
+        const QColor& prefixColor,
+        const QString& text) {
+    m_prefix = prefix;
+    m_prefixColor = prefixColor;
+    m_longText = text;
+    updateText();
+}
+
+void WLabel::updateText() {
+    QFontMetrics metrics(font());
+    if (m_prefix.isEmpty()) {
+        if (m_richTextShown) {
+            QLabel::setTextFormat(Qt::AutoText);
+            m_richTextShown = false;
+        }
+        if (m_elideMode != Qt::ElideNone) {
+            // Measure the text for the optimum label width
+            // frameWidth() is the maximum of the sum of margin, border and padding
+            // width of the left and the right side.
+            m_widthHint = metrics.size(0, m_longText).width() + 2 * frameWidth();
+            QString elidedText = metrics.elidedText(
+                    m_longText, m_elideMode, width() - 2 * frameWidth());
+            QLabel::setText(elidedText);
+        } else {
+            QLabel::setText(m_longText);
+        }
+        return;
     }
+    // Rich text, so the prefix can take its own colour. Both parts are escaped:
+    // a track title is not markup.
+    const QString prefixText = m_prefix + QChar(' ');
+    QString body = m_longText;
+    if (m_elideMode != Qt::ElideNone) {
+        m_widthHint = metrics.size(0, prefixText + m_longText).width() +
+                2 * frameWidth();
+        const int bodyWidth = width() - 2 * frameWidth() -
+                metrics.horizontalAdvance(prefixText);
+        body = metrics.elidedText(m_longText, m_elideMode, qMax(0, bodyWidth));
+    }
+    QString prefixHtml = m_prefix.toHtmlEscaped();
+    if (m_prefixColor.isValid()) {
+        prefixHtml = QStringLiteral("<span style=\"color:%1\">%2</span>")
+                             .arg(m_prefixColor.name(), prefixHtml);
+    }
+    QLabel::setTextFormat(Qt::RichText);
+    m_richTextShown = true;
+    QLabel::setText(prefixHtml + QStringLiteral("&nbsp;") + body.toHtmlEscaped());
 }
 
 bool WLabel::event(QEvent* pEvent) {
@@ -123,14 +167,14 @@ bool WLabel::event(QEvent* pEvent) {
                     static_cast<int>(fonti.pixelSize() * m_scaleFactor));
         }
         // measure text with the new font
-        setText(m_longText);
+        updateText();
     }
     return QLabel::event(pEvent);
 }
 
 void WLabel::resizeEvent(QResizeEvent* event) {
     QLabel::resizeEvent(event);
-    setText(m_longText);
+    updateText();
 }
 
 void WLabel::fillDebugTooltip(QStringList* debug) {
