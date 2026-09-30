@@ -679,6 +679,11 @@ int TandaQueueModel::addTracksWithTrackIds(const QModelIndex& index,
             sourceIndexForInsertion(index), tracks, pOutInsertionPos);
 }
 
+bool TandaQueueModel::canMoveVisibleRow(int proxyRow) const {
+    const int sourceRow = sourceRowForVisibleRow(proxyRow);
+    return sourceRow < 0 || !m_pProcessor || m_pProcessor->canMoveQueueRow(sourceRow);
+}
+
 void TandaQueueModel::moveTrack(
         const QModelIndex& sourceIndex, const QModelIndex& destIndex) {
     const QModelIndex mappedSource = mapToSource(sourceIndex);

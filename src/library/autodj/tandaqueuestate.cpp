@@ -481,6 +481,21 @@ int TandaQueueState::dissolveForIndividualMove(
         return 0;
     }
 
+    // Reordering inside one tanda keeps it: its tracks stay together, so only
+    // their order changes. Nothing outside the tanda shifts.
+    for (TandaSpan& span : m_spans) {
+        const int start = span.anchorPosition;
+        const int end = start + span.members.size() - 1;
+        if (start <= oldPosition && oldPosition <= end &&
+                start <= newPosition && newPosition <= end) {
+            span.members.move(oldPosition - start, newPosition - start);
+            m_queueSnapshot.move(oldPosition - 1, newPosition - 1);
+            save();
+            emit spansChanged();
+            return 0;
+        }
+    }
+
     const auto mappedPosition = [oldPosition, newPosition](int position) {
         if (position == oldPosition) {
             return newPosition;

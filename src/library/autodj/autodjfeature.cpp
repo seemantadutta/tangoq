@@ -242,18 +242,13 @@ bool AutoDJFeature::moveTanda(
         return true;
     }
 
-    if (m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED) {
-        const int firstUnloaded =
-                m_pAutoDJProcessor->firstUnloadedQueuePosition();
-        if (oldAnchor < firstUnloaded) {
+    // Only the tanda holding the playing track is fixed. It may move anywhere
+    // else, even past the playing track: the cursor and pause marks follow
+    // their exact queue entries.
+    for (int row = oldAnchor - 1; row < oldAnchor - 1 + length; ++row) {
+        if (!m_pAutoDJProcessor->canMoveQueueRow(row)) {
             if (pError) {
-                *pError = tr("The tanda contains a current or loaded track.");
-            }
-            return false;
-        }
-        if (newAnchorPosition < firstUnloaded) {
-            if (pError) {
-                *pError = tr("A running set cannot move a tanda before the current cursor.");
+                *pError = playingTrackIsFixedMessage();
             }
             return false;
         }
@@ -274,6 +269,13 @@ bool AutoDJFeature::moveTanda(
         return false;
     }
     return m_pTandaQueueState->applyWholeTandaMove(id, newAnchorPosition);
+}
+
+// static
+QString AutoDJFeature::playingTrackIsFixedMessage() {
+    return tr(
+            "The playing track, and the tanda it belongs to, can't be moved "
+            "while the set is running.");
 }
 
 bool AutoDJFeature::moveTandaUp(const QUuid& id, QString* pError) {

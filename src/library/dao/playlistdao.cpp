@@ -1105,6 +1105,34 @@ int PlaylistDAO::tracksInPlaylist(const int playlistId) const {
     return count;
 }
 
+int PlaylistDAO::playlistTrackRowId(const int playlistId, const int position) const {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT id FROM PlaylistTracks "
+            "WHERE playlist_id = :playlist_id AND position = :position"));
+    query.bindValue(":playlist_id", playlistId);
+    query.bindValue(":position", position);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return -1;
+    }
+    return query.next() ? query.value(0).toInt() : -1;
+}
+
+int PlaylistDAO::positionOfPlaylistTrackRow(const int playlistId, const int rowId) const {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT position FROM PlaylistTracks "
+            "WHERE playlist_id = :playlist_id AND id = :id"));
+    query.bindValue(":playlist_id", playlistId);
+    query.bindValue(":id", rowId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return -1;
+    }
+    return query.next() ? query.value(0).toInt() : -1;
+}
+
 void PlaylistDAO::moveTrack(const int playlistId, const int oldPosition, const int newPosition) {
     ScopedTransaction transaction(m_database);
     QSqlQuery query(m_database);

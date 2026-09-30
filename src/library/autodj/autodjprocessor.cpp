@@ -965,6 +965,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         // by the empty-queue reset in reanchorKeepQueueCursor().)
         if (keepQueueEnabled() && m_keepQueueRow > m_pAutoDJTableModel->rowCount()) {
             m_keepQueueRow = m_pAutoDJTableModel->rowCount();
+            rememberKeepQueueAnchorRow();
         }
 
         // Whether the deck that ends up playing took its track off the queue -
@@ -2925,6 +2926,7 @@ void AutoDJProcessor::resetKeepQueueSet() {
     // Restart from the top: cursor to the first track, anchor cleared.
     m_keepQueueRow = 0;
     m_keepQueueAnchorId = TrackId();
+    m_keepQueueAnchorRowId = -1;
     invalidateRemainingSetDuration();
     emit keepQueueSetReset();
 }
@@ -2946,6 +2948,7 @@ bool AutoDJProcessor::advanceKeepQueueCursor(TrackPointer pTrack) {
         return false;
     }
     m_keepQueueRow++;
+    rememberKeepQueueAnchorRow();
     updatePauseAfterDeckControl();
     // The upcoming-tracks set shrank by one, so the cached set duration is stale.
     invalidateRemainingSetDuration();
@@ -2969,6 +2972,9 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
     if (rowCount == 0) {
         return;
     }
+    // Where the row before the cursor went. A guess on its own: the searches
+    // below still check that the right track is there.
+    const int anchorGuess = keepQueueAnchorRowGuess();
     if (m_eState == ADJ_DISABLED) {
         // Stopped: there is no playing deck to anchor to. Re-anchor the cursor to
         // the last-played track by identity so it survives the rebuild and we
@@ -2976,7 +2982,7 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
         // If that track is gone (the queue was cleared), restart from the top.
         if (m_keepQueueAnchorId.isValid()) {
             const int anchorRow =
-                    keepQueueRowForTrackId(m_keepQueueAnchorId, m_keepQueueRow - 1);
+                    keepQueueRowForTrackId(m_keepQueueAnchorId, anchorGuess);
             m_keepQueueRow = (anchorRow >= 0) ? anchorRow + 1 : 0;
         } else {
             m_keepQueueRow = 0;
@@ -2984,13 +2990,14 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
         if (m_keepQueueRow > rowCount) {
             m_keepQueueRow = rowCount;
         }
+        rememberKeepQueueAnchorRow();
         return;
     }
     DeckAttributes* pFromDeck = getFromDeck();
     if (pFromDeck) {
         // Primary anchor: the playing track sits just before the cursor.
         const int playingRow = keepQueueRowForTrack(
-                pFromDeck->getLoadedTrack(), m_keepQueueRow - 1);
+                pFromDeck->getLoadedTrack(), anchorGuess);
         if (playingRow >= 0) {
             m_keepQueueRow = playingRow + 1;
         } else {
@@ -2999,7 +3006,7 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
             DeckAttributes* pIdleDeck = getOtherDeck(pFromDeck);
             if (pIdleDeck && !pIdleDeck->isPlaying()) {
                 const int cuedRow = keepQueueRowForTrack(
-                        pIdleDeck->getLoadedTrack(), m_keepQueueRow);
+                        pIdleDeck->getLoadedTrack(), anchorGuess + 1);
                 if (cuedRow >= 0) {
                     m_keepQueueRow = cuedRow;
                 }
@@ -3010,6 +3017,7 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
     if (m_keepQueueRow > m_pAutoDJTableModel->rowCount()) {
         m_keepQueueRow = m_pAutoDJTableModel->rowCount();
     }
+    rememberKeepQueueAnchorRow();
 
     // A queue edit may have changed which track is next (e.g. the cued track was
     // deleted or reordered). Reload the idle deck so it isn't left holding a
@@ -3019,6 +3027,22 @@ void AutoDJProcessor::reanchorKeepQueueCursor() {
         maybeReloadIdleDeckForKeepQueue();
         m_keepQueueReloading = false;
     }
+}
+
+int AutoDJProcessor::keepQueueAnchorRowGuess() const {
+    if (m_keepQueueAnchorRowId >= 0) {
+        const int row = m_pAutoDJTableModel->rowForStableRowId(m_keepQueueAnchorRowId);
+        if (row >= 0) {
+            return row;
+        }
+    }
+    return m_keepQueueRow - 1;
+}
+
+void AutoDJProcessor::rememberKeepQueueAnchorRow() {
+    m_keepQueueAnchorRowId = m_keepQueueRow > 0
+            ? m_pAutoDJTableModel->stableRowId(m_keepQueueRow - 1)
+            : -1;
 }
 
 int AutoDJProcessor::keepQueueRowForTrack(TrackPointer pTrack, int rowGuess) {
@@ -4251,13 +4275,15 @@ bool AutoDJProcessor::nextTrackLoaded() {
     return loadedTrack == getNextTrackFromQueue();
 }
 
-int AutoDJProcessor::firstUnloadedQueuePosition() {
-    if (m_eState == ADJ_DISABLED) {
-        return 1;
+bool AutoDJProcessor::canMoveQueueRow(int row) {
+    if (!keepQueueEnabled() || m_eState == ADJ_DISABLED) {
+        return true;
     }
-    // m_keepQueueRow is zero-based and names the next queue row. If that row is
-    // already cued on the idle deck, protection begins with the row after it.
-    return m_keepQueueRow + 1 + (nextTrackLoaded() ? 1 : 0);
+    // Moving the playing track would carry the cursor along with it and make the
+    // set jump. Everything else, the cued track included, may move: the cursor
+    // and pause marks follow their queue entries, and the cued deck reloads.
+    const int playingPosition = activeKeepQueuePosition();
+    return playingPosition <= 0 || row != playingPosition - 1;
 }
 
 int AutoDJProcessor::activeKeepQueuePosition() {

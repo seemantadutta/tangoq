@@ -293,9 +293,9 @@ class AutoDJProcessor : public QObject {
 
     bool nextTrackLoaded();
 
-    /// One-based first queue position that is neither played/current nor
-    /// already loaded on a deck. Returns 1 while Auto DJ is stopped.
-    int firstUnloadedQueuePosition();
+    /// Whether the DJ may move this zero-based queue row. While a set runs,
+    /// only the playing track is fixed; every other row moves freely.
+    bool canMoveQueueRow(int row);
 
     /// One-based queue position that represents the currently active set item in
     /// Tango/keep-queue mode, including an in-progress Tanda Transition gap.
@@ -518,6 +518,11 @@ class AutoDJProcessor : public QObject {
     // queue is edited, so it keeps pointing at the correct next track even when
     // tracks are added, removed or reordered while Auto DJ is running.
     void reanchorKeepQueueCursor();
+    // Where the row at cursor-1 is now: its queue entry when that is still in
+    // the queue, else the old cursor-1 as a guess.
+    int keepQueueAnchorRowGuess() const;
+    // Records the queue entry at cursor-1, after the cursor moved.
+    void rememberKeepQueueAnchorRow();
     // Reloads the idle deck if a queue edit changed which track is next, so a
     // deleted or reordered cued track isn't left loaded and played off-list.
     void maybeReloadIdleDeckForKeepQueue();
@@ -606,6 +611,10 @@ class AutoDJProcessor : public QObject {
     // cursor across the full model rebuild that every queue edit triggers while
     // Auto DJ is stopped, so adding/removing tracks does not reset it to the top.
     TrackId m_keepQueueAnchorId;
+    // The queue entry (PlaylistTracks row id) at cursor-1, or -1. Unlike the
+    // track id it names one exact row, so a copy of the playing track moved or
+    // added nearby cannot take the cursor.
+    int m_keepQueueAnchorRowId{-1};
     // Guards against re-entrancy while reloading the idle deck after a queue edit.
     bool m_keepQueueReloading;
     // Cached total play time (seconds) and count of the upcoming tracks

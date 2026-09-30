@@ -318,6 +318,7 @@ void WTandaQueueView::keyPressEvent(QKeyEvent* pEvent) {
                         pEvent->key() == Qt::Key_Down)) {
             setContextTanda(id);
             moveContextTanda(pEvent->key() == Qt::Key_Up);
+            selectTandaHeader(id);
             pEvent->accept();
             return;
         }
@@ -714,6 +715,26 @@ void WTandaQueueView::moveContextTanda(bool up) {
     }
 }
 
+void WTandaQueueView::selectTandaHeader(const QUuid& id) {
+    TandaQueueModel* pModel = tandaModel();
+    if (!pModel || id.isNull()) {
+        return;
+    }
+    for (int row = 0; row < pModel->rowCount(); ++row) {
+        if (pModel->isHeaderRow(row) && pModel->tandaIdForRow(row) == id) {
+            const QModelIndex headerIndex = pModel->index(row,
+                    currentIndex().isValid() ? currentIndex().column()
+                                             : pModel->summaryColumn());
+            selectionModel()->clearSelection();
+            selectionModel()->select(headerIndex,
+                    QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            setCurrentIndex(headerIndex);
+            scrollTo(headerIndex);
+            return;
+        }
+    }
+}
+
 void WTandaQueueView::renameContextTanda() {
     TandaQueueModel* pModel = tandaModel();
     if (pModel == nullptr || m_contextTandaId.isNull()) {
@@ -769,6 +790,19 @@ void WTandaQueueView::showTandaHeaderMenu(
         });
     }
     menu.exec(globalPos);
+}
+
+void WTandaQueueView::moveRows(QList<int> selectedRows, int destRow) {
+    TandaQueueModel* pModel = tandaModel();
+    if (pModel) {
+        for (int row : std::as_const(selectedRows)) {
+            if (!pModel->canMoveVisibleRow(row)) {
+                showError(AutoDJFeature::playingTrackIsFixedMessage());
+                return;
+            }
+        }
+    }
+    WTrackTableView::moveRows(std::move(selectedRows), destRow);
 }
 
 void WTandaQueueView::showError(const QString& message) {

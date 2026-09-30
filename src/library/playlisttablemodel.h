@@ -51,6 +51,10 @@ class PlaylistTableModel final : public TrackSetTableModel {
     /// play for a row it just logged.
     void reloadTangoPlays();
 
+    /// The PlaylistTracks row id, which a queue entry keeps through every edit.
+    int stableRowId(int row) const override;
+    int rowForStableRowId(int rowId) const override;
+
   protected:
     std::optional<TangoPlayRole> playedTangoRole(const QModelIndex& index) const override;
 
