@@ -97,6 +97,16 @@ DlgPreferences::DlgPreferences(
         m_iconsPath.setPath(":/images/preferences/dark/");
     }
 
+    // Pages TangoQ does not need are still built and registered, so their
+    // settings load and apply exactly as before, but their entry in the page
+    // list is hidden. Keeping the code eases merges from upstream Mixxx.
+    const auto addHiddenPageWidget = [this](PreferencesPage page,
+                                             const QString& pageTitle,
+                                             const QString& iconFile) {
+        addPageWidget(page, pageTitle, iconFile);
+        page.pTreeItem->setHidden(true);
+    };
+
     // Construct widgets for use in tabs.
     m_soundPage = PreferencesPage(
             new DlgPrefSound(this, pSoundManager, m_pConfig),
@@ -127,9 +137,9 @@ DlgPreferences::DlgPreferences(
 #ifdef __VINYLCONTROL__
     // It's important for this to be before the connect for wsound.
     // TODO(rryan) determine why/if this is still true
-    addPageWidget(PreferencesPage(
-                          new DlgPrefVinyl(this, pVCManager, m_pConfig),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefVinyl(this, pVCManager, m_pConfig),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Vinyl Control"),
             "ic_preferences_vinyl.svg");
 #endif // __VINYLCONTROL__
@@ -185,9 +195,9 @@ DlgPreferences::DlgPreferences(
             tr("Mixer"),
             "ic_preferences_crossfader.svg");
 
-    addPageWidget(PreferencesPage(
-                          new DlgPrefEffects(this, m_pConfig, pEffectsManager),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefEffects(this, m_pConfig, pEffectsManager),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Effects"),
             "ic_preferences_effects.svg");
 
@@ -198,9 +208,9 @@ DlgPreferences::DlgPreferences(
             "ic_preferences_autodj.svg");
 
 #ifdef __BROADCAST__
-    addPageWidget(PreferencesPage(
-                          new DlgPrefBroadcast(this, pSettingsManager->broadcastSettings()),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefBroadcast(this, pSettingsManager->broadcastSettings()),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Live Broadcasting"),
             "ic_preferences_broadcast.svg");
 #endif // __BROADCAST__
@@ -211,9 +221,9 @@ DlgPreferences::DlgPreferences(
             tr("Recording"),
             "ic_preferences_recording.svg");
 
-    addPageWidget(PreferencesPage(
-                          new DlgPrefBeats(this, m_pConfig),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefBeats(this, m_pConfig),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Beat Detection"),
             "ic_preferences_bpmdetect.svg");
 
@@ -229,9 +239,9 @@ DlgPreferences::DlgPreferences(
             "ic_preferences_replaygain.svg");
 
 #ifdef __MODPLUG__
-    addPageWidget(PreferencesPage(
-                          new DlgPrefModplug(this, m_pConfig),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefModplug(this, m_pConfig),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Modplug Decoder"),
             "ic_preferences_modplug.svg");
 #endif // __MODPLUG__
@@ -458,6 +468,11 @@ void DlgPreferences::slotButtonPressed(QAbstractButton* pButton) {
 
 bool DlgPreferences::pendingConfigValidOnAllPages() {
     for (const PreferencesPage& page : std::as_const(m_allPages)) {
+        // A page hidden from TangoQ cannot be shown or fixed, so it must not
+        // hold the dialog open.
+        if (page.pTreeItem && page.pTreeItem->isHidden()) {
+            continue;
+        }
         if (page.pDlg && !page.pDlg->okayToClose()) {
             // If any page is not okay to close, eg. with an invalid sound config,
             // switch to it and don't accept.
