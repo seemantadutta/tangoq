@@ -318,6 +318,7 @@ void WTandaQueueView::keyPressEvent(QKeyEvent* pEvent) {
                         pEvent->key() == Qt::Key_Down)) {
             setContextTanda(id);
             moveContextTanda(pEvent->key() == Qt::Key_Up);
+            selectTandaHeader(id);
             pEvent->accept();
             return;
         }
@@ -711,6 +712,26 @@ void WTandaQueueView::moveContextTanda(bool up) {
             : m_pAutoDJFeature->moveTandaDown(m_contextTandaId, &error);
     if (!moved && !error.isEmpty()) {
         showError(error);
+    }
+}
+
+void WTandaQueueView::selectTandaHeader(const QUuid& id) {
+    TandaQueueModel* pModel = tandaModel();
+    if (!pModel || id.isNull()) {
+        return;
+    }
+    for (int row = 0; row < pModel->rowCount(); ++row) {
+        if (pModel->isHeaderRow(row) && pModel->tandaIdForRow(row) == id) {
+            const QModelIndex headerIndex = pModel->index(row,
+                    currentIndex().isValid() ? currentIndex().column()
+                                             : pModel->summaryColumn());
+            selectionModel()->clearSelection();
+            selectionModel()->select(headerIndex,
+                    QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            setCurrentIndex(headerIndex);
+            scrollTo(headerIndex);
+            return;
+        }
     }
 }
 

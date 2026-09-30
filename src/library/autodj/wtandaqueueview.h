@@ -74,6 +74,10 @@ class WTandaQueueView final : public WTrackTableView {
     void toggleTanda(const QUuid& id);
     int destinationAnchorForDrop(const QPoint& position, const QUuid& id) const;
     void moveContextTanda(bool up);
+    // Selects the header of this tanda wherever it now is. A move rebuilds the
+    // list and leaves the selection on the old row number, so without this a
+    // second Alt+Up/Down would act on whatever row took the tanda's place.
+    void selectTandaHeader(const QUuid& id);
     void renameContextTanda();
     void showTandaHeaderMenu(const QPoint& globalPos, const QUuid& id);
     void showError(const QString& message);
