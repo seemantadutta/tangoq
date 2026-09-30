@@ -21,7 +21,6 @@
 #include "library/librarycontrol.h"
 #include "library/libraryfeature.h"
 #include "library/mixxxlibraryfeature.h"
-#include "library/recording/recordingfeature.h"
 #include "library/rekordbox/rekordboxfeature.h"
 #include "library/rhythmbox/rhythmboxfeature.h"
 #include "library/serato/seratofeature.h"
@@ -127,6 +126,19 @@ Library::Library(
             Qt::DirectConnection);
 #endif
 
+    SetlogFeature* pSetlogFeature = new SetlogFeature(this, UserSettingsPointer(m_pConfig));
+    // TangoQ history: one session per TangoQ run, logging every track TangoQ
+    // starts, until the queue is reset.
+    connect(m_pAutoDJFeature,
+            &AutoDJFeature::tangoTrackStarted,
+            pSetlogFeature,
+            &SetlogFeature::slotTangoTrackStarted);
+    connect(m_pAutoDJFeature->autoDJProcessor(),
+            &AutoDJProcessor::keepQueueSetReset,
+            pSetlogFeature,
+            &SetlogFeature::slotTangoSetReset);
+    addFeature(pSetlogFeature);
+
     m_pBrowseFeature = new BrowseFeature(
             this, m_pConfig, pRecordingManager);
     connect(m_pBrowseFeature,
@@ -143,20 +155,8 @@ Library::Library(
             &BrowseFeature::slotLibraryScanFinished);
     addFeature(m_pBrowseFeature);
 
-    addFeature(new RecordingFeature(this, m_pConfig, pRecordingManager));
-
-    SetlogFeature* pSetlogFeature = new SetlogFeature(this, UserSettingsPointer(m_pConfig));
-    // TangoQ history: one session per TangoQ run, logging every track TangoQ
-    // starts, until the queue is reset.
-    connect(m_pAutoDJFeature,
-            &AutoDJFeature::tangoTrackStarted,
-            pSetlogFeature,
-            &SetlogFeature::slotTangoTrackStarted);
-    connect(m_pAutoDJFeature->autoDJProcessor(),
-            &AutoDJProcessor::keepQueueSetReset,
-            pSetlogFeature,
-            &SetlogFeature::slotTangoSetReset);
-    addFeature(pSetlogFeature);
+    // TangoQ leaves Recordings out of the sidebar. Recording still works, and
+    // recorded files stay reachable through Computer (BrowseFeature).
 
     m_pAnalysisFeature = new AnalysisFeature(this, m_pConfig);
     connect(m_pPlaylistFeature,
@@ -171,7 +171,6 @@ Library::Library(
             &Library::analyzeTracks,
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
-    addFeature(m_pAnalysisFeature);
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
     connect(pPlayerManager,
@@ -187,9 +186,9 @@ Library::Library(
             this,
             &Library::onTrackAnalyzerProgress);
 
-    // iTunes and Rhythmbox should be last until we no longer have an obnoxious
-    // messagebox popup when you select them. (This forces you to reach for your
-    // mouse or keyboard if you're using MIDI control and you scroll through them...)
+    // TangoQ's sidebar order: Tracks, TangoQ, Playlists, Crates, History and
+    // Computer above, then the external libraries that are enabled, then
+    // Analyze last.
     if (RhythmboxFeature::isSupported() &&
             m_pConfig->getValue(
                     ConfigKey(kConfigGroup, "ShowRhythmboxLibrary"), true)) {
@@ -239,6 +238,8 @@ Library::Library(
                            << "is not available";
         }
     }
+
+    addFeature(m_pAnalysisFeature);
 
     // On startup we need to check if all of the user's library folders are
     // accessible to us. If the user is using a database from <1.12.0 with

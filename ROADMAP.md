@@ -150,6 +150,10 @@ behavior separated even though users no longer switch between those modes.
   Library page's Session History group, which no longer describes TangoQ's
   History (#65). Hidden, not removed: the pages are still built and their saved
   settings still apply, which keeps upstream merges easy.
+- **Sidebar order (#91).** Tracks, TangoQ, Playlists, Crates, History and
+  Computer, then the enabled external libraries, then Analyze last. Recordings
+  is left out of the sidebar; recording still works, and recorded files stay
+  reachable through Computer.
 
 ### Stability
 
