@@ -45,6 +45,11 @@ DlgPrefLibrary::DlgPrefLibrary(
                   QStringLiteral("[Channel1]"), QStringLiteral("rateRange"), this)) {
     setupUi(this);
 
+    // TangoQ keeps one History session per run and logs every track it starts
+    // (#65), so the stock history settings here no longer describe what
+    // happens. The group is hidden, not removed; its saved values still apply.
+    groupBox_History->hide();
+
     connect(pushButton_add_dir,
             &QPushButton::clicked,
             this,

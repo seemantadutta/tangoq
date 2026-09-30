@@ -145,6 +145,11 @@ behavior separated even though users no longer switch between those modes.
   package summary / installer shortcut tooltip, and the macOS microphone-permission
   prompt from "Mixxx" to "TangoQ" (legitimate upstream attribution and license
   notices are retained).
+- **Preferences trimmed for tango (#47).** The Effects, Live Broadcasting, Beat
+  Detection, Vinyl Control and Modplug Decoder pages are hidden, and so is the
+  Library page's Session History group, which no longer describes TangoQ's
+  History (#65). Hidden, not removed: the pages are still built and their saved
+  settings still apply, which keeps upstream merges easy.
 
 ### Stability
 
@@ -333,6 +338,8 @@ default for a DJ. If built, they should be opt-in via a Preferences checkbox to
   - Open questions: whether presets are switched before a track loads or while it
     plays; per deck or on the main output; and whether TangoQ should remember a
     preset per track.
-  - Until this is decided, keep the Effects and Mixer Preferences pages when
-    cleaning up Preferences (#47). The Effects page manages the Quick Effect
-    preset list, which is one possible way to choose a preset per deck.
+  - The Effects Preferences page, which manages the Quick Effect preset list
+    (one possible way to choose a preset per deck), is hidden since #47. To
+    bring it back, register it with `addPageWidget` instead of
+    `addHiddenPageWidget` in `src/preferences/dialog/dlgpreferences.cpp`. The
+    Mixer page stays.
