@@ -145,15 +145,16 @@ behavior separated even though users no longer switch between those modes.
   package summary / installer shortcut tooltip, and the macOS microphone-permission
   prompt from "Mixxx" to "TangoQ" (legitimate upstream attribution and license
   notices are retained).
-- **Preferences trimmed for tango (#47).** The Effects, Live Broadcasting, Beat
-  Detection, Vinyl Control and Modplug Decoder pages are hidden, and so is the
+- **Preferences trimmed for tango (#47).** The Effects, Live Broadcasting,
+  Recording, Beat Detection, Vinyl Control and Modplug Decoder pages are hidden, and so is the
   Library page's Session History group, which no longer describes TangoQ's
   History (#65). Hidden, not removed: the pages are still built and their saved
   settings still apply, which keeps upstream merges easy.
 - **Sidebar order (#91).** Tracks, TangoQ, Playlists, Crates, History and
   Computer, then the enabled external libraries, then Analyze last. Recordings
-  is left out of the sidebar; recording still works, and recorded files stay
-  reachable through Computer.
+  is left out of the sidebar. TangoQ has no way to start a recording (Record Mix
+  and its toolbar button were removed earlier), so its Preferences page is
+  hidden too.
 
 ### Stability
 
