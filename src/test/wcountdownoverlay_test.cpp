@@ -23,7 +23,10 @@ class WCountdownOverlayTest : public MixxxTest {
 TEST_F(WCountdownOverlayTest, StartsWithAFullBarAlongTheBottom) {
     WCountdownOverlay overlay;
     overlay.resize(60, 20);
-    overlay.start(3000);
+    // A long countdown, so the bar cannot shrink while the test runs. With 3 s
+    // a 60 px bar loses its last pixel after ~25 ms, and the first grab alone
+    // can take longer (font setup on a slow CI runner).
+    overlay.start(60 * 60 * 1000);
     const QImage image = overlay.grab().toImage();
     const QColor bar = overlay.property("barColor").value<QColor>();
     const QColor background = overlay.property("backgroundColor").value<QColor>();
