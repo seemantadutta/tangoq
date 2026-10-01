@@ -13,11 +13,12 @@
     #define VER_PATCHED 0
 #endif
 
+// The file version already ends in a build number that only rises (see
+// CMakeLists.txt); Windows Installer relies on that on an upgrade.
+#define VER_FILEVERSION             @MIXXX_FILEVERSION@
 #ifdef GIT_COMMIT_COUNT
-    #define VER_FILEVERSION         @MIXXX_FILEVERSION@,GIT_COMMIT_COUNT
     #define VER_PRODUCTVERSION      @MIXXX_PRODUCTVERSION@,GIT_COMMIT_COUNT
 #else
-    #define VER_FILEVERSION         @MIXXX_FILEVERSION@
     #define VER_PRODUCTVERSION      @MIXXX_PRODUCTVERSION@
 #endif
 #define MIXXX_VERSION               "@MIXXX_VERSION@"
