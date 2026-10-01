@@ -215,9 +215,11 @@ DlgPreferences::DlgPreferences(
             "ic_preferences_broadcast.svg");
 #endif // __BROADCAST__
 
-    addPageWidget(PreferencesPage(
-                          new DlgPrefRecord(this, m_pConfig),
-                          new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
+    // Hidden: TangoQ has no way to start a recording (no menu item, toolbar
+    // button or sidebar entry), so this page would configure nothing.
+    addHiddenPageWidget(PreferencesPage(
+                                new DlgPrefRecord(this, m_pConfig),
+                                new QTreeWidgetItem(contentsTreeWidget, QTreeWidgetItem::Type)),
             tr("Recording"),
             "ic_preferences_recording.svg");
 

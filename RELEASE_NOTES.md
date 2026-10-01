@@ -72,15 +72,14 @@ milonga, and makes changing a set on the fly safer.
 ## Library and settings
 
 - The sidebar now reads Tracks, TangoQ, Playlists, Crates, History, Computer,
-  your other DJ libraries, then Analyze. Recordings is no longer in the sidebar;
-  recording still works, and your recordings are under Computer.
+  your other DJ libraries, then Analyze. Recordings is no longer in the sidebar.
 - Other DJ libraries (iTunes or Music, Traktor, Rekordbox, Serato and others) are
   shown as before. To hide the ones you do not use, open **Preferences ->
   Library -> External Libraries** and restart TangoQ.
 - Preferences no longer shows pages tango DJs do not need: Effects, Live
-  Broadcasting, Beat Detection, Vinyl Control and Modplug Decoder. The Library
-  page no longer shows the History settings that TangoQ no longer uses. Your
-  saved settings are unchanged.
+  Broadcasting, Recording, Beat Detection, Vinyl Control and Modplug Decoder.
+  The Library page no longer shows the History settings that TangoQ no longer
+  uses. Your saved settings are unchanged.
 - The default tanda colours are softer and easier on the eye. Existing installs
   get the new colours; colours you chose yourself are kept.
 - The side panel shows in bold which playlists a selected track came from, and
