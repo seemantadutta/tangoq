@@ -17,24 +17,30 @@ and download the file for your system:
 | **Mac - Apple Silicon** (M1/M2/M3/M4) | `tangoq-*-arm64.dmg` |
 | **Mac - Intel** | `tangoq-*-x86_64.dmg` |
 
-## 2. Upgrading From Early-Access TangoQ 1.0.1
+## 2. Upgrading From An Earlier TangoQ
 
-First quit TangoQ. Your library, cues, playlists, and preferences are stored
-separately from the application and are preserved by the steps below.
+First quit TangoQ. Your library, cues, playlists, queue, and preferences are
+stored separately from the application and are preserved by the steps below.
+Do not delete the TangoQ settings folder (see [First Launch](#5-first-launch)).
 
-**Windows:** uninstall TangoQ 1.0.1 before installing 1.0.2. Open **Settings ->
-Apps -> Installed apps**, find TangoQ, and choose **Uninstall**. Then install the
-1.0.2 `.msi` normally. Do not delete `%LOCALAPPDATA%\TangoQ`; TangoQ 1.0.2 will
-adopt the existing settings and database there.
+**From 1.0.2:**
 
-**macOS:** no separate uninstall is required. Drag TangoQ 1.0.2 into
-**Applications** and choose **Replace** when Finder asks. Alternatively, move
-the old `TangoQ.app` to the Trash before copying the new one. Do not delete the
-TangoQ folder under `~/Library/Containers`; it contains your settings and
+- **Windows:** run the new `.msi`. It replaces 1.0.2; you do not need to
+  uninstall first.
+- **macOS:** drag the new TangoQ into **Applications** and choose **Replace**
+  when Finder asks.
+
+The first time 1.0.3 starts, it upgrades the library database and keeps a copy
+of the old one in the settings folder, named
+`tangoq.db.pre-tangoq-schema-2.bak`. Keep it until you are happy with the new
+version. If you ever need to go back to 1.0.2, uninstall the new version on
+Windows (on macOS, replace the app) and install 1.0.2; it opens the upgraded
 database.
 
-After opening 1.0.2, do not reinstall or downgrade to the unsupported 1.0.1
-build.
+**From early-access 1.0.1:** on Windows, uninstall TangoQ 1.0.1 first. Open
+**Settings -> Apps -> Installed apps**, find TangoQ, and choose **Uninstall**,
+then install the new `.msi` normally. On macOS, replace the app as above. Do not
+reinstall the unsupported 1.0.1 build afterwards.
 
 ## 3. Install On Windows
 
@@ -76,6 +82,10 @@ Then open TangoQ normally.
 TangoQ asks you to choose your music folder the first time it opens. Pick the
 folder your music lives in and click **Open**. You can add more folders later in
 **Preferences -> Library**.
+
+New to TangoQ? The
+[video tutorials](https://www.youtube.com/playlist?list=PLD1MAXCCQrTw) walk
+through setting up and running a milonga.
 
 TangoQ keeps its own settings and library separate from standard Mixxx:
 

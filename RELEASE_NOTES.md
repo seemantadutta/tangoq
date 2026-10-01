@@ -5,7 +5,8 @@ dedicated Argentine tango DJ application based on Mixxx 2.5.6. It records each
 milonga in History, remembers your cortinas, checks that your set reads like a
 milonga, and makes changing a set on the fly safer.
 
-**New to TangoQ?** Watch the video tutorials: VIDEO-PLAYLIST-LINK
+**New to TangoQ?** Watch the
+[video tutorials](https://www.youtube.com/playlist?list=PLD1MAXCCQrTw).
 
 > **Upgrading from TangoQ 1.0.2:** Install 1.0.3 over 1.0.2; you do not need to
 > uninstall first. Your library, cues, playlists, queue and preferences carry
