@@ -58,6 +58,9 @@ jobs:
               -DWAVPACK=ON
               -DINSTALL_USER_UDEV_RULES=OFF
             ctest_args: []
+            # TangoQ: PR builds run the tests in parallel; release builds keep
+            # running them one at a time.
+            ctest_parallel_level_pr: 4
             compiler_cache: ccache
             compiler_cache_path: /home/runner/.cache/ccache
             compiler_cache_id: qt6
@@ -81,6 +84,9 @@ jobs:
               -DVCPKG_TARGET_TRIPLET=x64-osx-min1100-release
             # TODO: Fix this broken test on macOS
             ctest_args: --exclude-regex DirectoryDAOTest.relocateDirectory
+            # TangoQ: PR builds run the tests in parallel; release builds keep
+            # running them one at a time.
+            ctest_parallel_level_pr: 4
             cpack_generator: DragNDrop
             compiler_cache: ccache
             compiler_cache_path: /Users/runner/Library/Caches/ccache
@@ -227,6 +233,18 @@ jobs:
           echo "CMAKE_ARGS_EXTRA=${CMAKE_ARGS_EXTRA} -DAPPLE_CODESIGN_IDENTITY=${APPLE_CODESIGN_IDENTITY}" >> "${GITHUB_ENV}"
           echo "APPLE_CODESIGN_IDENTITY=${APPLE_CODESIGN_IDENTITY}" >> $GITHUB_ENV
 
+      - name: "[macOS] Cache the build environment"
+        # TangoQ: without this every macOS run downloads the ~1 GB dependency
+        # bundle from downloads.mixxx.org, and a dropped download fails the
+        # build. The setup step below skips the download when the unpacked
+        # bundle is already in place. The bundle's name includes its version,
+        # so a new bundle gets a new key.
+        if: runner.os == 'macOS' && matrix.buildenv_script != null && env.BUILDENV_NAME != null
+        uses: actions/cache@v5
+        with:
+          path: ${{ matrix.buildenv_basepath }}/${{ env.BUILDENV_NAME }}
+          key: macos-buildenv-${{ env.BUILDENV_NAME }}
+
       - name: "[macOS/Linux] Set up build environment"
         if: matrix.buildenv_script != null && runner.os != 'Windows'
         run: ${{ matrix.buildenv_script }} setup
@@ -318,8 +336,10 @@ jobs:
           # Render analyzer waveform tests to an offscreen buffer
           QT_QPA_PLATFORM: ${{ matrix.qt_qpa_platform }}
           GTEST_COLOR: 1
-          # Windows tests fail randomly if run in parallel
-          CTEST_PARALLEL_LEVEL: 1
+          # Windows tests fail randomly if run in parallel. TangoQ: PR builds
+          # (inputs.publish false) run Ubuntu and macOS x64 in parallel to
+          # shorten the wait; release builds stay at 1.
+          CTEST_PARALLEL_LEVEL: ${{ (!inputs.publish && matrix.ctest_parallel_level_pr) || 1 }}
           CTEST_OUTPUT_ON_FAILURE: 1
 
       - name: Benchmark

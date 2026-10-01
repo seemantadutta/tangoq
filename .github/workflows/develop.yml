@@ -6,7 +6,9 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
+      # TangoQ: no "edited". Editing a PR's title or description started a
+      # second full build of the same commit. (Retargeting a PR's base branch
+      # also sends "edited"; push again to rebuild after doing that.)
   push:
     branches:
       - "*"

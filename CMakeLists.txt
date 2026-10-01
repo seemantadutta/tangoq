@@ -2361,6 +2361,12 @@ if(BUILD_TESTING)
     set_tests_properties(${testsuite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endif()
 
+  # TangoQ: CI runs PR tests in parallel. This stress test races two threads
+  # through 50,000 cache operations against the 45 s timeout; alone it takes
+  # ~14 s on the Intel macOS runner, but with other tests competing for the CPU
+  # it timed out. Run it on its own.
+  set_tests_properties(GlobalTrackCacheTest.concurrentDelete PROPERTIES RUN_SERIAL TRUE)
+
   if(BUILD_BENCH)
     # Benchmarking
     add_custom_target(mixxx-benchmark
