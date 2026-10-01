@@ -2458,8 +2458,23 @@ add_dependencies(mixxx-gitinfostore mixxx-gitinfo)
 
 # Windows-only resource file
 if(WIN32)
-  set(MIXXX_FILEVERSION "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}")
-  # File version tracks the Mixxx code base; product version is the TangoQ release.
+  # Windows Installer compares the file version on an upgrade and will not
+  # replace a file with an older one, so it must rise with every build: the
+  # TangoQ version plus the number of commits on main since the 2.5.6 base.
+  # A count from `git describe` restarts at each tag (a tag build gets none),
+  # which once made 1.0.3's tangoq.exe look older than 1.0.2's.
+  execute_process(
+    COMMAND git rev-list --count --first-parent 2.5.6..HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE TANGOQ_BUILD_NUMBER
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(NOT TANGOQ_BUILD_NUMBER MATCHES "^[0-9]+$")
+    set(TANGOQ_BUILD_NUMBER 0)
+  endif()
+  message(STATUS "TangoQ file version: ${TANGOQ_VERSION}.${TANGOQ_BUILD_NUMBER}")
+  set(MIXXX_FILEVERSION "${TANGOQ_PRODUCTVERSION},${TANGOQ_BUILD_NUMBER}")
   set(MIXXX_PRODUCTVERSION "${TANGOQ_PRODUCTVERSION}")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -4172,6 +4187,13 @@ set(CPACK_WIX_UPGRADE_GUID "F10598B3-D0E4-47FC-9E86-E2EC982931BB")
 set(CPACK_WIX_LICENSE_RTF "${CMAKE_CURRENT_BINARY_DIR}/packaging/wix/LICENSE.rtf")
 set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
 set(CPACK_WIX_PROPERTY_ARPHELPLINK "${CPACK_PACKAGE_HOMEPAGE_URL}")
+# Replace every file on an upgrade, whatever its version. TangoQ 1.0.2 and
+# earlier stamped tangoq.exe with a Mixxx-based file version (2.5.6.32) that
+# compares higher than TangoQ's own (1.0.3.N). Without this, the upgrade skips
+# the new tangoq.exe as "older", then removing 1.0.2 deletes the old one, and
+# no tangoq.exe is left. All TangoQ files live in its own folder, so forcing
+# the overwrite cannot downgrade a shared system file.
+set(CPACK_WIX_PROPERTY_REINSTALLMODE "amus")
 set(CPACK_WIX_UI_BANNER "${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix/images/banner.bmp")
 set(CPACK_WIX_UI_DIALOG "${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix/images/dialog.bmp")
 
